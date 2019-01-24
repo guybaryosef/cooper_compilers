@@ -1,124 +1,75 @@
 
 /* Prologue: Options and definitions */
 
-/* tells lexer to read only 1 input file */
-%option noyywrap  
+/* flex doesn't call yywrap after end of file */
+%option noyywrap 
+
+/* no default rule for input */
+%option nodefault
+
+/* no default line counter, we do it ourselves */
+%option noyylineno
+
+/* setting up comment start state */
+%x COMMENT
+%x LITERAL
+
+/* repeating patterns */
+HEX [0-9a-fA-F]
+DEC [0-9]
+OCT [0-7]
 
 /* vars which can be accessed inside yylex() and main() */
 %{ 
-      #include "./my_test/tokens-manual.h"
-      #include <stdlib.h>
-      #define LINESIZE 1024
+	#include <math.h>
+	#include "./lexer_header.h"
+	#include "./numeric_conversions.c"
+	#include <stdlib.h>
+	#define LINESIZE 1024
 
-      int cur_line_num = 1;            /* current line number  */
-      char cur_file_name[LINESIZE+1];  /* current file name    */
-      char tmp[20];                    /* temp helper variable */
+	int cur_line_num = 1;            /* current line number  */
+	char cur_file_name[LINESIZE+1];  /* current file name    */
+	char tmp[20];                    /* temp helper variable */
 
-      /* helper pointers for exracting the line number and file name */
-      char *helper_end, *helper_begin;    
+	/* helper pointers for exracting the line number and file name */
+	char *helper_end, *helper_begin;    
 
-      typedef union {
-            char chars[4];
-            char *string_literal;
-            int integer;
-      } YYSTYPE;
-      YYSTYPE yylval;   /* contains the token semantic value */
+	/* struct and variable for the token semantic values */
+	typedef union {
+		struct num {
+			int val;
+			int u;
+			int l_ll;	/* 0:neither, 1:long, 2:long long */
+			int int_doub_float;	/* 0:int, 1:double, 2:float */
+		} num;
+		struct str {
+			int is_char; /* 0- character literal, 1-string literal */
+			char *str;
+			int str_size;
+			char char_val[4];
+		} str;
+	} YYSTYPE;
+
+	YYSTYPE yylval;
 %} 
-  
+
 %% 
-      /* Body: regexp - embedded action pairs */
+	/* Body: (regexp) : (embedded action) pairs */
 
-      /* skip comments */
-//.*\n            {     ++cure_line_num; }
-/\*[.\n]*\*/      {
-                        helper_begin = yytext;
-                        while (helper_begin = strstr(helper_begin+1, '\n'))
-                              ++cur_line_num;
-                  }
+	/* skip comments */
+"//".*\n		{ ++cur_line_num; }
+"/*"   		    { BEGIN COMMENT;  }
+<COMMENT>\n	    { ++cur_line_num; }
+<COMMENT>[^\n"*/]*	{ }
+<COMMENT>"*/" 	{ BEGIN INITIAL;  }
 
-      /* skip white spaces (not including newlines) */
+
+	/* skip white spaces  */
 [ \t\r]     {}
-
-      /* tokens: numeric constants */
-(0x)[0-9a-fA-F]+p?[0-9a-fA-F]+
-
-0[0-7]+
-
-[0-9]+e?[0-9]+((ll|LL)|(u|U)|(l|L)
+\n			{ ++cur_line_num; }
 
 
-      /* tokens: characters (including but not differentiating, wide chars) */
-L?'[^ \n([^\]')]+[^\]'  { 
-                  if ((helper_begin = strstr(yytext, '\'))) {
-                        strncpy(yylval.chars, helper_begin, 2);
-                        yylval.chars[2] = 0;
-                  }
-                  else {
-                        yylval.chars[0] = yytext[1];
-                        yylval.chars[1] = 0;
-                  }
-                  return CHARLIT;
-            }
-
-      /* tokens: string literals */
-L?\"[a-zA-Z_][a-zA-Z0-9_]+\"  { 
-                  yylval.string_literal = (yytext+1);
-                  return IDENT;
-            }
-
-      /* tokens: operators */
-!     { return '!'; }
-%     { return '%'; }
-^     { return '^'; }
-&     { return '&'; }
-*     { return '*'; }
--     { return '-'; }
-+     { return '+'; }
-=     { return '='; }
-~     { return '~'; }
-|     { return '|'; }
-.     { return '.'; }
-<     { return '<'; }
->     { return '>'; }
-/     { return '/'; }
-?     { return '?'; }
-
-+=    {return PLUSEQ; }
--=    { return MINUSEQ; }
-*=    { return TIMESEQ; }
-/=    { return DIVEQ; }
-%=    { return MODEQ; }
-<<=   { return SHLEQ; }
->>=   { return SHREQ; }
-&=    { return ANDEQ; }
-^=    { return XOREQ; }
-|=    { return OREQ;  }
-
-->    { return INDSEL; }
-++    { return PLUSPLUS;   }
---    { return MINUSMINUS; }
-<<    { return SHL;   }
->>    { return SHR;   }
-<=    { return LTEQ;  }
->=    { return GTEQ;  }
-==    { return EQEQ;  }
-!=    { return NOTEQ; }
-&&    { return LOGAND }
-||    { return LOGOR  }
-
-      /* tokens: separator characters */
-(     { return '('; }
-)     { return ')'; }
-[     { return '['; }
-]     { return ']'; }
-{     { return '{'; }
-}     { return '}'; }
-,     { return ','; }
-;     { return ';'; }
-:     { return ':'; }
-...   { return ELLIPSIS; }
-
-      /* tokens: keywords */
+	/* tokens: keywords */
 auto        { return AUTO;  }
 break       { return BREAK; }
 case        { return CASE;  }
@@ -127,7 +78,7 @@ const       { return CONST; }
 continue    { return CONTINUE; }
 default     { return DEFAULT;  }
 do          { return DO;       }
-double      { return DOUBLe;   }
+double      { return DOUBLE;   }
 else        { return ELSE;     }
 enum        { return ENUM;     }
 extern      { return EXTERN;   }
@@ -139,6 +90,7 @@ inline      { return INLINE;   }
 int         { return INT;      }
 long        { return LONG;     }
 register    { return REGISTER; }
+restrict	{ return RESTRICT; }
 return      { return RETURN;   }
 short       { return SHORT;    }
 signed      { return SIGNED;   }
@@ -156,52 +108,284 @@ _Bool       { return _BOOL;    }
 _Complex    { return _COMPLEX; }
 _Imaginary  { return _IMAGINARY; }
 
-      /* Preprocessor output as well as keeping track 
-         of file name and line number for error checking. */
-\n          { ++cur_line_num; }
+
+	/* identifiers */
+[a-zA-Z_][a-zA-Z_0-9]*	{
+							yylval.str.str = yytext;
+							return IDENT; 
+						}
+
+
+	/* tokens: numeric constants */
+
+	
+-?0x|X[0-9a-fA-F]+p?[0-9a-fA-F]+(((l|L)?(u|U)?)|((u|U)?(l|L)?)) {
+		if (strstr(yytext, "u") || strstr(yytext, "U"))
+			yylval.num.u = 1;
+		if (strstr(yytext, "l") || strstr(yytext, "L"))
+			yylval.num.l = 1;
+		
+		return NUMBER;
+	}
+-?0x|X[0-9a-fA-F]+p?[0-9a-fA-F]+(((ll|LL)?(u|U)?)|((u|U)?(ll|LL)?)) {
+
+}
+
+
+-?0[0-7]+((((ll|LL)|(l|L))(u|U))|((u|U)((ll|LL)|(l|L))))? {
+
+		return NUMBER;
+	}
+
+-?[0-9]+e?[0-9]+((((ll|LL)|(l|L))(u|U))|((u|U)((ll|LL)|(l|L))))? {
+
+		return NUMBER;
+	}
+
+
+	/* tokens: character literals */
+L?' 		{ 	
+	BEGIN LITERAL; 
+	yylval.str.is_char = 1;
+}
+[^\\]?'		{ 	
+	BEGIN INITIAL;
+	return CHARLIT;
+}
+
+<LITERAL>[\n\0\a\b\f\r\t\v]	{ 
+	if (yylval.str.is_char) {
+		if (yylval.str.char_val[0])
+			continue;
+		else {
+			yylval.str.char_val[0] = '\\';
+			switch(yytext[0]) {
+				case '\n': yylval.str.char_val[1] = 'n'; break;
+				case '\0': yylval.str.char_val[1] = '0'; break;
+				case '\a': yylval.str.char_val[1] = 'a'; break;
+				case '\b': yylval.str.char_val[1] = 'b'; break;
+				case '\f': yylval.str.char_val[1] = 'f'; break;
+				case '\r': yylval.str.char_val[1] = 'r'; break;
+				case '\t': yylval.str.char_val[1] = 't'; break;
+				case '\v': yylval.str.char_val[1] = 'v'; 
+			}
+		}
+	}
+	else {
+		/* allocate more space for the string literal if neccasary */
+		if (strlen(yylval.str.str) == yylval.str.str_size-5) {
+			char *tmp;
+			if (!(tmp = calloc(2*yylval.str.str_size, 1))) {
+					fprintf(stderr, "Error allocating space for string"
+						" literal: %s\n", strerror(errno));
+					return -1;
+			}
+			strcpy(tmp, yylval.str.str);
+			free(yylval.str.str);
+			yylval.str.str = tmp;
+		}
+
+		switch(yytext[0]) {
+			case '\n': 
+				strcpy(yylval.str.str+strlen(yylval.str.str), "\n"); break;
+			case '\0':
+				strcpy(yylval.str.str+strlen(yylval.str.str), "\0"); break;
+			case '\a':
+				strcpy(yylval.str.str+strlen(yylval.str.str), "\a"); break;
+			case '\b':
+				strcpy(yylval.str.str+strlen(yylval.str.str), "\b"); break;
+			case '\f':
+				strcpy(yylval.str.str+strlen(yylval.str.str), "\f"); break;
+			case '\r':
+				strcpy(yylval.str.str+strlen(yylval.str.str), "\r"); break;
+			case '\t':
+				strcpy(yylval.str.str+strlen(yylval.str.str), "\t"); break;
+			case '\v':
+				strcpy(yylval.str.str+strlen(yylval.str.str), "\v");
+		}
+
+	}
+}
+
+
+<LITERAL>\\OCT{1,3}		{
+	if (yylval.str.is_char) {
+		if (yylval.str.char_val[0])
+			continue;
+		else {
+			int i = 0;
+			yylval.str.char_val[i] = '\\';
+			for ( ; i < 4-strlen(yytext); ++i)
+				yylval.str.char_val[i+1] = '0';
+			strcpy(yylval.str.char_val+i+1, yytext+1);
+		}
+	}
+	else {
+
+	}
+}
+
+<LITERAL>\\xHEX+	{
+	int val = hex2dec(yytext);
+	
+	return val;
+}
+
+<LITERAL>\\.   { 
+	fprintf(stderr, "%s:%d: Error: unrecognized character %s\n", 
+							cur_file_name, cur_line_num, yytext);
+	return -1;
+}
+
+<LITERAL>.		{
+	if (yylval.str.is_char) {
+		if (yylval.str.char_val[0])
+			continue;
+		else
+			yylval.str.char_val[0] = yytext[0];
+	}
+	else {
+		/* allocate more space for the string literal if neccasary */
+		if (strlen(yylval.str.str) == yylval.str.str_size-5) {
+			char *tmp;
+			if (!(tmp = calloc(2*yylval.str.str_size, 1))) {
+					fprintf(stderr, "Error allocating space for string"
+						" literal: %s\n", strerror(errno));
+					return -1;
+			}
+			strcpy(tmp, yylval.str.str);
+			free(yylval.str.str);
+			yylval.str.str = tmp;
+		}
+
+		strcpy(yylval.str.str+strlen(yylval.str.str), yytext);
+	}
+}
+
+	/* tokens: string literals */
+L?\"		{ 	BEGIN LITERAL;
+				yylval.str.is_char = 0;
+				if (!(yylval.str.str = calloc(50*sizeof(char), 1))) {
+					fprintf(stderr, "Error allocating space for string"
+						" literal: %s\n", strerror(errno));
+					return -1;
+				}
+				yylval.str.str_size = 0;
+			}
+[^\\]?\"	{ 	
+				BEGIN INITIAL;
+				return STRING;
+			}
+
+
+
+	/* tokens: operators */
+"!"     { return '!'; }
+"%"     { return '%'; }
+"^"     { return '^'; }
+"&"     { return '&'; }
+"*"     { return '*'; }
+"-"     { return '-'; }
+"+"     { return '+'; }
+"="     { return '='; }
+"~"     { return '~'; }
+"|"     { return '|'; }
+"."     { return '.'; }
+"<"     { return '<'; }
+">"     { return '>'; }
+"/"     { return '/'; }
+"?"     { return '?'; }
+
+"/="    { return DIVEQ;   }
+"%="    { return MODEQ;   }
+"<<="   { return SHLEQ;   }
+">>="   { return SHREQ;   }
+"&="    { return ANDEQ;   }
+"^="    { return XOREQ;   }
+"|="    { return OREQ;    }
+"->"    { return INDSEL;  }
+"<<"    { return SHL;     }
+">>"    { return SHR;     }
+"<="    { return LTEQ;    }
+">="    { return GTEQ;    }
+"=="    { return EQEQ;    }
+"!="    { return NOTEQ;   }
+"&&"    { return LOGAND;  }
+"||"    { return LOGOR;   }
+"+="    { return PLUSEQ;  }
+"-="    { return MINUSEQ; }
+"*="    { return TIMESEQ; }
+"++"    { return PLUSPLUS;   }
+"--"    { return MINUSMINUS; }
+
+
+	/* tokens: separator characters */
+"("     { return '('; }
+")"     { return ')'; }
+"["     { return '['; }
+"]"     { return ']'; }
+"{"     { return '{'; }
+"}"     { return '}'; }
+","     { return ','; }
+";"     { return ';'; }
+":"     { return ':'; }
+"..."   { return ELLIPSIS; }
+
+
+	/* Preprocessor output as well as keeping track 
+	   of file name and line number for error checking. */
 #\ [0-9]+\ \"[a-zA-Z0-9\/\._]+\".*\n {
-                  helper_begin = strstr(yytext, "\""); 
-                  helper_end = strstr(++helper_begin, "\"");
-                  strncpy(cur_file_name, helper_begin, (size_t)(helper_end-helper_begin));
-                  helper_begin = strstr(yytext, " ");
-                  helper_end = strstr(++helper_begin, " ");
-                  strncpy(tmp, helper_begin, (size_t)(helper_end-helper_begin));
-                  cur_line_num = atoi(tmp);
-            }
-       {}    /* skip any other preprocessor output */
+		helper_begin = strstr(yytext, "\""); 
+		helper_end = strstr(++helper_begin, "\"");
+		strncpy(cur_file_name, helper_begin, (size_t)(helper_end-helper_begin));
+		helper_begin = strstr(yytext, " ");
+		helper_end = strstr(++helper_begin, " ");
+		strncpy(tmp, helper_begin, (size_t)(helper_end-helper_begin));
+		cur_line_num = atoi(tmp);
+	}
+#.*\n 	{}    /* skip any other preprocessor output */
 
-
-      /* look for something */
-[A-Z]+ { printf("%s capital letter\n", yytext); } 
-
-
-      /* error handling */
-.     { fprintf(stderr, "%s:%d: Error: unrecognized character %s\n", 
-                                    cur_file_name, cur_line_num, yytext);
-        return -1; }
+	/* error handling and reporting */
+.   { 
+		fprintf(stderr, "%s:%d: Error: unrecognized character %s\n", 
+								cur_file_name, cur_line_num, yytext);
+		return -1;
+	}
 
 %% 
 /* Epilouge: Code to be run using lexer */
 
 int main(){ 
 
-      int token_code;
-      /* table format to compare output to hakner lexer */
-      while (token_code = yylex()) {
-            if (yylval && token_code == NUMBER)
-                  printf("%s\t%d\t%d%d\t%s\t%d\n", 
-                              cur_file_name, cur_line_num, token_code,
-                              token_semantic_value, value, num_type);
-            else if (yylval)
-                  printf("%s\t%d\t%d%d\t%s\n", 
-                              cur_file_name, cur_line_num, token_code,
-                              token_semantic_value, value);
-            else
-                  printf("%s\t%d\t%d\n", 
-                              cur_file_name, cur_line_num, token_code);
-      
-            yylval = 0;  /* reset the token semantic value */      
-      }
-  
-      return 0; 
+	memset(&yylval, 0, sizeof(yylval));  /* reset the token semantic value */      
+
+	int token_code;
+
+	/* table format to compare output to hakner's lexer */
+	while (token_code = yylex()) {
+		if (token_code == NUMBER) {
+			char value[3];
+			strcpy(value, "65");
+			char tmp1[10];
+			strcpy(tmp1, "INTEGER");
+			char num_type[10];
+			strcpy(num_type, "DOUBLE");
+			printf("%s\t%d\t%d\t%s\t%s\t%s\n", 
+				cur_file_name, cur_line_num, token_code, tmp1, value, num_type);
+		}
+		else if (yylval.str.str)
+			printf("%s\t%d\t%s\t%s\n", 
+				cur_file_name, cur_line_num, 
+				stringFromTokens(token_code), yylval.str.str);
+		else if (token_code < 256)
+			printf("%s\t%d\t%c\n", 
+				cur_file_name, cur_line_num, token_code);
+		else
+			printf("%s\t%d\t%s\n", 
+				cur_file_name, cur_line_num, stringFromTokens(token_code));
+
+		memset(&yylval, 0, sizeof(yylval));  /* reset the token semantic value */      
+	}
+
+	return 0; 
 }
