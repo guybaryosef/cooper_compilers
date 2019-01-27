@@ -12,41 +12,33 @@
 
 /* setting up comment start state */
 %x COMMENT
-%x LITERAL
+%x CHR_LIT
+%x STR_LIT
 
 /* repeating patterns */
-HEX [0-9a-fA-F]
-DEC [0-9]
-OCT [0-7]
+HEX		[0-9a-fA-F]
+DEC 	[0-9]
+OCT 	[0-7]
+NTYPE 	((l|L|ll|LL)?[uU]?)|([uU]?(l|L|ll|LL)?)
 
 /* vars which can be accessed inside yylex() and main() */
 %{ 
-	#include <math.h>
 	#include "./lexer_header.h"
-	#include "./numeric_conversions.c"
-	#include <stdlib.h>
-	#define LINESIZE 1024
 
 	int cur_line_num = 1;            /* current line number  */
 	char cur_file_name[LINESIZE+1];  /* current file name    */
 	char tmp[20];                    /* temp helper variable */
-
+	char strlit_buffer[4096];		 /* buffer for string literals */
 	/* helper pointers for exracting the line number and file name */
 	char *helper_end, *helper_begin;    
 
 	/* struct and variable for the token semantic values */
 	typedef union {
-		struct num {
-			int val;
-			int u;
-			int l_ll;	/* 0:neither, 1:long, 2:long long */
-			int int_doub_float;	/* 0:int, 1:double, 2:float */
-		} num;
+		struct num num;
 		struct str {
-			int is_char; /* 0- character literal, 1-string literal */
 			char *str;
 			int str_size;
-			char char_val[4];
+			char char_val;
 		} str;
 	} YYSTYPE;
 
@@ -118,183 +110,126 @@ _Imaginary  { return _IMAGINARY; }
 
 	/* tokens: numeric constants */
 
+0[xX]{HEX}+{NTYPE}? {
+		yylval.num.types |= NUMMASK_INTGR;	
+		yylval.num.val = strtol(yytext, NULL, 16);
 	
--?0x|X[0-9a-fA-F]+p?[0-9a-fA-F]+(((l|L)?(u|U)?)|((u|U)?(l|L)?)) {
-		if (strstr(yytext, "u") || strstr(yytext, "U"))
-			yylval.num.u = 1;
-		if (strstr(yytext, "l") || strstr(yytext, "L"))
-			yylval.num.l = 1;
-		
-		return NUMBER;
-	}
--?0x|X[0-9a-fA-F]+p?[0-9a-fA-F]+(((ll|LL)?(u|U)?)|((u|U)?(ll|LL)?)) {
-
-}
-
-
--?0[0-7]+((((ll|LL)|(l|L))(u|U))|((u|U)((ll|LL)|(l|L))))? {
-
-		return NUMBER;
-	}
-
--?[0-9]+e?[0-9]+((((ll|LL)|(l|L))(u|U))|((u|U)((ll|LL)|(l|L))))? {
-
+		checkNumberTypes(&yylval.num, yytext);
 		return NUMBER;
 	}
 
 
-	/* tokens: character literals */
+0{OCT}*{NTYPE}? {		
+		yylval.num.types = NUMMASK_INTGR;	
+		yylval.num.val = strtol(yytext, NULL, 8);
+
+		checkNumberTypes(&yylval.num, yytext);
+		return NUMBER;
+	}
+
+[1-9]{DEC}*{NTYPE}? {		
+		yylval.num.types = NUMMASK_INTGR;
+		yylval.num.val = strtol(yytext, NULL, 10);
+
+		checkNumberTypes(&yylval.num, yytext);
+		return NUMBER;
+	}
+
+
+	/* tokens: character & string literals */
 L?' 		{ 	
-	BEGIN LITERAL; 
-	yylval.str.is_char = 1;
-}
-[^\\]?'		{ 	
-	BEGIN INITIAL;
-	return CHARLIT;
-}
+				BEGIN CHR_LIT;
 
-<LITERAL>[\n\0\a\b\f\r\t\v]	{ 
-	if (yylval.str.is_char) {
-		if (yylval.str.char_val[0])
-			continue;
-		else {
-			yylval.str.char_val[0] = '\\';
-			switch(yytext[0]) {
-				case '\n': yylval.str.char_val[1] = 'n'; break;
-				case '\0': yylval.str.char_val[1] = '0'; break;
-				case '\a': yylval.str.char_val[1] = 'a'; break;
-				case '\b': yylval.str.char_val[1] = 'b'; break;
-				case '\f': yylval.str.char_val[1] = 'f'; break;
-				case '\r': yylval.str.char_val[1] = 'r'; break;
-				case '\t': yylval.str.char_val[1] = 't'; break;
-				case '\v': yylval.str.char_val[1] = 'v'; 
+				/* zero out the string literal buffer */
+				memset(strlit_buffer, 0, sizeof(strlit_buffer));
 			}
-		}
-	}
-	else {
-		/* allocate more space for the string literal if neccasary */
-		if (strlen(yylval.str.str) == yylval.str.str_size-5) {
-			char *tmp;
-			if (!(tmp = calloc(2*yylval.str.str_size, 1))) {
-					fprintf(stderr, "Error allocating space for string"
-						" literal: %s\n", strerror(errno));
-					return -1;
+L?\"		{ 	
+				BEGIN STR_LIT;
+
+				/* zero out the string literal buffer */
+				memset(strlit_buffer, 0, sizeof(strlit_buffer));
 			}
-			strcpy(tmp, yylval.str.str);
-			free(yylval.str.str);
-			yylval.str.str = tmp;
-		}
+<CHR_LIT>'	{ 	
+						yylval.str.char_val = strlit_buffer[0]; 
+						BEGIN INITIAL;
+						return CHARLIT;
+					}
+<STR_LIT>\"	{ 	
+						BEGIN INITIAL;
 
-		switch(yytext[0]) {
-			case '\n': 
-				strcpy(yylval.str.str+strlen(yylval.str.str), "\n"); break;
-			case '\0':
-				strcpy(yylval.str.str+strlen(yylval.str.str), "\0"); break;
-			case '\a':
-				strcpy(yylval.str.str+strlen(yylval.str.str), "\a"); break;
-			case '\b':
-				strcpy(yylval.str.str+strlen(yylval.str.str), "\b"); break;
-			case '\f':
-				strcpy(yylval.str.str+strlen(yylval.str.str), "\f"); break;
-			case '\r':
-				strcpy(yylval.str.str+strlen(yylval.str.str), "\r"); break;
-			case '\t':
-				strcpy(yylval.str.str+strlen(yylval.str.str), "\t"); break;
-			case '\v':
-				strcpy(yylval.str.str+strlen(yylval.str.str), "\v");
-		}
+						/* allocate space for string literal and copy it into yylval */
+						if (!(yylval.str.str = malloc(yylval.str.str_size+1))) {
+							fprintf(stderr, "Error allocating space for string "
+													"literal: %s\n", strerror(errno));
+							return -1;
+						}
+						memcpy(yylval.str.str, strlit_buffer, yylval.str.str_size);
+						return STRING;
+					}
 
+<CHR_LIT,STR_LIT>\\[\\0nabtrfv'\"?]	{
+		switch(yytext[1]) {
+			case '\\':strlit_buffer[yylval.str.str_size] = 92; break;
+			case '0': strlit_buffer[yylval.str.str_size] = 0;  break;
+			case 'n': strlit_buffer[yylval.str.str_size] = 10; break;
+			case 'a': strlit_buffer[yylval.str.str_size] = 7;  break;
+			case 'b': strlit_buffer[yylval.str.str_size] = 8;  break;
+			case 't': strlit_buffer[yylval.str.str_size] = 9;  break;
+			case 'r': strlit_buffer[yylval.str.str_size] = 13; break;
+			case 'f': strlit_buffer[yylval.str.str_size] = 12; break;
+			case 'v': strlit_buffer[yylval.str.str_size] = 11; break;
+			case '\'':strlit_buffer[yylval.str.str_size] = 39; break;
+			case '"': strlit_buffer[yylval.str.str_size] = 34; break;
+			case '?': strlit_buffer[yylval.str.str_size] = 63;
+			default: break;
+		} 
+		++yylval.str.str_size;
 	}
+
+<CHR_LIT,STR_LIT>\\{OCT}{1,3}	{
+	long int tmp = strtol(yytext+1, NULL, 8);
+	if (tmp > 255)
+		tmp = 255;
+	strlit_buffer[yylval.str.str_size] = tmp;
+	++yylval.str.str_size;
 }
 
-
-<LITERAL>\\OCT{1,3}		{
-	if (yylval.str.is_char) {
-		if (yylval.str.char_val[0])
-			continue;
-		else {
-			int i = 0;
-			yylval.str.char_val[i] = '\\';
-			for ( ; i < 4-strlen(yytext); ++i)
-				yylval.str.char_val[i+1] = '0';
-			strcpy(yylval.str.char_val+i+1, yytext+1);
-		}
-	}
-	else {
-
-	}
+<CHR_LIT,STR_LIT>\\x{HEX}+		{
+	yytext[0] = '0';
+	long int tmp = strtol(yytext, NULL, 16);
+	if (tmp > 255)
+		tmp = 255;
+	strlit_buffer[yylval.str.str_size] = tmp;
+	++yylval.str.str_size;
 }
 
-<LITERAL>\\xHEX+	{
-	int val = hex2dec(yytext);
-	
-	return val;
-}
-
-<LITERAL>\\.   { 
+<CHR_LIT,STR_LIT>\\.   { 
 	fprintf(stderr, "%s:%d: Error: unrecognized character %s\n", 
 							cur_file_name, cur_line_num, yytext);
 	return -1;
 }
 
-<LITERAL>.		{
-	if (yylval.str.is_char) {
-		if (yylval.str.char_val[0])
-			continue;
-		else
-			yylval.str.char_val[0] = yytext[0];
-	}
-	else {
-		/* allocate more space for the string literal if neccasary */
-		if (strlen(yylval.str.str) == yylval.str.str_size-5) {
-			char *tmp;
-			if (!(tmp = calloc(2*yylval.str.str_size, 1))) {
-					fprintf(stderr, "Error allocating space for string"
-						" literal: %s\n", strerror(errno));
-					return -1;
-			}
-			strcpy(tmp, yylval.str.str);
-			free(yylval.str.str);
-			yylval.str.str = tmp;
-		}
-
-		strcpy(yylval.str.str+strlen(yylval.str.str), yytext);
-	}
+<CHR_LIT,STR_LIT>[^'\"]	 {
+	strlit_buffer[yylval.str.str_size] = yytext[0];
+	++yylval.str.str_size;
 }
 
-	/* tokens: string literals */
-L?\"		{ 	BEGIN LITERAL;
-				yylval.str.is_char = 0;
-				if (!(yylval.str.str = calloc(50*sizeof(char), 1))) {
-					fprintf(stderr, "Error allocating space for string"
-						" literal: %s\n", strerror(errno));
-					return -1;
-				}
-				yylval.str.str_size = 0;
-			}
-[^\\]?\"	{ 	
-				BEGIN INITIAL;
-				return STRING;
-			}
-
-
-
 	/* tokens: operators */
-"!"     { return '!'; }
-"%"     { return '%'; }
-"^"     { return '^'; }
-"&"     { return '&'; }
-"*"     { return '*'; }
-"-"     { return '-'; }
-"+"     { return '+'; }
-"="     { return '='; }
-"~"     { return '~'; }
-"|"     { return '|'; }
-"."     { return '.'; }
-"<"     { return '<'; }
-">"     { return '>'; }
-"/"     { return '/'; }
-"?"     { return '?'; }
+"!"     |
+"%"     |
+"^"     |
+"&"     |
+"*"     |
+"-"     |
+"+"     |
+"="     |
+"~"     |
+"|"     |
+"."     |
+"<"     |
+">"     |
+"/"     |
+"?"     { return yytext[0]; }
 
 "/="    { return DIVEQ;   }
 "%="    { return MODEQ;   }
@@ -320,24 +255,28 @@ L?\"		{ 	BEGIN LITERAL;
 
 
 	/* tokens: separator characters */
-"("     { return '('; }
-")"     { return ')'; }
-"["     { return '['; }
-"]"     { return ']'; }
-"{"     { return '{'; }
-"}"     { return '}'; }
-","     { return ','; }
-";"     { return ';'; }
-":"     { return ':'; }
+"("     |
+")"     |
+"["     |
+"]"     |
+"{"     |
+"}"     |
+","     |
+";"     |
+":"     { return yytext[0]; }
 "..."   { return ELLIPSIS; }
 
 
 	/* Preprocessor output as well as keeping track 
 	   of file name and line number for error checking. */
 #\ [0-9]+\ \"[a-zA-Z0-9\/\._]+\".*\n {
+		/* get current file name */
 		helper_begin = strstr(yytext, "\""); 
 		helper_end = strstr(++helper_begin, "\"");
 		strncpy(cur_file_name, helper_begin, (size_t)(helper_end-helper_begin));
+		cur_file_name[(size_t)(helper_end-helper_begin)] = 0;
+		
+		/* get current line */
 		helper_begin = strstr(yytext, " ");
 		helper_end = strstr(++helper_begin, " ");
 		strncpy(tmp, helper_begin, (size_t)(helper_end-helper_begin));
@@ -352,11 +291,10 @@ L?\"		{ 	BEGIN LITERAL;
 		return -1;
 	}
 
-%% 
-/* Epilouge: Code to be run using lexer */
+%%
+	/* Epilouge: Code to be run using lexer */
 
 int main(){ 
-
 	memset(&yylval, 0, sizeof(yylval));  /* reset the token semantic value */      
 
 	int token_code;
@@ -364,25 +302,107 @@ int main(){
 	/* table format to compare output to hakner's lexer */
 	while (token_code = yylex()) {
 		if (token_code == NUMBER) {
-			char value[3];
-			strcpy(value, "65");
-			char tmp1[10];
-			strcpy(tmp1, "INTEGER");
-			char num_type[10];
-			strcpy(num_type, "DOUBLE");
-			printf("%s\t%d\t%d\t%s\t%s\t%s\n", 
-				cur_file_name, cur_line_num, token_code, tmp1, value, num_type);
+
+			printf("%s\t%d\t%s\t", cur_file_name, cur_line_num, 
+									stringFromTokens(token_code));
+
+			/* print number type */
+			if (yylval.num.types & NUMMASK_INTGR) {
+				printf("%s\t%llu\t", "INTEGER", yylval.num.val);
+				if (yylval.num.types & NUMMASK_UNSIGN) 
+					printf("%s,", "UNSIGNED");
+				
+				if (yylval.num.types & NUMMASK_INT)
+					printf("%s\n", "INT");
+				else if (yylval.num.types & NUMMASK_LONG)
+					printf("%s\n", "LONG");
+				else 
+					printf("%s\n", "LONGLONG");
+			}
+			else { 
+				printf("%s\t%llu\t", "REAL", yylval.num.val);
+
+				if (yylval.num.types & NUMMASK_FLOAT)
+					printf("%s\n", "FLOAT");
+				else
+					printf("%s\n", "DOUBLE");
+			}
 		}
-		else if (yylval.str.str)
+		else if (token_code == CHARLIT) {
+			printf("%s\t%d\t%s\t", 
+				cur_file_name, cur_line_num, 
+				stringFromTokens(token_code));
+
+			if (yylval.str.char_val > 31 && yylval.str.char_val < 127 &&
+				yylval.str.char_val != 92 && yylval.str.char_val != 39 &&
+				yylval.str.char_val != 34) {
+				printf("%c", yylval.str.char_val);
+			}
+			else {
+				switch(yylval.str.char_val) {
+					case  92: printf("\\\\"); break;
+					case   0: printf("\\0"); break;
+					case  10: printf("\\n"); break;
+					case   7: printf("\\a"); break;
+					case   8: printf("\\b"); break;
+					case   9: printf("\\t"); break;
+					case  13: printf("\\r"); break;
+					case  12: printf("\\f"); break;
+					case  11: printf("\\v"); break;
+					case  39: printf("\\'"); break;
+					case  34: printf("\"");  break;	
+					default: printf("\\%03o", yylval.str.char_val);
+				}
+			}
+			printf("\n");
+		}
+		else if (token_code == STRING) {
+			printf("%s\t%d\t%s\t", cur_file_name, cur_line_num, 
+									stringFromTokens(token_code));
+			for (int i = 0 ; i < yylval.str.str_size; ++i) {
+			
+				if (yylval.str.str[i] > 31 && yylval.str.str[i] < 127 &&
+					yylval.str.str[i] != 92 && yylval.str.str[i] != 39 &&
+					yylval.str.str[i] != 34) {
+					printf("%c", yylval.str.str[i]);
+				}
+				else {
+					switch(yylval.str.str[i]) {
+						case  92: printf("\\\\");break;
+						case   0: printf("\\0"); break;
+						case  10: printf("\\n"); break;
+						case   7: printf("\\a"); break;
+						case   8: printf("\\b"); break;
+						case   9: printf("\\t"); break;
+						case  13: printf("\\r"); break;
+						case  12: printf("\\f"); break;
+						case  11: printf("\\v"); break;
+						case  39: printf("\\'"); break;
+						case  34: printf("\\\"");break;		
+						default: 
+							if (yylval.str.str[i] < 255)
+								printf("\\%03o", (unsigned char)yylval.str.str[i]);
+							else
+								printf("\\%03o", (unsigned char)255);
+					}
+				}
+			}
+			printf("\n");
+		}
+		else if (token_code == IDENT) {
 			printf("%s\t%d\t%s\t%s\n", 
 				cur_file_name, cur_line_num, 
 				stringFromTokens(token_code), yylval.str.str);
-		else if (token_code < 256)
-			printf("%s\t%d\t%c\n", 
-				cur_file_name, cur_line_num, token_code);
-		else
-			printf("%s\t%d\t%s\n", 
-				cur_file_name, cur_line_num, stringFromTokens(token_code));
+		}
+		else /* token is a keyword */ {
+			if (token_code < 256)
+				printf("%s\t%d\t%c\n", 
+					cur_file_name, cur_line_num, token_code);
+			else 
+				printf("%s\t%d\t%s\n", cur_file_name, 
+					cur_line_num, stringFromTokens(token_code));
+
+		}
 
 		memset(&yylval, 0, sizeof(yylval));  /* reset the token semantic value */      
 	}
