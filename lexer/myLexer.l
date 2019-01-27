@@ -10,7 +10,7 @@
 /* no default line counter, we do it ourselves */
 %option noyylineno
 
-/* setting up comment start state */
+/* setting up start states */
 %x COMMENT
 %x CHR_LIT
 %x STR_LIT
@@ -34,7 +34,7 @@ NTYPE 	((l|L|ll|LL)?[uU]?)|([uU]?(l|L|ll|LL)?)
 
 	/* struct and variable for the token semantic values */
 	typedef union {
-		struct num num;
+		struct num num; /* defined in header */
 		struct str {
 			char *str;
 			int str_size;
@@ -49,11 +49,11 @@ NTYPE 	((l|L|ll|LL)?[uU]?)|([uU]?(l|L|ll|LL)?)
 	/* Body: (regexp) : (embedded action) pairs */
 
 	/* skip comments */
-"//".*\n		{ ++cur_line_num; }
-"/*"   		    { BEGIN COMMENT;  }
-<COMMENT>\n	    { ++cur_line_num; }
-<COMMENT>[^\n"*/]*	{ }
-<COMMENT>"*/" 	{ BEGIN INITIAL;  }
+"//".*\n			{ ++cur_line_num; }
+"/*"   		    	{ BEGIN COMMENT;  }
+<COMMENT>\n	    	{ ++cur_line_num; }
+<COMMENT>[^\n"*/]*	{}
+<COMMENT>"*/" 		{ BEGIN INITIAL;  }
 
 
 	/* skip white spaces  */
@@ -62,11 +62,11 @@ NTYPE 	((l|L|ll|LL)?[uU]?)|([uU]?(l|L|ll|LL)?)
 
 
 	/* tokens: keywords */
-auto        { return AUTO;  }
-break       { return BREAK; }
-case        { return CASE;  }
-char        { return CHAR;  }
-const       { return CONST; }
+auto        { return AUTO;     }
+break       { return BREAK;    }
+case        { return CASE;     }
+char        { return CHAR;     }
+const       { return CONST;    }
 continue    { return CONTINUE; }
 default     { return DEFAULT;  }
 do          { return DO;       }
@@ -102,14 +102,10 @@ _Imaginary  { return _IMAGINARY; }
 
 
 	/* identifiers */
-[a-zA-Z_][a-zA-Z_0-9]*	{
-							yylval.str.str = yytext;
-							return IDENT; 
-						}
+[a-zA-Z_][a-zA-Z_0-9]*	{ yylval.str.str = yytext; return IDENT; }
 
 
 	/* tokens: numeric constants */
-
 0[xX]{HEX}+{NTYPE}? {
 		yylval.num.types |= NUMMASK_INTGR;	
 		yylval.num.val = strtol(yytext, NULL, 16);
@@ -117,7 +113,6 @@ _Imaginary  { return _IMAGINARY; }
 		checkNumberTypes(&yylval.num, yytext);
 		return NUMBER;
 	}
-
 
 0{OCT}*{NTYPE}? {		
 		yylval.num.types = NUMMASK_INTGR;	
@@ -138,34 +133,34 @@ _Imaginary  { return _IMAGINARY; }
 
 	/* tokens: character & string literals */
 L?' 		{ 	
-				BEGIN CHR_LIT;
+		BEGIN CHR_LIT;
 
-				/* zero out the string literal buffer */
-				memset(strlit_buffer, 0, sizeof(strlit_buffer));
-			}
+		/* zero out the string literal buffer */
+		memset(strlit_buffer, 0, sizeof(strlit_buffer));
+	}
 L?\"		{ 	
-				BEGIN STR_LIT;
+		BEGIN STR_LIT;
 
-				/* zero out the string literal buffer */
-				memset(strlit_buffer, 0, sizeof(strlit_buffer));
-			}
+		/* zero out the string literal buffer */
+		memset(strlit_buffer, 0, sizeof(strlit_buffer));
+	}
 <CHR_LIT>'	{ 	
-						yylval.str.char_val = strlit_buffer[0]; 
-						BEGIN INITIAL;
-						return CHARLIT;
-					}
+		yylval.str.char_val = strlit_buffer[0]; 
+		BEGIN INITIAL;
+		return CHARLIT;
+	}
 <STR_LIT>\"	{ 	
-						BEGIN INITIAL;
+		BEGIN INITIAL;
 
-						/* allocate space for string literal and copy it into yylval */
-						if (!(yylval.str.str = malloc(yylval.str.str_size+1))) {
-							fprintf(stderr, "Error allocating space for string "
-													"literal: %s\n", strerror(errno));
-							return -1;
-						}
-						memcpy(yylval.str.str, strlit_buffer, yylval.str.str_size);
-						return STRING;
-					}
+		/* allocate space for string literal and copy it into yylval */
+		if (!(yylval.str.str = malloc(yylval.str.str_size+1))) {
+			fprintf(stderr, "Error allocating space for string "
+									"literal: %s\n", strerror(errno));
+			return -1;
+		}
+		memcpy(yylval.str.str, strlit_buffer, yylval.str.str_size);
+		return STRING;
+	}
 
 <CHR_LIT,STR_LIT>\\[\\0nabtrfv'\"?]	{
 		switch(yytext[1]) {
@@ -187,32 +182,33 @@ L?\"		{
 	}
 
 <CHR_LIT,STR_LIT>\\{OCT}{1,3}	{
-	long int tmp = strtol(yytext+1, NULL, 8);
-	if (tmp > 255)
-		tmp = 255;
-	strlit_buffer[yylval.str.str_size] = tmp;
-	++yylval.str.str_size;
-}
+		long int tmp = strtol(yytext+1, NULL, 8);
+		if (tmp > 255)
+			tmp = 255;
+		strlit_buffer[yylval.str.str_size] = tmp;
+		++yylval.str.str_size;
+	}
 
 <CHR_LIT,STR_LIT>\\x{HEX}+		{
-	yytext[0] = '0';
-	long int tmp = strtol(yytext, NULL, 16);
-	if (tmp > 255)
-		tmp = 255;
-	strlit_buffer[yylval.str.str_size] = tmp;
-	++yylval.str.str_size;
-}
+		yytext[0] = '0';
+		long int tmp = strtol(yytext, NULL, 16);
+		if (tmp > 255)
+			tmp = 255;
+		strlit_buffer[yylval.str.str_size] = tmp;
+		++yylval.str.str_size;
+	}
 
 <CHR_LIT,STR_LIT>\\.   { 
-	fprintf(stderr, "%s:%d: Error: unrecognized character %s\n", 
-							cur_file_name, cur_line_num, yytext);
-	return -1;
-}
+		fprintf(stderr, "%s:%d: Error: unrecognized character %s\n", 
+								cur_file_name, cur_line_num, yytext);
+		return -1;
+	}
 
 <CHR_LIT,STR_LIT>[^'\"]	 {
-	strlit_buffer[yylval.str.str_size] = yytext[0];
-	++yylval.str.str_size;
-}
+		strlit_buffer[yylval.str.str_size] = yytext[0];
+		++yylval.str.str_size;
+	}
+
 
 	/* tokens: operators */
 "!"     |
@@ -275,7 +271,7 @@ L?\"		{
 		helper_end = strstr(++helper_begin, "\"");
 		strncpy(cur_file_name, helper_begin, (size_t)(helper_end-helper_begin));
 		cur_file_name[(size_t)(helper_end-helper_begin)] = 0;
-		
+
 		/* get current line */
 		helper_begin = strstr(yytext, " ");
 		helper_end = strstr(++helper_begin, " ");
