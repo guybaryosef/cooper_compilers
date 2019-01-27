@@ -18,17 +18,17 @@
 /* repeating patterns */
 HEX		[0-9a-fA-F]
 DEC		[0-9]
-OCT 	[0-7]
-NTYPE 	((l|L|ll|LL)?[uU]?)|([uU]?(l|L|ll|LL)?)
+OCT		[0-7]
+NTYPE	((l|L|ll|LL)?[uU]?)|([uU]?(l|L|ll|LL)?)
 
 /* vars which can be accessed inside yylex() and main() */
 %{ 
 	#include "./lexer_header.h"
 
-	int cur_line_num = 1;			 /* current line number  */
-	char cur_file_name[LINESIZE+1];	 /* current file name    */
-	char tmp[20];					 /* temp helper variable */
-	char strlit_buffer[4096];		 /* buffer for string literals */
+	int cur_line_num = 1;			/* current line number  */
+	char cur_file_name[LINESIZE+1];	/* current file name    */
+	char tmp[20];					/* temp helper variable */
+	char strlit_buffer[4096];		/* buffer for string literals */
 	/* helper pointers for exracting the line number and file name */
 	char *helper_end, *helper_begin;    
 
@@ -62,43 +62,43 @@ NTYPE 	((l|L|ll|LL)?[uU]?)|([uU]?(l|L|ll|LL)?)
 
 
 	/* tokens: keywords */
-auto        { return AUTO;     }
-break       { return BREAK;    }
-case        { return CASE;     }
-char        { return CHAR;     }
-const       { return CONST;    }
-continue    { return CONTINUE; }
-default     { return DEFAULT;  }
-do          { return DO;       }
-double      { return DOUBLE;   }
-else        { return ELSE;     }
-enum        { return ENUM;     }
-extern      { return EXTERN;   }
-float       { return FLOAT;    }
-for         { return FOR;      }
-goto        { return GOTO;     }
-if          { return IF;       }
-inline      { return INLINE;   }
-int         { return INT;      }
+auto		{ return AUTO;     }
+break		{ return BREAK;    }
+case		{ return CASE;     }
+char		{ return CHAR;     }
+const		{ return CONST;    }
+continue	{ return CONTINUE; }
+default		{ return DEFAULT;  }
+do			{ return DO;       }
+double		{ return DOUBLE;   }
+else		{ return ELSE;     }
+enum		{ return ENUM;     }
+extern		{ return EXTERN;   }
+float		{ return FLOAT;    }
+for			{ return FOR;      }
+goto		{ return GOTO;     }
+if			{ return IF;       }
+inline		{ return INLINE;   }
+int			{ return INT;      }
 long		{ return LONG;     }
 register	{ return REGISTER; }
 restrict	{ return RESTRICT; }
-return      { return RETURN;   }
-short       { return SHORT;    }
-signed      { return SIGNED;   }
-sizeof      { return SIZEOF;   }
-static      { return STATIC;   }
-struct      { return STRUCT;   }
-switch      { return SWITCH;   }
-typedef     { return TYPEDEF;  }
-union       { return UNION;    }
-unsigned    { return UNSIGNED; }
-void        { return VOID;     }
-volatile    { return VOLATILE; }
-while       { return WHILE;    }
-_Bool       { return _BOOL;    }
-_Complex    { return _COMPLEX; }
-_Imaginary  { return _IMAGINARY; }
+return		{ return RETURN;   }
+short		{ return SHORT;    }
+signed		{ return SIGNED;   }
+sizeof		{ return SIZEOF;   }
+static		{ return STATIC;   }
+struct		{ return STRUCT;   }
+switch		{ return SWITCH;   }
+typedef		{ return TYPEDEF;  }
+union		{ return UNION;    }
+unsigned	{ return UNSIGNED; }
+void		{ return VOID;     }
+volatile	{ return VOLATILE; }
+while		{ return WHILE;    }
+_Bool		{ return _BOOL;    }
+_Complex	{ return _COMPLEX; }
+_Imaginary	{ return _IMAGINARY; }
 
 
 	/* identifiers */
