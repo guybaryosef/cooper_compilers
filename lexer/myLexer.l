@@ -17,7 +17,7 @@
 
 /* repeating patterns */
 HEX		[0-9a-fA-F]
-DEC 	[0-9]
+DEC		[0-9]
 OCT 	[0-7]
 NTYPE 	((l|L|ll|LL)?[uU]?)|([uU]?(l|L|ll|LL)?)
 
@@ -25,9 +25,9 @@ NTYPE 	((l|L|ll|LL)?[uU]?)|([uU]?(l|L|ll|LL)?)
 %{ 
 	#include "./lexer_header.h"
 
-	int cur_line_num = 1;            /* current line number  */
-	char cur_file_name[LINESIZE+1];  /* current file name    */
-	char tmp[20];                    /* temp helper variable */
+	int cur_line_num = 1;			 /* current line number  */
+	char cur_file_name[LINESIZE+1];	 /* current file name    */
+	char tmp[20];					 /* temp helper variable */
 	char strlit_buffer[4096];		 /* buffer for string literals */
 	/* helper pointers for exracting the line number and file name */
 	char *helper_end, *helper_begin;    
@@ -50,14 +50,14 @@ NTYPE 	((l|L|ll|LL)?[uU]?)|([uU]?(l|L|ll|LL)?)
 
 	/* skip comments */
 "//".*\n			{ ++cur_line_num; }
-"/*"   		    	{ BEGIN COMMENT;  }
-<COMMENT>\n	    	{ ++cur_line_num; }
+"/*"				{ BEGIN COMMENT;  }
+<COMMENT>\n			{ ++cur_line_num; }
 <COMMENT>[^\n"*/]*	{}
-<COMMENT>"*/" 		{ BEGIN INITIAL;  }
+<COMMENT>"*/"		{ BEGIN INITIAL;  }
 
 
 	/* skip white spaces  */
-[ \t\r]     {}
+[ \t\r]		{}
 \n			{ ++cur_line_num; }
 
 
@@ -80,8 +80,8 @@ goto        { return GOTO;     }
 if          { return IF;       }
 inline      { return INLINE;   }
 int         { return INT;      }
-long        { return LONG;     }
-register    { return REGISTER; }
+long		{ return LONG;     }
+register	{ return REGISTER; }
 restrict	{ return RESTRICT; }
 return      { return RETURN;   }
 short       { return SHORT;    }
