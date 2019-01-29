@@ -14,6 +14,7 @@
 #include <stdlib.h>
 
 #define LINESIZE 1024
+#define MAX_STRLIT_SIZE 2048
 
 
 /* token names, complying with tokens-manual.h file from hakner */
@@ -177,7 +178,8 @@ static inline char *stringFromTokens(enum tokens f) {
 #define NUMMASK_INTGR   32 /* return 0: not integer,1: integer  */
 #define NUMMASK_FLOAT   64 /* return 0: not float,  1: float    */
 #define NUMMASK_DOUBLE 128 /* return 0: not double, 1: double   */
-    
+#define NUMMASK_LDBLE  256 /* return 0: not long double, 1: long double   */
+
 
 /*
  * Structure definition of the number stuct that will be used
@@ -185,6 +187,7 @@ static inline char *stringFromTokens(enum tokens f) {
  */
 struct num {
     unsigned long long val;
+    long double d_val;
     int types; /* MASKS defined in header */
 } num;
 

@@ -4,9 +4,6 @@
 /* flex doesn't call yywrap after end of file */
 %option noyywrap 
 
-/* no default rule for input */
-%option nodefault
-
 /* no default line counter, we do it ourselves */
 %option noyylineno
 
@@ -19,17 +16,18 @@
 HEX		[0-9a-fA-F]
 DEC		[0-9]
 OCT		[0-7]
-NTYPE	((l|L|ll|LL)?[uU]?)|([uU]?(l|L|ll|LL)?)
+NTYPE	((l|L|ll|LL)?[uU]?)|([uU]?(l|L|ll|LL)?)	
 
 /* vars which can be accessed inside yylex() and main() */
 %{ 
 	#include "./lexer_header.h"
 
-	int cur_line_num = 1;			/* current line number  */
-	char cur_file_name[LINESIZE+1];	/* current file name    */
-	char tmp[20];					/* temp helper variable */
-	char strlit_buffer[4096];		/* buffer for string literals */
-	/* helper pointers for exracting the line number and file name */
+	int cur_line_num = 1;					/* current line number  */
+	char cur_file_name[LINESIZE+1];			/* current file name    */
+	char tmp[20];							/* temp helper variable */
+	char strlit_buffer[MAX_STRLIT_SIZE];	/* buffer for string literals */
+
+	/* helper pointers for exracting the line numbers and file names */
 	char *helper_end, *helper_begin;    
 
 	/* struct and variable for the token semantic values */
@@ -105,7 +103,7 @@ _Imaginary	{ return _IMAGINARY; }
 [a-zA-Z_][a-zA-Z_0-9]*	{ yylval.str.str = yytext; return IDENT; }
 
 
-	/* tokens: numeric constants */
+	/* tokens: integer constants */
 0[xX]{HEX}+{NTYPE}? {
 		yylval.num.types |= NUMMASK_INTGR;	
 		yylval.num.val = strtol(yytext, NULL, 16);
@@ -129,6 +127,63 @@ _Imaginary	{ return _IMAGINARY; }
 		checkNumberTypes(&yylval.num, yytext);
 		return NUMBER;
 	}
+
+	/* tokens: float constants */
+{DEC}+[eE][+-]?{DEC}+[fFlL]? {
+	char f_tmp = yytext[strlen(yytext)-1];
+	if (f_tmp == 'f' || f_tmp == 'F')
+		yylval.num.types = NUMMASK_FLOAT;
+	else if (f_tmp == 'l' || f_tmp == 'L')
+		yylval.num.types = NUMMASK_LDBLE;
+	else
+		yylval.num.types = NUMMASK_DOUBLE;
+
+	yylval.num.d_val = strtod(yytext, NULL);
+	return NUMBER;
+}
+
+
+(({DEC}+\.)|({DEC}+\.{DEC}+)|(\.{DEC}+))([eE][+-]?{DEC}+)?[fFlL]? {
+	char f_tmp = yytext[strlen(yytext)-1];
+	if (f_tmp == 'f' || f_tmp == 'F')
+		yylval.num.types = NUMMASK_FLOAT;
+	else if (f_tmp == 'l' || f_tmp == 'L')
+		yylval.num.types = NUMMASK_LDBLE;
+	else
+		yylval.num.types = NUMMASK_DOUBLE;
+
+	yylval.num.d_val = strtod(yytext, NULL);
+	return NUMBER;
+}
+
+
+0[xX]{HEX}+[pP][+-]?{DEC}+[fFlL]? {
+	char f_tmp = yytext[strlen(yytext)-1];
+	if (f_tmp == 'f' || f_tmp == 'F')
+		yylval.num.types = NUMMASK_FLOAT;
+	else if (f_tmp == 'l' || f_tmp == 'L')
+		yylval.num.types = NUMMASK_LDBLE;
+	else
+		yylval.num.types = NUMMASK_DOUBLE;
+
+
+	yylval.num.d_val = strtod(yytext, NULL);
+	return NUMBER;
+}
+
+0[xX]({HEX}+\.)|({HEX}+\.{HEX}+)|(\.{HEX}+)[pP][+-]?{DEC}+[fFlL]? {
+	char f_tmp = yytext[strlen(yytext)-1];
+	if (f_tmp == 'f' || f_tmp == 'F')
+		yylval.num.types = NUMMASK_FLOAT;
+	else if (f_tmp == 'l' || f_tmp == 'L')
+		yylval.num.types = NUMMASK_LDBLE;
+	else
+		yylval.num.types = NUMMASK_DOUBLE;
+
+
+	yylval.num.d_val = strtod(yytext, NULL);
+	return NUMBER;
+}
 
 
 	/* tokens: character & string literals */
@@ -163,50 +218,60 @@ L?\"		{
 	}
 
 <CHR_LIT,STR_LIT>\\[\\0nabtrfv'\"?]	{
-		switch(yytext[1]) {
-			case '\\':strlit_buffer[yylval.str.str_size] = 92; break;
-			case '0': strlit_buffer[yylval.str.str_size] = 0;  break;
-			case 'n': strlit_buffer[yylval.str.str_size] = 10; break;
-			case 'a': strlit_buffer[yylval.str.str_size] = 7;  break;
-			case 'b': strlit_buffer[yylval.str.str_size] = 8;  break;
-			case 't': strlit_buffer[yylval.str.str_size] = 9;  break;
-			case 'r': strlit_buffer[yylval.str.str_size] = 13; break;
-			case 'f': strlit_buffer[yylval.str.str_size] = 12; break;
-			case 'v': strlit_buffer[yylval.str.str_size] = 11; break;
-			case '\'':strlit_buffer[yylval.str.str_size] = 39; break;
-			case '"': strlit_buffer[yylval.str.str_size] = 34; break;
-			case '?': strlit_buffer[yylval.str.str_size] = 63;
-			default: break;
-		} 
-		++yylval.str.str_size;
+		if (yylval.str.str_size < MAX_STRLIT_SIZE) {
+			switch(yytext[1]) {
+				case '\\':strlit_buffer[yylval.str.str_size] = 92; break;
+				case '0': strlit_buffer[yylval.str.str_size] = 0;  break;
+				case 'n': strlit_buffer[yylval.str.str_size] = 10; break;
+				case 'a': strlit_buffer[yylval.str.str_size] = 7;  break;
+				case 'b': strlit_buffer[yylval.str.str_size] = 8;  break;
+				case 't': strlit_buffer[yylval.str.str_size] = 9;  break;
+				case 'r': strlit_buffer[yylval.str.str_size] = 13; break;
+				case 'f': strlit_buffer[yylval.str.str_size] = 12; break;
+				case 'v': strlit_buffer[yylval.str.str_size] = 11; break;
+				case '\'':strlit_buffer[yylval.str.str_size] = 39; break;
+				case '"': strlit_buffer[yylval.str.str_size] = 34; break;
+				case '?': strlit_buffer[yylval.str.str_size] = 63;
+				default: break;
+			} 
+			++yylval.str.str_size;
+		}
 	}
 
 <CHR_LIT,STR_LIT>\\{OCT}{1,3}	{
-		long int tmp = strtol(yytext+1, NULL, 8);
-		if (tmp > 255)
-			tmp = 255;
-		strlit_buffer[yylval.str.str_size] = tmp;
-		++yylval.str.str_size;
+		if (yylval.str.str_size < MAX_STRLIT_SIZE) {
+			long int tmp = strtol(yytext+1, NULL, 8);
+			if (tmp > 255)
+				tmp = 255;
+			strlit_buffer[yylval.str.str_size] = tmp;
+			++yylval.str.str_size;
+		}
 	}
 
 <CHR_LIT,STR_LIT>\\x{HEX}+		{
-		yytext[0] = '0';
-		long int tmp = strtol(yytext, NULL, 16);
-		if (tmp > 255)
-			tmp = 255;
-		strlit_buffer[yylval.str.str_size] = tmp;
-		++yylval.str.str_size;
+		if (yylval.str.str_size < MAX_STRLIT_SIZE) {
+			yytext[0] = '0';
+			long int tmp = strtol(yytext, NULL, 16);
+			if (tmp > 255)
+				tmp = 255;
+			strlit_buffer[yylval.str.str_size] = tmp;
+			++yylval.str.str_size;
+		}
 	}
 
 <CHR_LIT,STR_LIT>\\.   { 
-		fprintf(stderr, "%s:%d: Error: unrecognized character %s\n", 
-								cur_file_name, cur_line_num, yytext);
-		return -1;
+		if (yylval.str.str_size < MAX_STRLIT_SIZE) {
+			fprintf(stderr, "%s:%d: Error: unrecognized character %s\n", 
+										cur_file_name, cur_line_num, yytext);
+			return -1;
+		}
 	}
 
 <CHR_LIT,STR_LIT>[^'\"]	 {
-		strlit_buffer[yylval.str.str_size] = yytext[0];
-		++yylval.str.str_size;
+		if (yylval.str.str_size < MAX_STRLIT_SIZE) {
+			strlit_buffer[yylval.str.str_size] = yytext[0];
+			++yylval.str.str_size;
+		}
 	}
 
 
@@ -289,119 +354,3 @@ L?\"		{
 
 %%
 	/* Epilouge: Code to be run using lexer */
-
-int main(){ 
-	memset(&yylval, 0, sizeof(yylval));  /* reset the token semantic value */      
-
-	int token_code;
-
-	/* table format to compare output to hakner's lexer */
-	while (token_code = yylex()) {
-		if (token_code == NUMBER) {
-
-			printf("%s\t%d\t%s\t", cur_file_name, cur_line_num, 
-									stringFromTokens(token_code));
-
-			/* print number type */
-			if (yylval.num.types & NUMMASK_INTGR) {
-				printf("%s\t%llu\t", "INTEGER", yylval.num.val);
-				if (yylval.num.types & NUMMASK_UNSIGN) 
-					printf("%s,", "UNSIGNED");
-				
-				if (yylval.num.types & NUMMASK_INT)
-					printf("%s\n", "INT");
-				else if (yylval.num.types & NUMMASK_LONG)
-					printf("%s\n", "LONG");
-				else 
-					printf("%s\n", "LONGLONG");
-			}
-			else { 
-				printf("%s\t%llu\t", "REAL", yylval.num.val);
-
-				if (yylval.num.types & NUMMASK_FLOAT)
-					printf("%s\n", "FLOAT");
-				else
-					printf("%s\n", "DOUBLE");
-			}
-		}
-		else if (token_code == CHARLIT) {
-			printf("%s\t%d\t%s\t", 
-				cur_file_name, cur_line_num, 
-				stringFromTokens(token_code));
-
-			if (yylval.str.char_val > 31 && yylval.str.char_val < 127 &&
-				yylval.str.char_val != 92 && yylval.str.char_val != 39 &&
-				yylval.str.char_val != 34) {
-				printf("%c", yylval.str.char_val);
-			}
-			else {
-				switch(yylval.str.char_val) {
-					case  92: printf("\\\\"); break;
-					case   0: printf("\\0"); break;
-					case  10: printf("\\n"); break;
-					case   7: printf("\\a"); break;
-					case   8: printf("\\b"); break;
-					case   9: printf("\\t"); break;
-					case  13: printf("\\r"); break;
-					case  12: printf("\\f"); break;
-					case  11: printf("\\v"); break;
-					case  39: printf("\\'"); break;
-					case  34: printf("\"");  break;	
-					default: printf("\\%03o", yylval.str.char_val);
-				}
-			}
-			printf("\n");
-		}
-		else if (token_code == STRING) {
-			printf("%s\t%d\t%s\t", cur_file_name, cur_line_num, 
-									stringFromTokens(token_code));
-			for (int i = 0 ; i < yylval.str.str_size; ++i) {
-			
-				if (yylval.str.str[i] > 31 && yylval.str.str[i] < 127 &&
-					yylval.str.str[i] != 92 && yylval.str.str[i] != 39 &&
-					yylval.str.str[i] != 34) {
-					printf("%c", yylval.str.str[i]);
-				}
-				else {
-					switch(yylval.str.str[i]) {
-						case  92: printf("\\\\");break;
-						case   0: printf("\\0"); break;
-						case  10: printf("\\n"); break;
-						case   7: printf("\\a"); break;
-						case   8: printf("\\b"); break;
-						case   9: printf("\\t"); break;
-						case  13: printf("\\r"); break;
-						case  12: printf("\\f"); break;
-						case  11: printf("\\v"); break;
-						case  39: printf("\\'"); break;
-						case  34: printf("\\\"");break;		
-						default: 
-							if (yylval.str.str[i] < 255)
-								printf("\\%03o", (unsigned char)yylval.str.str[i]);
-							else
-								printf("\\%03o", (unsigned char)255);
-					}
-				}
-			}
-			printf("\n");
-		}
-		else if (token_code == IDENT) {
-			printf("%s\t%d\t%s\t%s\n", 
-				cur_file_name, cur_line_num, 
-				stringFromTokens(token_code), yylval.str.str);
-		}
-		else /* token is a keyword */ {
-			if (token_code < 256)
-				printf("%s\t%d\t%c\n", 
-					cur_file_name, cur_line_num, token_code);
-			else 
-				printf("%s\t%d\t%s\n", cur_file_name, 
-					cur_line_num, stringFromTokens(token_code));
-
-		}
-
-		memset(&yylval, 0, sizeof(yylval));  /* reset the token semantic value */      
-	}
-
-	return 0; 
-}
