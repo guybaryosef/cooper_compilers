@@ -1,7 +1,7 @@
 CPP = gcc -E	# preprocessor
 
 make-lexer:
-	flex -o myLexer.c myLexer.l 
+	flex -o lexer.c myLexer.l 
 
 test-lexer:
 	flex -o lexer.c myLexer.l 
@@ -10,4 +10,4 @@ test-lexer:
 	diff ./my_test/my_results.out ./ltests/ltest.out
 
 clear:
-	rm  ./my_test/my_results* ./myLexer.c ./lexer ./my_test/lexer
+	rm  ./my_test/my_results* ./lexer.c ./lexer ./my_test/lexer
