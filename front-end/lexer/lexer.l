@@ -1,3 +1,10 @@
+/*
+ * ECE:466 Compilers
+ * By: Guy Bar Yosef
+ *
+ * lexer.l - The flex file that will be
+ * used to build the lexical analyzer.
+ */
 
 /* Prologue: Options and definitions */
 
@@ -20,7 +27,7 @@ NTYPE	((l|L|ll|LL)?[uU]?)|([uU]?(l|L|ll|LL)?)
 
 /* vars which can be accessed inside yylex() and main() */
 %{ 
-	#include "./lexer_header.h"
+	#include "lheader.h"
 
 	int cur_line_num = 1;					/* current line number  */
 	char cur_file_name[LINESIZE+1];			/* current file name    */
@@ -29,16 +36,6 @@ NTYPE	((l|L|ll|LL)?[uU]?)|([uU]?(l|L|ll|LL)?)
 
 	/* helper pointers for exracting the line numbers and file names */
 	char *helper_end, *helper_begin;    
-
-	/* struct and variable for the token semantic values */
-	typedef union {
-		struct num num; /* defined in header */
-		struct str {
-			char *str;
-			int str_size;
-			char char_val;
-		} str;
-	} YYSTYPE;
 
 	YYSTYPE yylval;
 %} 

@@ -8,8 +8,9 @@
  * 
  */
 
-#include "../lexer.c"
+#include <string.h>
 
+#include "../lexer.c"
 
 
 int main(){ 
