@@ -10,8 +10,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <stdlib.h>
 
 #include "../lexer/lheader.h"
+#include "../lexer/lheader2.h"
 #include "pheader_ast.h"
 
 

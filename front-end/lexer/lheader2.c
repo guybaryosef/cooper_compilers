@@ -7,9 +7,12 @@
  * defined in lheader.h.
  */
 
+
 #include <string.h>
+#include <stdio.h>
 
 #include "lheader.h"
+#include "lheader2.h"
 
 /*
  * stringFromTokens - Reverses the action of the tokens enum.
@@ -17,7 +20,7 @@
  * This function takes in an integer from the tokens enum
  * and returns the string that the integer equals in the enum.  
  */
-char *stringFromTokens(enum tokens f) {
+char *stringFromTokens(enum yytokentype f) {
     char *strings[] = { 
         "IDENT",	/* This is where yacc will put it */
         "CHARLIT",
@@ -84,7 +87,7 @@ char *stringFromTokens(enum tokens f) {
         "_IMAGINARY"
     };
 
-    return strings[f-257];
+    return strings[f-258];
 }
 
 
@@ -93,34 +96,41 @@ char *stringFromTokens(enum tokens f) {
  * and updates its token value regarding its number type (unsigned
  * vs signed, int/long/longlong, int/float/double).
  */
-void checkNumberTypes(struct num *yylval, char * yytext) {
+void checkNumberTypes(YYSTYPE *yylval, char *yytext) {
     /* check and confirm type of integer */
     if (strstr(yytext, "u") || strstr(yytext, "U"))
-        yylval->types |= NUMMASK_UNSIGN;
+        yylval->num.types |= NUMMASK_UNSIGN;
     else
-        yylval->types |= NUMMASK_SIGN;
+        yylval->num.types |= NUMMASK_SIGN;
 
     /* confirm that number type is compatible */
     if (strstr(yytext, "ll") || strstr(yytext, "LL"))
-        yylval->types |= NUMMASK_LL;
+        yylval->num.types |= NUMMASK_LL;
     else if (strstr(yytext, "l") || strstr(yytext, "L")) {
-        if (((yylval->types & NUMMASK_UNSIGN) && 
-                        (yylval->val > ULONG_MAX)) || 
-                                (yylval->val > LONG_MAX))
-            yylval->types |= NUMMASK_LL;
+        if (((yylval->num.types & NUMMASK_UNSIGN) && 
+                        (yylval->num.val > ULONG_MAX)) || 
+                                (yylval->num.val > LONG_MAX))
+            yylval->num.types |= NUMMASK_LL;
         else
-            yylval->types |= NUMMASK_LONG;
+            yylval->num.types |= NUMMASK_LONG;
     }
     else { /* int type by default */
-        if (((yylval->types & NUMMASK_UNSIGN) && 
-                        (yylval->val > ULONG_MAX)) || 
-                                (yylval->val > LONG_MAX))
-            yylval->types |= NUMMASK_LL;
-        if (((yylval->types & NUMMASK_UNSIGN) && 
-                        (yylval->val > UINT_MAX)) || 
-                                (yylval->val > INT_MAX))
-            yylval->types |= NUMMASK_LONG;
+        if (((yylval->num.types & NUMMASK_UNSIGN) && 
+                        (yylval->num.val > ULONG_MAX)) || 
+                                (yylval->num.val > LONG_MAX))
+            yylval->num.types |= NUMMASK_LL;
+        if (((yylval->num.types & NUMMASK_UNSIGN) && 
+                        (yylval->num.val > UINT_MAX)) || 
+                                (yylval->num.val > INT_MAX))
+            yylval->num.types |= NUMMASK_LONG;
         else
-            yylval->types |= NUMMASK_INT;
+            yylval->num.types |= NUMMASK_INT;
     }
+}
+
+
+/* define a yyerror, not sure how this is going to quite fit in
+   between the lexer and the parser */
+void yyerror (char const *s) {
+    fprintf (stderr, "Error: %s\n", s);
 }

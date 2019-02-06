@@ -27,6 +27,7 @@ NTYPE	((l|L|ll|LL)?[uU]?)|([uU]?(l|L|ll|LL)?)
 
 /* vars which can be accessed inside yylex() and main() */
 %{ 
+	#include "lheader2.h"
 	#include "lheader.h"
 
 	int cur_line_num = 1;					/* current line number  */
@@ -105,7 +106,7 @@ _Imaginary	{ return _IMAGINARY; }
 		yylval.num.types |= NUMMASK_INTGR;	
 		yylval.num.val = strtol(yytext, NULL, 16);
 	
-		checkNumberTypes(&yylval.num, yytext);
+		checkNumberTypes(&yylval, yytext);
 		return NUMBER;
 	}
 
@@ -113,7 +114,7 @@ _Imaginary	{ return _IMAGINARY; }
 		yylval.num.types = NUMMASK_INTGR;	
 		yylval.num.val = strtol(yytext, NULL, 8);
 
-		checkNumberTypes(&yylval.num, yytext);
+		checkNumberTypes(&yylval, yytext);
 		return NUMBER;
 	}
 
@@ -121,7 +122,7 @@ _Imaginary	{ return _IMAGINARY; }
 		yylval.num.types = NUMMASK_INTGR;
 		yylval.num.val = strtol(yytext, NULL, 10);
 
-		checkNumberTypes(&yylval.num, yytext);
+		checkNumberTypes(&yylval, yytext);
 		return NUMBER;
 	}
 
