@@ -28,4 +28,4 @@ pheader_ast.o: pheader_ast.c pheader_ast.h
 	gcc -c pheader_ast.c
 
 clear:
-	rm  ../lexer/lexer.c ./parser.c ./parser.output ./parser ./tests/my_results* *.o
+	rm  ../lexer/lexer.c ./parser.c ./parser.output ./parser ./tests/my_results* ./tests/my_test1* *.o
