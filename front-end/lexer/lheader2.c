@@ -11,6 +11,7 @@
 #include <string.h>
 #include <stdio.h>
 
+#include "../parser/pheader_lex_comp.h"
 #include "lheader.h"
 #include "lheader2.h"
 

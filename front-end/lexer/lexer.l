@@ -98,13 +98,23 @@ _Imaginary	{ return _IMAGINARY; }
 
 
 	/* identifiers */
-[a-zA-Z_][a-zA-Z_0-9]*	{ yylval.str.str = yytext; return IDENT; }
+[a-zA-Z_][a-zA-Z_0-9]*	{ 
+		/* allocate space for string literal and copy it into yylval */
+		if (!(yylval.str.str = malloc(sizeof(yytext) + 1))) {
+			fprintf(stderr, "Error allocating space for identifier: %s\n", 
+															strerror(errno));
+			return -1;
+		}
+		strcpy(yylval.str.str, yytext);
+		yylval.str.str_size = sizeof(yytext);
+		return IDENT; 
+	}
 
 
 	/* tokens: integer constants */
 0[xX]{HEX}+{NTYPE}? {
 		yylval.num.types |= NUMMASK_INTGR;	
-		yylval.num.val = strtol(yytext, NULL, 16);
+		yylval.num.val = strtoull(yytext, NULL, 16);
 	
 		checkNumberTypes(&yylval, yytext);
 		return NUMBER;
@@ -112,7 +122,7 @@ _Imaginary	{ return _IMAGINARY; }
 
 0{OCT}*{NTYPE}? {		
 		yylval.num.types = NUMMASK_INTGR;	
-		yylval.num.val = strtol(yytext, NULL, 8);
+		yylval.num.val = strtoull(yytext, NULL, 8);
 
 		checkNumberTypes(&yylval, yytext);
 		return NUMBER;
@@ -120,7 +130,7 @@ _Imaginary	{ return _IMAGINARY; }
 
 [1-9]{DEC}*{NTYPE}? {		
 		yylval.num.types = NUMMASK_INTGR;
-		yylval.num.val = strtol(yytext, NULL, 10);
+		yylval.num.val = strtoull(yytext, NULL, 10);
 
 		checkNumberTypes(&yylval, yytext);
 		return NUMBER;

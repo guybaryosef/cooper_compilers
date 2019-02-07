@@ -12,14 +12,17 @@
 #include <limits.h>
 #include <stdlib.h>
 
-#include "lheader.h"
 
 #ifndef LEXERHEADER
 #define LEXERHEADER
 
-
 #define LINESIZE 1024
 #define MAX_STRLIT_SIZE 2048
+
+
+#include "../parser/pheader_lex_comp.h"
+#include "lheader.h"
+
 
 /*
  * stringFromTokens - Reverses the action of the tokens enum.
@@ -59,7 +62,6 @@ void checkNumberTypes(YYSTYPE *yylval, char *yytext);
 /* define a yyerror, not sure how this is going to quite fit in
    between the lexer and the parser */
 void yyerror (char const *s);
-
 
 
 #endif

@@ -9,9 +9,11 @@
 
 /* definitions and environment setup */
 %{
+    #include <stdio.h>
+
+    #include "./pheader_lex_comp.h"
     #include "../lexer/lexer.c"
     #include "./pheader_ast.h"
-    #include "./pheader_lex_comp.h"
 
 %}
 
@@ -20,41 +22,43 @@
 %defines "../lexer/lheader.h"
 
 %union {
-    struct num {
-        unsigned long long val;
-        long double d_val;
-        int types;  /* masks defined in header */
-    } num;     
-    
-    struct str {
-        char *str;
-        int str_size;
-        char char_val;
-    } str;
+    int simple_int;
+
+    struct YYnum num;
+    struct YYstr str;
 
     struct astnode *astnode_p; /* abstract syntax node pointer */
 }
 
 /*  Defining the token names (and order) which will be used by both 
     the lexer and the parser. For readability, over multiple lines.  */
-%token  IDENT CHARLIT STRING NUMBER INDSEL PLUSPLUS MINUSMINUS SHL 
-%token  SHR LTEQ GTEQ EQEQ NOTEQ LOGAND LOGOR ELLIPSIS TIMESEQ 
-%token  DIVEQ MODEQ PLUSEQ MINUSEQ SHLEQ SHREQ ANDEQ OREQ XOREQ
-%token  AUTO BREAK CASE CHAR CONST CONTINUE DEFAULT DO DOUBLE ELSE
-%token  ENUM EXTERN FLOAT FOR GOTO IF INLINE INT LONG REGISTER
-%token  RESTRICT RETURN SHORT SIGNED SIZEOF STATIC STRUCT SWITCH TYPEDEF
-%token  UNION UNSIGNED VOID VOLATILE WHILE _BOOL _COMPLEX _IMAGINARY
+%token <str> IDENT CHARLIT STRING 
+%token <num> NUMBER 
+%token <simple_int> INDSEL PLUSPLUS MINUSMINUS SHL 
+%token <simple_int> SHR LTEQ GTEQ EQEQ NOTEQ LOGAND LOGOR ELLIPSIS TIMESEQ 
+%token <simple_int> DIVEQ MODEQ PLUSEQ MINUSEQ SHLEQ SHREQ ANDEQ OREQ XOREQ
+%token <simple_int> AUTO BREAK CASE CHAR CONST CONTINUE DEFAULT DO DOUBLE ELSE
+%token <simple_int> ENUM EXTERN FLOAT FOR GOTO IF INLINE INT LONG REGISTER
+%token <simple_int> RESTRICT RETURN SHORT SIGNED SIZEOF STATIC STRUCT SWITCH TYPEDEF
+%token <simple_int> UNION UNSIGNED VOID VOLATILE WHILE _BOOL _COMPLEX _IMAGINARY
 
-%type <int> assn expr
+%type <astnode_p> stmt expr
 
 %%
 /* grammars and actions */
-assn: IDENT '=' expr {printf("aaa\n");}
-   ;
+stmt: IDENT '=' expr    {   $$ = newNode_binop('=');
+                            $$->binop.left = newNode_str(IDENT, $1);
+                            $$->binop.right = $3;
+                            printAST($$, NULL); }
+    ;
 
-expr: NUMBER    {$$ = yylval.num.val;
-                printf("%d\n", $$);}
-    | expr '+' NUMBER {$$ += yylval.num.val;}
+expr: NUMBER            { $$ = newNode_num(NUMBER, $1); }
+    | expr '+' NUMBER   { $$ = newNode_binop('+');
+                          $$->binop.left = $1;
+                          $$->binop.right = newNode_num(NUMBER, $3); }
     ;
 
 %%
+
+//  printf("%d\n", 2);
+// {$$ += yylval.num.val;}

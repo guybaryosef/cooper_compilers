@@ -116,23 +116,16 @@ extern int yydebug;
 
 union YYSTYPE
 {
-#line 22 "parser.y" /* yacc.c:1909  */
+#line 24 "parser.y" /* yacc.c:1909  */
 
-    struct num {
-        unsigned long long val;
-        long double d_val;
-        int types;  /* masks defined in header */
-    } num;     
-    
-    struct str {
-        char *str;
-        int str_size;
-        char char_val;
-    } str;
+    int simple_int;
+
+    struct YYnum num;
+    struct YYstr str;
 
     struct astnode *astnode_p; /* abstract syntax node pointer */
 
-#line 136 "../lexer/lheader.h" /* yacc.c:1909  */
+#line 129 "../lexer/lheader.h" /* yacc.c:1909  */
 };
 
 typedef union YYSTYPE YYSTYPE;
