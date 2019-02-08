@@ -1,0 +1,3 @@
+/home/guy/projects/cooper/2019_spring/compilers/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/home/guy/projects/cooper/2019_spring/compilers/cmake-build-debug/CMakeFiles/compilers.dir
+/home/guy/projects/cooper/2019_spring/compilers/cmake-build-debug/CMakeFiles/edit_cache.dir
