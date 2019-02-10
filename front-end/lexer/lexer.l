@@ -200,12 +200,18 @@ L?' 		{
 
 		/* zero out the string literal buffer */
 		memset(strlit_buffer, 0, sizeof(strlit_buffer));
+
+		/* zero out yylval */
+		memset(&yylval, 0, sizeof(yylval));
 	}
 L?\"		{ 	
 		BEGIN STR_LIT;
 
 		/* zero out the string literal buffer */
 		memset(strlit_buffer, 0, sizeof(strlit_buffer));
+
+		/* zero out yylval */
+		memset(&yylval, 0, sizeof(yylval));
 	}
 <CHR_LIT>'	{ 	
 		yylval.str.char_val = strlit_buffer[0]; 

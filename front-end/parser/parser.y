@@ -44,22 +44,23 @@
 %token <simple_int> RESTRICT RETURN SHORT SIGNED SIZEOF STATIC STRUCT SWITCH TYPEDEF
 %token <simple_int> UNION UNSIGNED VOID VOLATILE WHILE _BOOL _COMPLEX _IMAGINARY
 
-%type <astnode_p> primary-expr
-%type <astnode_p> postfix-expr subscript-expr component-sel-expr function-call postinc-expr postdec-expr
-%type <astnode_p> direct-comp-sel indirect-comp-sel
-%type <astnode_p> expr-list assignment-expr
-
-%type <astnode_p> unary-expr
-%type <astnode_p> cast-expr type-name
-%type <astnode_p> sizeof-expr unary-minus-expr unary-plus-expr logical-neg-expr bitwise-neg-expr address-expr indirection-expr preinc-expr predec-expr
-
-%type <astnode_p> mult-expr add-expr shift-expr relational-expr equality-expr bitwise-and-expr bitwise-xor-expr bitwise-or-expr
-
-%type <astnode_p> logical-or-expr logical-and-expr
-
-%type <astnode_p> conditional-expr
 
 %type <astnode_p> comma-expr expr
+%type <astnode_p> conditional-expr
+%type <astnode_p> logical-or-expr logical-and-expr
+%type <astnode_p> mult-expr add-expr shift-expr relational-expr equality-expr bitwise-and-expr bitwise-xor-expr bitwise-or-expr
+%type <astnode_p> sizeof-expr unary-minus-expr unary-plus-expr logical-neg-expr bitwise-neg-expr address-expr indirection-expr preinc-expr predec-expr
+%type <astnode_p> cast-expr type-name
+%type <astnode_p> unary-expr
+%type <astnode_p> expr-list assignment-expr
+%type <astnode_p> direct-comp-sel indirect-comp-sel
+%type <astnode_p> postfix-expr subscript-expr component-sel-expr function-call postinc-expr postdec-expr
+
+%type <astnode_p> primary-expr
+
+%type <astnode_p> main
+
+
 
 
 %%
@@ -85,10 +86,9 @@ postfix-expr: primary-expr          { $$ = $1; }
 
 subscript-expr: postfix-expr '[' expr ']'   { 
                                                 $$ = newNode_unop('*');
-                                                struct astnode *tmp = newNode_binop('+');
-                                                tmp->binop.left = $1;
-                                                tmp->binop.right = $3;
-                                                $$->unop.expr = tmp;
+                                                $$->unop.expr = newNode_binop('+');
+                                                $$->unop.expr->binop.left = $1;
+                                                $$->unop.expr->binop.right = $3;
                                             }
               ;
 
@@ -105,9 +105,8 @@ direct-comp-sel: postfix-expr '.' IDENT         {
 
 indirect-comp-sel: postfix-expr INDSEL IDENT    { 
                                                     $$ = newNode_slct();
-                                                    struct astnode *tmp = newNode_unop('*');
-                                                    tmp->unop.expr = $1;
-                                                    $$->slct.left = tmp;                                                            
+                                                    $$->slct.left = newNode_unop('*');
+                                                    $$->slct.left->unop.expr = $1;                                                            
                                                     $$->slct.right = newNode_str(IDENT, $3);
                                                 }
                  ;
@@ -225,28 +224,32 @@ indirection-expr: '*' cast-expr         {
                 ;
 
 preinc-expr: PLUSPLUS unary-expr        { /* equivalent to unary-expr = unary-expr + 1 */
-                                            $$ = newNode_binop('+');
-                                            $$->binop.left = $2;
+                                            $$ = newNode_assment('=');
+                                            $$->assignment.left = $2;
+                                            $$->assignment.right = newNode_binop('+');
+                                            $$->assignment.right->binop.left = $2;
 
                                             struct YYnum tmp;
                                             tmp.val = 1;
                                             tmp.d_val = 0;
                                             tmp.types = NUMMASK_INTGR;
 
-                                            $$->binop.right = newNode_num(tmp);
+                                            $$->assignment.right->binop.right = newNode_num(tmp);
                                         } 
            ;
 
 predec-expr: MINUSMINUS unary-expr      { /* equivalent to unary-expr = unary-expr - 1 */
-                                            $$ = newNode_binop('-');
-                                            $$->binop.left = $2;
+                                            $$ = newNode_assment('=');
+                                            $$->assignment.left = $2;
+                                            $$->assignment.right = newNode_binop('-');
+                                            $$->assignment.right->binop.left = $2;
 
                                             struct YYnum tmp;
                                             tmp.val = 1;
                                             tmp.d_val = 0;
                                             tmp.types = NUMMASK_INTGR;
 
-                                            $$->binop.right = newNode_num(tmp);
+                                            $$->assignment.right->binop.right = newNode_num(tmp);
                                         } 
            ;
 
@@ -399,11 +402,11 @@ comma-expr: assignment-expr                     { $$ = $1; }
           | comma-expr ',' assignment-expr      { $$ = newNode_binop(','); $$->binop.left = $1; $$->binop.right = $3; }
           ;
 
-expr: comma-expr ';'  { $$ = $1; printAST($$, NULL); freeTree($$); }
+expr: comma-expr { $$ = $1; }
     ;
 
-main: expr
-    | main expr
+main: expr ';' { $$ = $1; printAST($$, NULL); freeTree($$); }
+    | main main
     ;
 
 

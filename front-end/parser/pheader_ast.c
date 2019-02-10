@@ -84,6 +84,12 @@ struct astnode *newNode_unop(int token_name) {
     }
 
     switch(token_name) {
+        case SIZEOF:
+            node->nodetype = SIZEOF_TYPE;
+            break;
+        case '*':
+            node->nodetype = DEREF_TYPE;
+            break;
         case '&': 
             node->nodetype = ADDR_TYPE;
             break;
@@ -115,6 +121,10 @@ struct astnode *newNode_binop(int token_name) {
         case EQEQ:
         case NOTEQ:
             node->nodetype = COMPARE_TYPE;
+            break;
+        case LOGAND:
+        case LOGOR:
+            node->nodetype = LOG_TYPE;
             break;
         default:
             node->nodetype = BINOP_TYPE;
@@ -198,7 +208,6 @@ struct astnode *newNode_arg(int num) {
  * 
  * Type:
  *  - 0: Direct component selection.
- *  - 1: Indirect component selection.
  */
 struct astnode *newNode_slct() {
     struct astnode *node;
@@ -211,24 +220,6 @@ struct astnode *newNode_slct() {
     node->slct.left = NULL;
     node->slct.right = NULL;
     return node;
-}
-
-
-/*
- * newNode_logop - Creates a new AST node for
- * logical operators (|| and &&).
- */
-struct astnode *newNode_logop(int op_val) {
-    struct astnode *node;
-    if ((node = malloc(sizeof(struct astnode))) == NULL) {
-        fprintf(stderr, "Error allocating memory for AST node: %s\n", 
-                                                    strerror(errno));
-        exit(-1);
-    }
-    node->nodetype = LOGOP_TYPE;
-    node->logop.op = op_val;
-    node->logop.left = NULL;
-    node->logop.right = NULL;
 }
 
 
@@ -371,7 +362,7 @@ void preorderTraversal(struct astnode *cur, FILE *output, int depth) {
 
     /* format the tab spacing correctly */
     for (int i = 0; i < depth; ++i)
-        fprintf(output, "\t");
+        fprintf(output, "  ");
 
     switch(cur->nodetype) {
         case IDENT_TYPE:
@@ -379,17 +370,17 @@ void preorderTraversal(struct astnode *cur, FILE *output, int depth) {
             break;
         case NUM_TYPE:
             if (cur->num.types & NUMMASK_INTGR)
-                fprintf(output, "CONSTANT:  (numtype=int)%lld\n", cur->num.val);
+                fprintf(output, "CONSTANT:  (type=int)%lld\n", cur->num.val);
             else if (cur->num.types & NUMMASK_DOUBLE)
-                fprintf(output, "CONSTANT:  (numtype=double)%f\n", cur->num.d_val);
+                fprintf(output, "CONSTANT:  (type=double)%g\n", cur->num.d_val);
             else
-                fprintf(output, "CONSTANT:  (numtype=float)%f\n", cur->num.d_val);
+                fprintf(output, "CONSTANT:  (type=float)%g\n", cur->num.d_val);
             break;
         case CHRLIT_TYPE:
             fprintf(output, "CONSTANT:  (type=int)%d\n", cur->chrlit.c_val);
             break;
         case STRLIT_TYPE:
-            fprintf(output, "STRING  %s\n", cur->strlit.str);
+            fprintf(output, "STRING\t%s\n", cur->strlit.str);
             break;
         case BINOP_TYPE:
             if (cur->binop.op < 258)
@@ -407,10 +398,10 @@ void preorderTraversal(struct astnode *cur, FILE *output, int depth) {
             preorderTraversal(cur->binop.left, output, depth+1);
             preorderTraversal(cur->binop.right, output, depth+1);
             break;
-        case LOGOP_TYPE:
-            fprintf(output, "LOGICAL  OP  %s\n", token2op(cur->logop.op));
-            preorderTraversal(cur->logop.left, output, depth+1);
-            preorderTraversal(cur->logop.right, output, depth+1);            break;
+        case LOG_TYPE:
+            fprintf(output, "LOGICAL  OP  %s\n", token2op(cur->binop.op));
+            preorderTraversal(cur->binop.left, output, depth+1);
+            preorderTraversal(cur->binop.right, output, depth+1);            break;
         case UNOP_TYPE:
             if (cur->binop.op < 258)
                 fprintf(output, "UNARY  OP  %c\n", cur->unop.op);
@@ -426,25 +417,34 @@ void preorderTraversal(struct astnode *cur, FILE *output, int depth) {
             fprintf(output, "DEREF\n");
             preorderTraversal(cur->unop.expr, output, depth+1);
             break;
+        case SIZEOF_TYPE:
+            fprintf(output, "SIZEOF\n");
+            preorderTraversal(cur->unop.expr, output, depth+1);
+            break;
         case FNC_TYPE:
-            fprintf(output, "FNCALL, %d arguments\n", cur->fnc.arg_count);
+            fprintf(output, "FNCALL,  %d  arguments\n", cur->fnc.arg_count);
+            preorderTraversal(cur->fnc.ident, output, depth + 1);
             for (int i = 0 ; i < cur->fnc.arg_count ; ++i)
-                preorderTraversal(cur->fnc.arguments[i], output, depth+1);
+                preorderTraversal(cur->fnc.arguments[i], output, depth);
             break;
         case ARG_TYPE:
-            fprintf(output, "arg #%d=\n", cur->arg.num);
+            fprintf(output, "arg  #%d=\n", cur->arg.num);
             preorderTraversal(cur->arg.expr, output, depth+1);
             break;
         case SLCT_TYPE:
-            fprintf(output, "SELECT");
+            fprintf(output, "SELECT\n");
             preorderTraversal(cur->slct.left, output, depth+1);
             preorderTraversal(cur->slct.right, output, depth+1);
             break;
         case TERNARY_TYPE:
-            fprintf(output, "TERNARY OP, IF:\n");
+            fprintf(output, "TERNARY  OP,  IF:\n");
             preorderTraversal(cur->ternary.if_expr, output, depth+1);
+            for (int i = 0; i < depth; ++i)
+                fprintf(output, "  ");
             fprintf(output, "THEN:\n");
             preorderTraversal(cur->ternary.then_expr, output, depth+1);
+            for (int i = 0; i < depth; ++i)
+                fprintf(output, "  ");
             fprintf(output, "ELSE:\n");
             preorderTraversal(cur->ternary.else_expr, output, depth+1);
             break;

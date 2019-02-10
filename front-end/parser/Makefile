@@ -17,6 +17,7 @@ my-test-parser: flex-bison parser_tester.o lheaders.o pheader_ast.o
 official-test-parser: flex-bison parser_tester.o lheaders.o pheader_ast.o
 	gcc -o parser parser_tester.o lheaders.o  pheader_ast.o
 	$(CPP) tests/exprtests.c | ./parser >./tests/my_results.out 2>./tests/my_results.err
+	diff ./tests/my_results.out ./tests/exprtests.out
 
 parser_tester.o: ./pheader_lex_comp.h parser_tester.c parser.c ../lexer/lexer.c 
 	gcc -c ./parser_tester.c
