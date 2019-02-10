@@ -31,35 +31,36 @@ struct astnode_num {
 
 /* struct for a token binary operator */
 #define BINOP_TYPE 3
+#define COMPARE_TYPE 4  /* Comparison operatores (< > <= >=) are binary ops with diff AST-printing format */
 struct astnode_binop {
     int op;
     struct astnode *left, *right;
 };
 
 /* struct for a token uniary operator */
-#define UNOP_TYPE 4
-#define ADDR_TYPE 5     /* address of op (&) is a unary op with different AST-printing format */
-#define DEREF_TYPE 6    /* dereferece operator (*) is a unary op with different AST-printing format */
+#define UNOP_TYPE 5
+#define ADDR_TYPE 6     /* address of op (&) is a unary op with different AST-printing format */
+#define DEREF_TYPE 7    /* dereferece operator (*) is a unary op with different AST-printing format */
 struct astnode_unop {
     int op;
     struct astnode *expr;
 };
 
 /* struct for a token string literal */
-#define STRLIT_TYPE 7
+#define STRLIT_TYPE 8
 struct astnode_strlit {
     char *str;
     int str_size;
 };
 
 /* struct for a token character literal */
-#define CHRLIT_TYPE 8
+#define CHRLIT_TYPE 9
 struct astnode_chrlit {
     char c_val;
 };
 
 /* struct for a function argument */
-#define ARG_TYPE 9
+#define ARG_TYPE 10
 struct astnode_arg {
     int num;        /* the argument number of the function */
     struct astnode *expr;
@@ -67,14 +68,14 @@ struct astnode_arg {
 
 /* Struct for argument list. This struct won't get printed, rather
    instead it is a helper for the structs astnode_fnc and astnode_arg. */
-#define ARGLIST_TYPE 10
+#define ARGLIST_TYPE 11
 struct astnode_arglist {
     int size;               /* numbers of arguments in the list */
     struct astnode **list;  /* the list of arguments            */
 };
 
 /* struct for a function call */
-#define FNC_TYPE 11
+#define FNC_TYPE 12
 struct astnode_fnc {
     struct astnode *ident;      /* ident (name) of the funtion          */
     struct astnode **arguments; /* the argument list of the function    */
@@ -82,9 +83,35 @@ struct astnode_fnc {
 };
 
 /* struct for a selection expression (direct & indrect) */
-#define SLCT_TYPE 12
+#define SLCT_TYPE 13
 struct astnode_slct {
     struct astnode *left, *right;   /* left-expression, right-identifier */
+};
+
+/* struct for a logical operator - similar to binary operator in implementation */
+#define LOGOP_TYPE 14
+struct astnode_logop {
+    int op;
+    struct astnode *left, *right;
+};
+
+/* struct for the ternary operator */
+#define TERNARY_TYPE 15
+struct astnode_ternary {
+    struct astnode *if_expr, *then_expr, *else_expr;
+};
+
+/* struct for the assignment operators - similar to binary operator in implementation */
+#define ASS_TYPE 16
+struct astnode_assignment {
+    int op;
+    struct astnode *left, *right;
+};
+
+/* struct for the type designator */
+#define TYPE_TYPE 17
+struct astnode_type {
+    int type;
 };
 
 
@@ -102,6 +129,10 @@ struct astnode {
         struct astnode_fnc fnc;
         struct astnode_arglist arglist;
         struct astnode_slct slct;
+        struct astnode_logop logop;
+        struct astnode_ternary ternary;
+        struct astnode_assignment assignment;
+        struct astnode_type type;
     };
 } astnode;
 
@@ -128,6 +159,17 @@ struct astnode *newNode_arg(int num);
 /* Handles component selection */
 struct astnode *newNode_slct(); /* Input: 0-direct, 1-indirect */
 
+/* handles logical operators */
+struct astnode *newNode_logop(int op_val);
+
+/* handles the ternary operator */
+struct astnode *newNode_ternary(); 
+
+/* handles the assigment expressions */
+struct astnode *newNode_assment();
+
+/* handles the type designator */
+struct astnode *newNode_type(int type);
 
 
 /*

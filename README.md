@@ -4,6 +4,7 @@ ECE466: Compilers
 
 ## Todo:
 * Build the grammar for C expressions.
+    - Debug :)
 * Build yyerror().
 
 # Grammar Questions:

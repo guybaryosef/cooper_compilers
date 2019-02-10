@@ -30,6 +30,8 @@
     struct astnode *astnode_p; /* abstract syntax node pointer */
 }
 
+%start main
+
 /*  Defining the token names (and order) which will be used by both 
     the lexer and the parser. For readability, over multiple lines.  */
 %token <str> IDENT CHARLIT STRING 
@@ -42,7 +44,6 @@
 %token <simple_int> RESTRICT RETURN SHORT SIGNED SIZEOF STATIC STRUCT SWITCH TYPEDEF
 %token <simple_int> UNION UNSIGNED VOID VOLATILE WHILE _BOOL _COMPLEX _IMAGINARY
 
-%type <astnode_p> expr
 %type <astnode_p> primary-expr
 %type <astnode_p> postfix-expr subscript-expr component-sel-expr function-call postinc-expr postdec-expr
 %type <astnode_p> direct-comp-sel indirect-comp-sel
@@ -52,23 +53,23 @@
 %type <astnode_p> cast-expr type-name
 %type <astnode_p> sizeof-expr unary-minus-expr unary-plus-expr logical-neg-expr bitwise-neg-expr address-expr indirection-expr preinc-expr predec-expr
 
-%type <astnode_p> binary-expr
 %type <astnode_p> mult-expr add-expr shift-expr relational-expr equality-expr bitwise-and-expr bitwise-xor-expr bitwise-or-expr
+
+%type <astnode_p> logical-or-expr logical-and-expr
+
+%type <astnode_p> conditional-expr
+
+%type <astnode_p> comma-expr expr
+
 
 %%
 /* grammars and actions */
-expr: expr expr                 /* nothing (lets multiple rules through) */
-    | primary-expr ';'          /* nothing */
-    | postfix-expr ';'          /* nothing */
-    | unary-expr ';'            /* nothing */
-    | binary-expr ';'           /* nothing */
-    ;
-
 
 /* primary expressions */
-primary-expr: IDENT             { $$ = newNode_str(IDENT, $1); }
+primary-expr: IDENT             { $$ = newNode_str(IDENT, $1);   }
             | CHARLIT           { $$ = newNode_str(CHARLIT, $1); }
-            | STRING            { $$ = newNode_str(STRING, $1); }
+            | NUMBER            { $$ = newNode_num($1);  }
+            | STRING            { $$ = newNode_str(STRING, $1);  }
             | '(' expr ')'      { $$ = $2; }
             ; 
 
@@ -83,7 +84,11 @@ postfix-expr: primary-expr          { $$ = $1; }
             ;   /* for now I skipped compound-literals */
 
 subscript-expr: postfix-expr '[' expr ']'   { 
-                                                /* TODO: equivalent to *(e1 + e2) */
+                                                $$ = newNode_unop('*');
+                                                struct astnode *tmp = newNode_binop('+');
+                                                tmp->binop.left = $1;
+                                                tmp->binop.right = $3;
+                                                $$->unop.expr = tmp;
                                             }
               ;
 
@@ -94,14 +99,16 @@ component-sel-expr: direct-comp-sel     { $$ = $1; }
 direct-comp-sel: postfix-expr '.' IDENT         { 
                                                     $$ = newNode_slct();
                                                     $$->slct.left = $1;
-                                                    $$->slct.right = $3;
+                                                    $$->slct.right = newNode_str(IDENT, $3);
                                                 }
                ;
 
 indirect-comp-sel: postfix-expr INDSEL IDENT    { 
                                                     $$ = newNode_slct();
-                                                    /* TODO: equivalent to (*x).m */                                                            
-                                                    $$->slct.right = $3;
+                                                    struct astnode *tmp = newNode_unop('*');
+                                                    tmp->unop.expr = $1;
+                                                    $$->slct.left = tmp;                                                            
+                                                    $$->slct.right = newNode_str(IDENT, $3);
                                                 }
                  ;
 
@@ -110,7 +117,7 @@ function-call: postfix-expr '(' expr-list ')'   {
                                                     $$ = newNode_fnc();
                                                     $$->fnc.ident = $1;
                                                     $$->fnc.arguments = $3->arglist.list;
-                                                    $$->func.arg_count =$3->arglist.size;
+                                                    $$->fnc.arg_count = $3->arglist.size;
                                                     free($3);
                                                 }
              ;
@@ -119,25 +126,25 @@ expr-list: assignment-expr                  {
                                                 $$ = newNode_arglist();
                                                 expand_arglist($$);
                                                 $$->arglist.list[0] = newNode_arg(1);
-                                                $$->arglist.list[0].expr = $1;
-                                                ++$$->arglist.size;
+                                                $$->arglist.list[0]->arg.expr = $1;
+                                                ++($$->arglist.size);
                                             }
          | expr-list ',' assignment-expr    { 
                                                 $$ = $1;
                                                 expand_arglist($$);
                                                 $$->arglist.list[$$->arglist.size] = newNode_arg($$->arglist.size+1);
-                                                $$->arglist.list[$$->arglist.size++].expr = $3;
+                                                $$->arglist.list[$$->arglist.size++]->arg.expr = $3;
                                             }
          ;
 
 postinc-expr: postfix-expr PLUSPLUS     {
-                                            $$ = newNode_unop("++");
+                                            $$ = newNode_unop(PLUSPLUS);
                                             $$->unop.expr = $1;
                                         }
             ;
 
 postdec-expr: postfix-expr MINUSMINUS   {
-                                            $$ = newNode_unop("--");
+                                            $$ = newNode_unop(MINUSMINUS);
                                             $$->unop.expr = $1;
                                         }
             ;
@@ -212,7 +219,7 @@ address-expr: '&' cast-expr             {
             ;
 
 indirection-expr: '*' cast-expr         {
-                                            $$ = newNode_upnop('*');
+                                            $$ = newNode_unop('*');
                                             $$->unop.expr = $2;
                                         }
                 ;
@@ -245,33 +252,159 @@ predec-expr: MINUSMINUS unary-expr      { /* equivalent to unary-expr = unary-ex
 
 
 /* Binary Operator Expressions */
-binary-expr: mult-expr                  { $$ = $1; }  
-           | add-expr                   { $$ = $1; }
-           | shift-expr                 { $$ = $1; }
-           | relational-expr            { $$ = $1; }  
-           | equality-expr              { $$ = $1; }
-           | bitwise-and-expr           { $$ = $1; }  
-           | bitwise-xor-expr           { $$ = $1; }  
-           | bitwise-or-expr            { $$ = $1; }
-           ;  
+mult-expr: cast-expr                    { $$ = $1; }
+         | mult-expr '*' cast-expr      { $$ = newNode_binop('*'); $$->binop.left = $1; $$->binop.right = $3; }
+         | mult-expr '/' cast-expr      { $$ = newNode_binop('/'); $$->binop.left = $1; $$->binop.right = $3; }
+         | mult-expr '%' cast-expr      { $$ = newNode_binop('%'); $$->binop.left = $1; $$->binop.right = $3; }
+         ;
+
+add-expr: mult-expr                     { $$ = $1; }
+        | add-expr '+' mult-expr        { $$ = newNode_binop('+'); $$->binop.left = $1; $$->binop.right = $3; }
+        | add-expr '-' mult-expr        { $$ = newNode_binop('-'); $$->binop.left = $1; $$->binop.right = $3; }
+        ;
+
+shift-expr: add-expr                    { $$ = $1; }
+          | shift-expr SHL add-expr     { $$ = newNode_binop(SHL); $$->binop.left = $1; $$->binop.right = $3; }
+          | shift-expr SHR add-expr     { $$ = newNode_binop(SHR); $$->binop.left = $1; $$->binop.right = $3; }
+          ;
+
+relational-expr: shift-expr                         { $$ = $1; }
+               | relational-expr '<' shift-expr     { $$ = newNode_binop('<'); $$->binop.left = $1; $$->binop.right = $3; }
+               | relational-expr '>' shift-expr     { $$ = newNode_binop('>'); $$->binop.left = $1; $$->binop.right = $3; }
+               | relational-expr LTEQ shift-expr    { $$ = newNode_binop(LTEQ); $$->binop.left = $1; $$->binop.right = $3; }
+               | relational-expr GTEQ shift-expr    { $$ = newNode_binop(GTEQ); $$->binop.left = $1; $$->binop.right = $3; }
+               ;
+
+equality-expr: relational-expr                      { $$ = $1; }
+             | equality-expr EQEQ relational-expr   { $$ = newNode_binop(EQEQ); $$->binop.left = $1; $$->binop.right = $3; }
+             | equality-expr NOTEQ relational-expr  { $$ = newNode_binop(NOTEQ); $$->binop.left = $1; $$->binop.right = $3; }
+             ;
+
+bitwise-and-expr: equality-expr                         { $$ = $1; }
+                | bitwise-and-expr '&' equality-expr    { $$ = newNode_binop('&'); $$->binop.left = $1; $$->binop.right = $3; }
+                ;
+
+bitwise-or-expr: bitwise-xor-expr                       { $$ = $1; }
+               | bitwise-or-expr '|' bitwise-xor-expr   { $$ = newNode_binop('|'); $$->binop.left = $1; $$->binop.right = $3; }
+               ;
+
+bitwise-xor-expr: bitwise-and-expr                         { $$ = $1; }
+                | bitwise-xor-expr '^' bitwise-and-expr    { $$ = newNode_binop('^'); $$->binop.left = $1; $$->binop.right = $3; }
+                ;
 
 
+/* Logical Operator Expressions */
+logical-or-expr: logical-and-expr                           { $$ = $1; }
+               | logical-or-expr LOGOR logical-and-expr     { $$ = newNode_binop(LOGOR); $$->binop.left = $1; $$->binop.right = $3; }
+               ;
+
+logical-and-expr: bitwise-or-expr                           { $$ = $1; }
+                | logical-and-expr LOGAND bitwise-or-expr   { $$ = newNode_binop(LOGAND); $$->binop.left = $1; $$->binop.right = $3; }
+                ;
+
+
+/* Conditional Expressions */
+conditional-expr: logical-or-expr                               { $$ = $1; }
+                | logical-or-expr '?' expr ':' conditional-expr {   
+                                                                    $$ = newNode_ternary();
+                                                                    $$->ternary.if_expr = $1;
+                                                                    $$->ternary.then_expr = $3;
+                                                                    $$->ternary.else_expr = $5;     
+                                                                }
+                ;
+
+
+/* Assignment Operator */
+assignment-expr: conditional-expr                   { $$ = $1; }
+               | unary-expr '=' assignment-expr     { 
+                                                        $$ = newNode_assment('='); 
+                                                        $$->assignment.left = $1; 
+                                                        $$->assignment.right = $3;
+                                                    }
+               | unary-expr PLUSEQ assignment-expr  { 
+                                                        $$ = newNode_assment('='); 
+                                                        $$->assignment.left = $1; 
+                                                        $$->assignment.right = newNode_binop('+');
+                                                        ($$->assignment.right)->binop.left = $1; 
+                                                        ($$->assignment.right)->binop.right = $3; 
+                                                    }
+               | unary-expr MINUSEQ assignment-expr { 
+                                                        $$ = newNode_assment('='); 
+                                                        $$->assignment.left = $1; 
+                                                        $$->assignment.right = newNode_binop('-');
+                                                        $$->assignment.right->binop.left = $1; 
+                                                        $$->assignment.right->binop.right = $3; 
+                                                    }
+               | unary-expr TIMESEQ assignment-expr { 
+                                                        $$ = newNode_assment('='); 
+                                                        $$->assignment.left = $1; 
+                                                        $$->assignment.right = newNode_binop('*');
+                                                        $$->assignment.right->binop.left = $1; 
+                                                        $$->assignment.right->binop.right = $3; 
+                                                    }
+               | unary-expr DIVEQ assignment-expr   { 
+                                                        $$ = newNode_assment('='); 
+                                                        $$->assignment.left = $1; 
+                                                        $$->assignment.right = newNode_binop('/');
+                                                        $$->assignment.right->binop.left = $1; 
+                                                        $$->assignment.right->binop.right = $3; 
+                                                    }
+               | unary-expr MODEQ assignment-expr   { 
+                                                        $$ = newNode_assment('='); 
+                                                        $$->assignment.left = $1; 
+                                                        $$->assignment.right = newNode_binop('%');
+                                                        $$->assignment.right->binop.left = $1; 
+                                                        $$->assignment.right->binop.right = $3; 
+                                                    }
+               | unary-expr SHLEQ assignment-expr   { 
+                                                        $$ = newNode_assment('='); 
+                                                        $$->assignment.left = $1; 
+                                                        $$->assignment.right = newNode_binop(SHL);
+                                                        $$->assignment.right->binop.left = $1; 
+                                                        $$->assignment.right->binop.right = $3; 
+                                                    }
+               | unary-expr SHREQ assignment-expr   { 
+                                                        $$ = newNode_assment('='); 
+                                                        $$->assignment.left = $1; 
+                                                        $$->assignment.right = newNode_binop(SHR);
+                                                        $$->assignment.right->binop.left = $1; 
+                                                        $$->assignment.right->binop.right = $3; 
+                                                    }
+               | unary-expr ANDEQ assignment-expr   { 
+                                                        $$ = newNode_assment('='); 
+                                                        $$->assignment.left = $1; 
+                                                        $$->assignment.right = newNode_binop('&');
+                                                        $$->assignment.right->binop.left = $1; 
+                                                        $$->assignment.right->binop.right = $3; 
+                                                    }
+               | unary-expr XOREQ assignment-expr   { 
+                                                        $$ = newNode_assment('='); 
+                                                        $$->assignment.left = $1; 
+                                                        $$->assignment.right = newNode_binop('^');
+                                                        $$->assignment.right->binop.left = $1; 
+                                                        $$->assignment.right->binop.right = $3; 
+                                                    }
+               | unary-expr OREQ assignment-expr    { 
+                                                        $$ = newNode_assment('='); 
+                                                        $$->assignment.left = $1; 
+                                                        $$->assignment.right = newNode_binop('|');
+                                                        $$->assignment.right->binop.left = $1; 
+                                                        $$->assignment.right->binop.right = $3; 
+                                                    }
+               ;
+
+
+/* Sequential Expressions */
+comma-expr: assignment-expr                     { $$ = $1; }
+          | comma-expr ',' assignment-expr      { $$ = newNode_binop(','); $$->binop.left = $1; $$->binop.right = $3; }
+          ;
+
+expr: comma-expr ';'  { $$ = $1; printAST($$, NULL); freeTree($$); }
+    ;
+
+main: expr
+    | main expr
+    ;
 
 
 %%
-
-    /* my example of messing with grammers */
-// stmt: stmt stmt           /* nothing */
-//     | IDENT '=' expr ';'    {   $$ = newNode_binop('=');
-//                                 $$->binop.left = newNode_str(IDENT, $1);
-//                                 $$->binop.right = $3;
-//                                 printAST($$, NULL);
-//                                 freeTree($$);
-//                             }
-//     ;
-
-// expr: NUMBER            { $$ = newNode_num(NUMBER, $1); }
-//     | expr '+' NUMBER   { $$ = newNode_binop('+');
-//                           $$->binop.left = $1;
-//                           $$->binop.right = newNode_num(NUMBER, $3); }
-//     ;

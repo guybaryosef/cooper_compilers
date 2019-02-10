@@ -106,7 +106,20 @@ struct astnode *newNode_binop(int token_name) {
                                                     strerror(errno));
         exit(-1);
     }
-    node->nodetype = BINOP_TYPE;
+
+    switch(token_name) {
+        case '>':
+        case '<':
+        case LTEQ:
+        case GTEQ:
+        case EQEQ:
+        case NOTEQ:
+            node->nodetype = COMPARE_TYPE;
+            break;
+        default:
+            node->nodetype = BINOP_TYPE;
+    }
+
     node->binop.op = token_name;
     node->binop.left = NULL;
     node->binop.right = NULL;
@@ -202,6 +215,79 @@ struct astnode *newNode_slct() {
 
 
 /*
+ * newNode_logop - Creates a new AST node for
+ * logical operators (|| and &&).
+ */
+struct astnode *newNode_logop(int op_val) {
+    struct astnode *node;
+    if ((node = malloc(sizeof(struct astnode))) == NULL) {
+        fprintf(stderr, "Error allocating memory for AST node: %s\n", 
+                                                    strerror(errno));
+        exit(-1);
+    }
+    node->nodetype = LOGOP_TYPE;
+    node->logop.op = op_val;
+    node->logop.left = NULL;
+    node->logop.right = NULL;
+}
+
+
+/*
+ * newNode_ternary - Creates an AST node for
+ * the ternary operator (expr ? res1 : res 2).
+ */
+struct astnode *newNode_ternary() {
+    struct astnode *node;
+    if ((node = malloc(sizeof(struct astnode))) == NULL) {
+        fprintf(stderr, "Error allocating memory for AST node: %s\n", 
+                                                    strerror(errno));
+        exit(-1);
+    }
+    node->nodetype = TERNARY_TYPE;
+    node->ternary.if_expr = NULL;
+    node->ternary.then_expr = NULL;
+    node->ternary.else_expr = NULL;
+    return node;
+}
+
+
+/*
+ * newNode_assment - Creates an AST node for the
+ * assignment expression operator (=).
+ */
+struct astnode *newNode_assment(int op) {
+    struct astnode *node;
+    if ((node = malloc(sizeof(struct astnode))) == NULL) {
+        fprintf(stderr, "Error allocating memory for AST node: %s\n", 
+                                                    strerror(errno));
+        exit(-1);
+    }
+    node->nodetype = ASS_TYPE;
+    node->assignment.op = op;
+    node->assignment.left = NULL;
+    node->assignment.right = NULL;
+    return node;    
+}
+
+/*
+ * newNode_type - Creates an AST node for the type
+ * designator expression.
+ */
+struct astnode *newNode_type(int type) {
+    struct astnode *node;
+    if ((node = malloc(sizeof(struct astnode))) == NULL) {
+        fprintf(stderr, "Error allocating memory for AST node: %s\n", 
+                                                    strerror(errno));
+        exit(-1);
+    }
+    node->nodetype = TYPE_TYPE;
+    node->type.type = type;
+    return node;
+}
+
+
+
+/*
  * token2op - Takes the token name of an operator and 
  * returns how the operator is printed in Hakne'r AST example.
  * 
@@ -259,6 +345,7 @@ char *token2op(int token_name) {
 }
 
 
+
 /*
  * printAST - Given the root node of an Abstract Syntax Tree,
  * this function prints out the tree in a format matching 
@@ -270,6 +357,7 @@ void printAST(struct astnode *root, FILE *output_file) {
 
     FILE *output = (output_file) ? output_file : stdout;
     preorderTraversal(root, output, 0);
+    fprintf(output, "\n");  /* keeping consistent with Hakner's format */
 }
 
 
@@ -311,6 +399,18 @@ void preorderTraversal(struct astnode *cur, FILE *output, int depth) {
             preorderTraversal(cur->binop.left, output, depth+1);
             preorderTraversal(cur->binop.right, output, depth+1);
             break;
+        case COMPARE_TYPE:
+            if (cur->binop.op < 258)
+                fprintf(output, "COMPARISON  OP  %c\n", cur->binop.op);
+            else
+                fprintf(output, "COMPARISON  OP  %s\n", token2op(cur->binop.op));
+            preorderTraversal(cur->binop.left, output, depth+1);
+            preorderTraversal(cur->binop.right, output, depth+1);
+            break;
+        case LOGOP_TYPE:
+            fprintf(output, "LOGICAL  OP  %s\n", token2op(cur->logop.op));
+            preorderTraversal(cur->logop.left, output, depth+1);
+            preorderTraversal(cur->logop.right, output, depth+1);            break;
         case UNOP_TYPE:
             if (cur->binop.op < 258)
                 fprintf(output, "UNARY  OP  %c\n", cur->unop.op);
@@ -339,6 +439,22 @@ void preorderTraversal(struct astnode *cur, FILE *output, int depth) {
             fprintf(output, "SELECT");
             preorderTraversal(cur->slct.left, output, depth+1);
             preorderTraversal(cur->slct.right, output, depth+1);
+            break;
+        case TERNARY_TYPE:
+            fprintf(output, "TERNARY OP, IF:\n");
+            preorderTraversal(cur->ternary.if_expr, output, depth+1);
+            fprintf(output, "THEN:\n");
+            preorderTraversal(cur->ternary.then_expr, output, depth+1);
+            fprintf(output, "ELSE:\n");
+            preorderTraversal(cur->ternary.else_expr, output, depth+1);
+            break;
+        case TYPE_TYPE:
+            fprintf(output, "TYPE DESIGNATOR: %s\n", stringFromTokens(cur->type.type));
+            break;
+        case ASS_TYPE:
+            fprintf(output, "ASSIGNMENT\n");
+            preorderTraversal(cur->assignment.left, output, depth+1);
+            preorderTraversal(cur->assignment.right, output, depth+1);
             break;
     }
 }
