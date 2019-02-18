@@ -24,9 +24,11 @@ struct YYstr {
 };
 
 
-/* define a yyerror, not sure how this is going to quite fit in
-   between the lexer and the parser */
-extern void yyerror (char const *s);
+/* 
+ * yyerror - The function that gets called when an error occurs in both
+ * the lexer and and parser.
+ */
+extern void yyerror (char const *err_str);
 
 
 #endif

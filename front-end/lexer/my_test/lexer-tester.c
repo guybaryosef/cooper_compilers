@@ -10,10 +10,18 @@
 
 #include <string.h>
 
+/* We are testing only the lexer, and do not want to implement the 
+   locations feature for the parser (will lead to and error, because 
+   it requires variables that the parser initializes).
+   As such, we define the LEXER_TESTER macro, and have a check
+   inside the lexer to check if this macro is defined. 	*/
+#define LEXER_TESTER
+
 #include "../lexer.c"
 
 
-int main(){ 
+int main(){
+
 	memset(&yylval, 0, sizeof(yylval));  /* reset the token semantic value */      
 
 	int token_code;
@@ -58,9 +66,8 @@ int main(){
 			}
 		}
 		else if (token_code == CHARLIT) {
-			printf("%s\t%d\t%s\t", 
-				cur_file_name, cur_line_num, 
-				stringFromTokens(token_code));
+			printf("%s\t%d\t%s\t", cur_file_name, cur_line_num, 
+										stringFromTokens(token_code));
 
 			if (yylval.str.char_val > 31 && yylval.str.char_val < 127 &&
 				yylval.str.char_val != 92 && yylval.str.char_val != 39 &&
@@ -119,17 +126,15 @@ int main(){
 			printf("\n");
 		}
 		else if (token_code == IDENT) {
-			printf("%s\t%d\t%s\t%s\n", 
-				cur_file_name, cur_line_num, 
-				stringFromTokens(token_code), yylval.str.str);
+			printf("%s\t%d\t%s\t%s\n", cur_file_name, cur_line_num, 
+							stringFromTokens(token_code), yylval.str.str);
 		}
 		else /* token is a keyword */ {
 			if (token_code < 256)
-				printf("%s\t%d\t%c\n", 
-					cur_file_name, cur_line_num, token_code);
+				printf("%s\t%d\t%c\n", cur_file_name, cur_line_num, token_code);
 			else 
-				printf("%s\t%d\t%s\n", cur_file_name, 
-					cur_line_num, stringFromTokens(token_code));
+				printf("%s\t%d\t%s\n", cur_file_name, cur_line_num, 
+											stringFromTokens(token_code));
 
 		}
 

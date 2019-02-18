@@ -11,7 +11,10 @@
 /* flex doesn't call yywrap after end of file */
 %option noyywrap 
 
-/* no default line counter, we do it ourselves */
+/* no default line counter, we do it ourselves because we 
+   have parse the preprocessor output to find the relevant
+   line number per file (default line counter doesn't 
+   differentiate between files, just increments per new line). */
 %option noyylineno
 
 /* setting up start states */
@@ -30,31 +33,40 @@ NTYPE	((l|L|ll|LL)?[uU]?)|([uU]?(l|L|ll|LL)?)
 	#include "lheader2.h"
 	#include "lheader.h"
 
-	int cur_line_num = 1;					/* current line number  */
-	char cur_file_name[LINESIZE+1];			/* current file name    */
-	char tmp[20];							/* temp helper variable */
-	char strlit_buffer[MAX_STRLIT_SIZE];	/* buffer for string literals */
+	/* I have no idea why this needs to be declared here instead of in 
+	   the lheader2.h along with all the other helper variables. If I
+	   try to do so, I consistently get a 'multiple definition' compiler
+	   error. Can't figure out, but this works so I will leave it for now.	*/
+	int cur_line_num = 1;		/* current line number	*/
 
-	/* helper pointers for exracting the line numbers and file names */
-	char *helper_end, *helper_begin;    
+	/* implements locations for the lexer */
+	int yycolumn = 1;
 
-	YYSTYPE yylval;
+	/* checking for LEXER_TESTER because if we are only running the lexer without 
+	   the parser, we do not want to define YY_USER_ACTION.	*/
+	#ifndef LEXER_TESTER
+	#define YY_USER_ACTION yylloc.first_line = yylloc.last_line = cur_line_num; \
+		yylloc.first_column = yycolumn; yylloc.last_column = yycolumn+yyleng-1; \
+		yycolumn += yyleng;
+	#endif
+
+	#define NEWLINE_PROCESS yycolumn = 1; ++cur_line_num
 %} 
 
 %% 
 	/* Body: (regexp) : (embedded action) pairs */
 
 	/* skip comments */
-"//".*\n			{ ++cur_line_num; }
-"/*"				{ BEGIN COMMENT;  }
-<COMMENT>\n			{ ++cur_line_num; }
+"//".*\n			{ NEWLINE_PROCESS;	}
+"/*"				{ BEGIN COMMENT;  	}
+<COMMENT>\n			{ NEWLINE_PROCESS;	}
 <COMMENT>[^\n"*/]*	{}
-<COMMENT>"*/"		{ BEGIN INITIAL;  }
+<COMMENT>"*/"		{ BEGIN INITIAL;  	}
 
 
 	/* skip white spaces  */
 [ \t\r]		{}
-\n			{ ++cur_line_num; }
+\n			{ NEWLINE_PROCESS;	}
 
 
 	/* tokens: keywords */
@@ -236,7 +248,7 @@ L?\"		{
 			switch(yytext[1]) {
 				case '\\':strlit_buffer[yylval.str.str_size] = 92; break;
 				case '0': strlit_buffer[yylval.str.str_size] = 0;  break;
-				case 'n': strlit_buffer[yylval.str.str_size] = 10; break;
+				case 'n': strlit_buffer[yylval.str.str_size] = 10; NEWLINE_PROCESS; break;
 				case 'a': strlit_buffer[yylval.str.str_size] = 7;  break;
 				case 'b': strlit_buffer[yylval.str.str_size] = 8;  break;
 				case 't': strlit_buffer[yylval.str.str_size] = 9;  break;
@@ -275,8 +287,7 @@ L?\"		{
 
 <CHR_LIT,STR_LIT>\\.   { 
 		if (yylval.str.str_size < MAX_STRLIT_SIZE) {
-			fprintf(stderr, "%s:%d: Error: unrecognized character %s\n", 
-										cur_file_name, cur_line_num, yytext);
+			yyerror("Invalid character in literal"); 
 			return -1;
 		}
 	}
@@ -288,6 +299,7 @@ L?\"		{
 		}
 	}
 
+<CHR_LIT,STR_LIT>[^'\"]$ { yyerror("Unterminated literal."); return -1; }
 
 	/* tokens: operators */
 "!"     |
@@ -345,6 +357,9 @@ L?\"		{
 	/* Preprocessor output as well as keeping track 
 	   of file name and line number for error checking. */
 #\ [0-9]+\ \"[a-zA-Z0-9\/\._]+\".*\n {
+		/* ignore column numbers in preprocessor output */
+		yycolumn -= yyleng;
+
 		/* get current file name */
 		helper_begin = strstr(yytext, "\""); 
 		helper_end = strstr(++helper_begin, "\"");
@@ -357,12 +372,12 @@ L?\"		{
 		strncpy(tmp, helper_begin, (size_t)(helper_end-helper_begin));
 		cur_line_num = atoi(tmp);
 	}
-#.*\n 	{}    /* skip any other preprocessor output */
+#.*\n 	{yycolumn -= yyleng;}    /* skip any other preprocessor output */
 
 	/* error handling and reporting */
 .   { 
-		fprintf(stderr, "%s:%d: Error: unrecognized character %s\n", 
-								cur_file_name, cur_line_num, yytext);
+		
+		yyerror("unrecognized character");
 		return -1;
 	}
 

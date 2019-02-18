@@ -30,7 +30,9 @@
     struct astnode *astnode_p; /* abstract syntax node pointer */
 }
 
-%start main
+/* getting some quality error handling up in here */
+%error-verbose 
+%locations      /* bison adds location code */
 
 /*  Defining the token names (and order) which will be used by both 
     the lexer and the parser. For readability, over multiple lines.  */
@@ -44,23 +46,21 @@
 %token <simple_int> RESTRICT RETURN SHORT SIGNED SIZEOF STATIC STRUCT SWITCH TYPEDEF
 %token <simple_int> UNION UNSIGNED VOID VOLATILE WHILE _BOOL _COMPLEX _IMAGINARY
 
-
 %type <astnode_p> comma-expr expr
 %type <astnode_p> conditional-expr
 %type <astnode_p> logical-or-expr logical-and-expr
 %type <astnode_p> mult-expr add-expr shift-expr relational-expr equality-expr bitwise-and-expr bitwise-xor-expr bitwise-or-expr
 %type <astnode_p> sizeof-expr unary-minus-expr unary-plus-expr logical-neg-expr bitwise-neg-expr address-expr indirection-expr preinc-expr predec-expr
-%type <astnode_p> cast-expr type-name
 %type <astnode_p> unary-expr
+%type <astnode_p> cast-expr type-name
 %type <astnode_p> expr-list assignment-expr
 %type <astnode_p> direct-comp-sel indirect-comp-sel
 %type <astnode_p> postfix-expr subscript-expr component-sel-expr function-call postinc-expr postdec-expr
-
 %type <astnode_p> primary-expr
+%type <astnode_p> expr-stmt
+%type <astnode_p> stmt
 
-%type <astnode_p> main
-
-
+%start stmt    /* last but most significant :) */
 
 
 %%
@@ -405,9 +405,11 @@ comma-expr: assignment-expr                     { $$ = $1; }
 expr: comma-expr { $$ = $1; }
     ;
 
-main: expr ';' { $$ = $1; printAST($$, NULL); freeTree($$); }
-    | main main
+expr-stmt: expr ';' { $$ = $1; printAST($$, NULL); freeTree($$); }
     ;
 
+stmt: /* empty */        { /* NOTHING */ }
+    | stmt expr-stmt     { /* NOTHING */ }
+    ;
 
 %%

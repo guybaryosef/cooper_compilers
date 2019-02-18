@@ -2,7 +2,7 @@ CPP = gcc -E	# preprocessor
 
 
 create-parser:
-	bison -v -d -o ./parser.c parser.y
+	bison -v -d -o ./parser.c parser.y -Wconflicts-sr
 
 create-lexer:
 	flex -o ../lexer/lexer.c ../lexer/lexer.l 

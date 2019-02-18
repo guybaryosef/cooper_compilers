@@ -1,1 +1,3 @@
-p=&x->m;
+
+
+abaaa = "abs
