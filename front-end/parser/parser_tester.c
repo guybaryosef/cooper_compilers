@@ -8,10 +8,22 @@
  */
 
 
+/* Defines the global variables here. All other header files
+   will see these variables as extern vars.  */
+#define EXTERN_VAR 
+
+
+#include "../front_end_header.h"
+#include "../lexer/lexer.c"
 #include "./parser.c"
 
 
+     
+
 int main() {
+    
+    initializeFrontEnd();   /* initializes the front-end global vars */
+
     yyparse();
     return 0;
 }

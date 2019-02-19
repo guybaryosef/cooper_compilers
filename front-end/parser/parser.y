@@ -9,11 +9,10 @@
 
 /* definitions and environment setup */
 %{
-    #include <stdio.h>
-
-    #include "./pheader_lex_comp.h"
-    #include "../lexer/lexer.c"
+    #include "../front_end_header.h"
     #include "./pheader_ast.h"
+
+
 
 %}
 
@@ -405,11 +404,16 @@ comma-expr: assignment-expr                     { $$ = $1; }
 expr: comma-expr { $$ = $1; }
     ;
 
+
+/* beginning of statements grammar */
 expr-stmt: expr ';' { $$ = $1; printAST($$, NULL); freeTree($$); }
+         ;
+
+stmt: /* empty */           { /* NOTHING */ }
+    | stmt expr-stmt        { /* NOTHING */ }
+    | error ';'             { if (error_count > 10) exit(-1); }
+
     ;
 
-stmt: /* empty */        { /* NOTHING */ }
-    | stmt expr-stmt     { /* NOTHING */ }
-    ;
 
 %%

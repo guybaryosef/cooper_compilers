@@ -1,4 +1,6 @@
 
+# lexer files
 ./front-end/lexer/my_test/test1.c
 
+# parser files
 ./front-end/parser/tests/my_test.c

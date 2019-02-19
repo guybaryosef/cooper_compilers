@@ -10,10 +10,12 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <limits.h>
 
-#include "lheader2.h"
-#include "../parser/pheader_lex_comp.h"
+#include "../front_end_header.h"
 #include "lheader.h"
+#include "lheader2.h"
+
 
 /*
  * stringFromTokens - Reverses the action of the tokens enum.
@@ -134,15 +136,9 @@ void checkNumberTypes(YYSTYPE *yylval, char *yytext) {
  * yyerror - The function that gets called when an error occurs in both
  * the lexer and and parser.
  */
-void yyerror (char const *err_str) {
-    #ifdef LEXER_TESTER
-    fprintf(stderr, "%s:%d: Error: %s\n", 
-                cur_file_name, cur_line_num, err_str);
-
-    #endif
-
-    #ifndef LEXER_TESTER
+int yyerror (char const *err_str) {
     fprintf(stderr, "%s:%d:%d Error: %s\n", 
                 cur_file_name, cur_line_num, yylloc.last_column, err_str);
-    #endif
+
+    return 0;
 }

@@ -33,22 +33,9 @@ NTYPE	((l|L|ll|LL)?[uU]?)|([uU]?(l|L|ll|LL)?)
 	#include "lheader2.h"
 	#include "lheader.h"
 
-	/* I have no idea why this needs to be declared here instead of in 
-	   the lheader2.h along with all the other helper variables. If I
-	   try to do so, I consistently get a 'multiple definition' compiler
-	   error. Can't figure out, but this works so I will leave it for now.	*/
-	int cur_line_num = 1;		/* current line number	*/
-
-	/* implements locations for the lexer */
-	int yycolumn = 1;
-
-	/* checking for LEXER_TESTER because if we are only running the lexer without 
-	   the parser, we do not want to define YY_USER_ACTION.	*/
-	#ifndef LEXER_TESTER
 	#define YY_USER_ACTION yylloc.first_line = yylloc.last_line = cur_line_num; \
 		yylloc.first_column = yycolumn; yylloc.last_column = yycolumn+yyleng-1; \
 		yycolumn += yyleng;
-	#endif
 
 	#define NEWLINE_PROCESS yycolumn = 1; ++cur_line_num
 %} 
@@ -60,7 +47,7 @@ NTYPE	((l|L|ll|LL)?[uU]?)|([uU]?(l|L|ll|LL)?)
 "//".*\n			{ NEWLINE_PROCESS;	}
 "/*"				{ BEGIN COMMENT;  	}
 <COMMENT>\n			{ NEWLINE_PROCESS;	}
-<COMMENT>[^\n"*/]*	{}
+<COMMENT>[^\n"*/"]*	{}
 <COMMENT>"*/"		{ BEGIN INITIAL;  	}
 
 
@@ -248,7 +235,7 @@ L?\"		{
 			switch(yytext[1]) {
 				case '\\':strlit_buffer[yylval.str.str_size] = 92; break;
 				case '0': strlit_buffer[yylval.str.str_size] = 0;  break;
-				case 'n': strlit_buffer[yylval.str.str_size] = 10; NEWLINE_PROCESS; break;
+				case 'n': strlit_buffer[yylval.str.str_size] = 10; break;
 				case 'a': strlit_buffer[yylval.str.str_size] = 7;  break;
 				case 'b': strlit_buffer[yylval.str.str_size] = 8;  break;
 				case 't': strlit_buffer[yylval.str.str_size] = 9;  break;

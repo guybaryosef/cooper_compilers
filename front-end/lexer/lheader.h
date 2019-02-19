@@ -116,7 +116,7 @@ extern int yydebug;
 
 union YYSTYPE
 {
-#line 24 "parser.y" /* yacc.c:1909  */
+#line 23 "parser.y" /* yacc.c:1909  */
 
     int simple_int;
 

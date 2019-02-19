@@ -12,7 +12,7 @@
 #include <errno.h>
 #include <stdlib.h>
 
-#include "pheader_lex_comp.h"
+#include "../front_end_header.h"
 #include "../lexer/lheader.h"
 #include "../lexer/lheader2.h"
 #include "pheader_ast.h"

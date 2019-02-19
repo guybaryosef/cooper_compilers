@@ -1,3 +1,3 @@
-"abc \
-this is wonderful!"
-"but what about?
+"\0\0\0"
+
+"\a\0\n"

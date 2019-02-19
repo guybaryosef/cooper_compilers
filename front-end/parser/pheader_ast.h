@@ -14,6 +14,8 @@
 #ifndef PARSER_AST
 #define PARSER_AST
 
+#include <stdio.h>
+
 
 /* struct for a token Identifer */
 #define IDENT_TYPE 1

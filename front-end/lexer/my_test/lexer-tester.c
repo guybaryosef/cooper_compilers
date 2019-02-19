@@ -10,17 +10,31 @@
 
 #include <string.h>
 
+
+
+
+/* Defines the global variables here. All other header files
+   will see these variables as extern vars.  */
+#define EXTERN_VAR
+
+#include "../../front_end_header.h"
+#include "../lexer.c"
+
 /* We are testing only the lexer, and do not want to implement the 
    locations feature for the parser (will lead to and error, because 
    it requires variables that the parser initializes).
-   As such, we define the LEXER_TESTER macro, and have a check
-   inside the lexer to check if this macro is defined. 	*/
-#define LEXER_TESTER
-
-#include "../lexer.c"
+   As such, we define YYLTYPE which is supposed to be defined in the 
+   parser and which yyerror uses. Here we will no be using it for,
+   just implementing it to keep the compiler happy. 	*/
+YYLTYPE yylloc = { 1,1,1,1};
 
 
 int main(){
+
+	/* Need to initialize error-counting variables */
+    cur_line_num = 1;
+	error_count = 0;
+    yycolumn = 1;
 
 	memset(&yylval, 0, sizeof(yylval));  /* reset the token semantic value */      
 

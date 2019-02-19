@@ -16,7 +16,7 @@ lexer-tester.o: ./my_test/lexer-tester.c ./lexer.c
 create-lexer: lexer.l
 	flex -o lexer.c lexer.l
 
-lheaders.o: lheader.h lheader2.h lheader2.c ../parser/pheader_lex_comp.h
+lheaders.o: lheader.h lheader2.h lheader2.c ../front_end_header.h
 	gcc -o lheaders.o -c lheader2.c
 
 clear:

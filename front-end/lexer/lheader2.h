@@ -13,28 +13,6 @@
 #define LEXERHEADER
 
 
-#include <math.h>
-#include <limits.h>
-#include <stdlib.h>
-
-#include "../parser/pheader_lex_comp.h"
-#include "lheader.h"
-
-#define LINESIZE 1024
-#define MAX_STRLIT_SIZE 2048
-
-
-/* Global helper variables for error reporting */
-extern int cur_line_num;
-extern YYLTYPE yylloc;
-char cur_file_name[LINESIZE+1];			/* current file name    */
-char tmp[20];							/* temp helper variable */
-char strlit_buffer[MAX_STRLIT_SIZE];	/* buffer for string literals */
-char *helper_end, *helper_begin; 
-
-
-
-
 /*
  * stringFromTokens - Reverses the action of the tokens enum.
  * 
@@ -74,11 +52,8 @@ void checkNumberTypes(YYSTYPE *yylval, char *yytext);
  * yyerror - The function that gets called when an error occurs in both
  * the lexer and and parser.
  */
-void yyerror(char const *err_str);   
+int yyerror(char const *err_str);   
 
-
-/* The infamous yylval */
-YYSTYPE yylval;
 
 
 #endif
