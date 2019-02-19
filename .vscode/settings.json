@@ -1,8 +1,0 @@
-{
-    "files.associations": {
-        "string.h": "c",
-        "*.o": "c",
-        "front_end_header.h": "c",
-        "pheader_lex_comp.h": "c"
-    }
-}
