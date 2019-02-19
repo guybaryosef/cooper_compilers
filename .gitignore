@@ -1,5 +1,4 @@
-.idea
-.vscode
+.*
 
 # lexer files
 ./front-end/lexer/my_test/test1.c
