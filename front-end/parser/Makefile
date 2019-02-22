@@ -1,6 +1,28 @@
-CPP = gcc -E -w	# preprocessor
+CPP = gcc -E -w 	# preprocessor
 
 
+# my testing make
+my-test-parser: flex-bison frontEndHeaders.o pheader_ast.o parser_tester.o pheaders.o 
+	gcc -o parser frontEndHeaders.o parser_tester.o pheaders.o  pheader_ast.o
+	$(CPP) tests_2/my_test.c | ./parser 
+
+# tests for assignment 2
+official-test-parser2: flex-bison frontEndHeaders.o parser_tester.o pheaders.o pheader_ast.o
+	gcc -o parser frontEndHeaders.o parser_tester.o pheaders.o  pheader_ast.o
+	$(CPP) tests_2/exprtests.c | ./parser >./tests_2/my_results.out 2>./tests_2/my_results.err
+	diff ./tests_2/my_results.out ./tests_2/exprtests.out
+
+# tests for assignment 3
+official-test-parser3: flex-bison frontEndHeaders.o parser_tester.o pheaders.o pheader_ast.o
+	gcc -o parser frontEndHeaders.o parser_tester.o pheaders.o  pheader_ast.o
+	$(CPP) tests_3/base.c | ./parser >./tests_3/MYRESULTS_base.out 2>./tests_2/MYRESULTS_base.out
+	$(CPP) tests_3/fn1.c | ./parser >./tests_3/MYRESULTS_fn1.out 2>./tests_2/MYRESULTS_fn1.out
+	$(CPP) tests_3/scope1.c | ./parser >./tests_3/MYRESULTS_scope1.out 2>./tests_2/MYRESULTS_scope1.out
+	$(CPP) tests_3/struct1.c | ./parser >./tests_3/MYRESULTS_struct1.out 2>./tests_2/MYRESULTS_struct1.out
+	$(CPP) tests_3/struct2.c | ./parser >./tests_3/MYRESULTS_struct2.out 2>./tests_2/MYRESULTS_struct2.out
+	$(CPP) tests_3/td1.c | ./parser >./tests_3/MYRESULTS_td1.out 2>./tests_2/MYRESULTS_td1.out
+
+# partial builds
 create-parser:
 	bison -v -d -o ./parser.c parser.y -Wconflicts-sr
 
@@ -8,16 +30,6 @@ create-lexer:
 	flex -o ../lexer/lexer.c ../lexer/lexer.l 
 
 flex-bison: create-lexer create-parser
-
-my-test-parser: flex-bison frontEndHeaders.o pheader_ast.o parser_tester.o pheaders.o 
-	gcc -o parser frontEndHeaders.o parser_tester.o pheaders.o  pheader_ast.o
-	$(CPP) tests/my_test.c | ./parser 
-# >./tests/my_test1.out 2>./tests/my_test1.err
-
-official-test-parser: flex-bison frontEndHeaders.o parser_tester.o pheaders.o pheader_ast.o
-	gcc -o parser frontEndHeaders.o parser_tester.o pheaders.o  pheader_ast.o
-	$(CPP) tests/exprtests.c | ./parser >./tests/my_results.out 2>./tests/my_results.err
-	diff ./tests/my_results.out ./tests/exprtests.out
 
 parser_tester.o: parser_tester.c parser.c ../lexer/lexer.c 
 	gcc -c ./parser_tester.c
@@ -32,4 +44,4 @@ pheader_ast.o: pheader_ast.c pheader_ast.h
 	gcc -c pheader_ast.c
 
 clear:
-	rm  ../lexer/lexer.c ./parser.c ./parser.output ./parser ./tests/my_results* ./tests/my_test1* *.o
+	rm  *.o ../lexer/lexer.c ./parser.c ./parser.output ./parser ./tests_2/my_results* ./tests_2/my_test1* ./tests_3/MYRESULTS*

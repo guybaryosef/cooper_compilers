@@ -11,9 +11,6 @@
 %{
     #include "../front_end_header.h"
     #include "./pheader_ast.h"
-
-
-
 %}
 
 /* Specify bison header file of token and YYSTYPE definitions.  */
