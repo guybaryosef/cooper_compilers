@@ -21,4 +21,5 @@ void initializeFrontEnd() {
     cur_line_num = 1;
 	error_count = 0;
     yycolumn = 1;
+    tmp_st_entry = symbol_table_create_tmpentry();
 }

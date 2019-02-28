@@ -15,6 +15,8 @@
 #define PARSER_AST
 
 #include <stdio.h>
+#include "../front_end_header.h"
+#include "symbol_table.h"
 
 
 /* struct for a token Identifer */
@@ -79,11 +81,11 @@ struct astnode_arglist {
 };
 
 /* struct for a function call */
-#define FNC_TYPE 14
+#define FNC_CALL 14
 struct astnode_fnc {
-    struct astnode *ident;      /* ident (name) of the funtion          */
-    struct astnode **arguments; /* the argument list of the function    */
-    int arg_count;              /* number of arguments in the function  */
+    struct astnode *ident;       /* ident (name) of the funtion         */
+    struct astnode **arguments;  /* the argument list of the function   */
+    int arg_count;               /* number of arguments in the function */
 };
 
 /* struct for a selection expression (direct & indrect) */
@@ -105,10 +107,40 @@ struct astnode_assignment {
     struct astnode *left, *right;
 };
 
-/* struct for the type designator */
-#define TYPE_TYPE 18
+/* struct for a pointer */
+#define PTR_TYPE 18
+struct astnode_ptr {
+    struct astnode *pointee;
+};
+
+/* struct for a pointer */
+#define ARRAY_TYPE 19
+struct astnode_arr {
+    int size;
+    struct astnode *ptr;
+};
+
+/* struct for a scalar type */
+enum Types {Void, Char, Short, Int, Long, LongLong, 
+            Bool, Float, Double, LongDouble};
+#define SCALAR_TYPE 20
 struct astnode_type {
-    int type;
+    _Bool sign;         /* 0- unsigned, 1-signed */
+    enum Types type;
+};
+
+/* struct for a function type */
+#define FNC_TYPE 21
+struct astnode_fnc_type {
+    struct astnode **args_types;  /* the types of the arguments         */
+    int arg_count;                /* number of arguments in the function*/
+    struct astnode *return_type;  /* the return type of the function    */
+};
+
+/* struct for a struct & union type */
+#define SU_TYPE 22
+struct astnode_su_type {
+    struct SymbolTable *table;
 };
 
 
@@ -128,7 +160,11 @@ struct astnode {
         struct astnode_slct slct;
         struct astnode_ternary ternary;
         struct astnode_assignment assignment;
+        struct astnode_ptr ptr;
+        struct astnode_arr arr;
         struct astnode_type type;
+        struct astnode_fnc_type fnc_type;
+        struct astnode_su_type su_type;
     };
 } astnode;
 
@@ -136,15 +172,10 @@ struct astnode {
 /*
  * This class of functions create new Abstract Tree Nodes.
  */
-/* Handles integers and floats */
-struct astnode *newNode_num(struct YYnum num);
-
-/* Handles IDENTs, CHRLITs, and STRLITs */ 
-struct astnode *newNode_str(int token_name, struct YYstr str);
-
-/* Handles Operations */
-struct astnode *newNode_unop(int token_name);
-struct astnode *newNode_binop(int token_name);
+struct astnode *newNode_num(struct YYnum num);                  /* Integers and floats      */
+struct astnode *newNode_str(int token_name, struct YYstr str);  /* IDENTs, CHRLITs, & STRLITS */
+struct astnode *newNode_unop(int token_name);                   /* unary operation  */
+struct astnode *newNode_binop(int token_name);                  /* binary operation */
 
 /* Handles functions and function arguments */
 struct astnode *newNode_fnc();
@@ -152,17 +183,14 @@ struct astnode *newNode_arglist();
 void expand_arglist(struct astnode *);  /* makes the argument list greater by 1 */
 struct astnode *newNode_arg(int num);
 
-/* Handles component selection */
-struct astnode *newNode_slct(); /* Input: 0-direct, 1-indirect */
-
-/* handles the ternary operator */
-struct astnode *newNode_ternary(); 
-
-/* handles the assigment expressions */
-struct astnode *newNode_assment();
-
-/* handles the type designator */
-struct astnode *newNode_type(int type);
+struct astnode *newNode_slct();                          /* Component selection */
+struct astnode *newNode_ternary();                  /* ternary operator         */
+struct astnode *newNode_assment();                  /* assignment expressions   */
+struct astnode *newNode_ptr();                                  /* pointer type */
+struct astnode *newNode_arr(int size);                          /* array type   */
+struct astnode *newNode_type(enum Types type, _Bool is_signed); /* scalar type  */
+struct astnode *newNode_fnc_type(int arg_len);                  /* function type*/
+struct astnode *newNode_su_type();                      /* struct or union type */
 
 
 /*

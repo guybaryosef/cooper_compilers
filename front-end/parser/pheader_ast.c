@@ -15,6 +15,7 @@
 #include "../front_end_header.h"
 #include "../lexer/lheader.h"
 #include "../lexer/lheader2.h"
+#include "symbol_table.h"
 #include "pheader_ast.h"
 
 
@@ -147,7 +148,7 @@ struct astnode *newNode_fnc() {
                                                     strerror(errno));
         exit(-1);
     }
-    node->nodetype = FNC_TYPE;
+    node->nodetype = FNC_CALL;
     node->fnc.arg_count = 0;
     node->fnc.arguments = NULL;
     node->fnc.ident = NULL;
@@ -261,21 +262,88 @@ struct astnode *newNode_assment(int op) {
 }
 
 /*
- * newNode_type - Creates an AST node for the type
- * designator expression.
+ * newNode_ptr - Creates an AST node for a pointer.
  */
-struct astnode *newNode_type(int type) {
+struct astnode *newNode_ptr() {
     struct astnode *node;
     if ((node = malloc(sizeof(struct astnode))) == NULL) {
         fprintf(stderr, "Error allocating memory for AST node: %s\n", 
                                                     strerror(errno));
         exit(-1);
     }
-    node->nodetype = TYPE_TYPE;
+    node->nodetype = PTR_TYPE;
+    node->ptr.pointee = NULL;
+    return node;
+}
+
+
+/*
+ * newNode_arr - Creates an AST node for an array.
+ */
+struct astnode *newNode_arr(int size) {
+    struct astnode *node;
+    if ((node = malloc(sizeof(struct astnode))) == NULL) {
+        fprintf(stderr, "Error allocating memory for AST node: %s\n", 
+                                                    strerror(errno));
+        exit(-1);
+    }
+    node->nodetype = ARRAY_TYPE;
+    node->arr.size = size;
+    node->arr.ptr = NULL;
+    return node;
+}
+
+/*
+ * newNode_type - Creates a new AST node for a scalar type.
+ */
+struct astnode *newNode_type(enum Types type, _Bool is_signed) {
+    struct astnode *node;
+    if ((node = malloc(sizeof(struct astnode))) == NULL) {
+        fprintf(stderr, "Error allocating memory for AST node: %s\n", 
+                                                    strerror(errno));
+        exit(-1);
+    }
+    node->nodetype = SCALAR_TYPE;
+    node->type.sign = is_signed;
     node->type.type = type;
     return node;
 }
 
+
+/*
+ * newNode_fnc_type - Creates a new AST node for a
+ * function type.
+ */
+struct astnode *newNode_fnc_type(int arg_len) {
+    struct astnode *node;
+    if ((node = malloc(sizeof(struct astnode))) == NULL) {
+        fprintf(stderr, "Error allocating memory for AST node: %s\n", 
+                                                    strerror(errno));
+        exit(-1);
+    }
+    node->nodetype = FNC_TYPE;
+    node->fnc_type.arg_count = arg_len;
+    node->fnc_type.args_types = calloc(arg_len, sizeof(struct astnode *));
+    node->fnc_type.return_type = NULL;
+    return node;
+}
+
+
+/*
+ * newNode_su_type - Creates a new AST node for the type
+ * of a struct or union.
+ */
+struct astnode *newNode_su_type() {
+    struct astnode *node;
+    if ((node = malloc(sizeof(struct astnode))) == NULL) {
+        fprintf(stderr, "Error allocating memory for AST node: %s\n", 
+                                                    strerror(errno));
+        exit(-1);
+    }
+    node->nodetype = SU_TYPE;
+    node->su_type.table = symbol_table_create();
+    return node;
+}
 
 
 /*
@@ -421,7 +489,7 @@ void preorderTraversal(struct astnode *cur, FILE *output, int depth) {
             fprintf(output, "SIZEOF\n");
             preorderTraversal(cur->unop.expr, output, depth+1);
             break;
-        case FNC_TYPE:
+        case FNC_CALL:
             fprintf(output, "FNCALL,  %d  arguments\n", cur->fnc.arg_count);
             preorderTraversal(cur->fnc.ident, output, depth + 1);
             for (int i = 0 ; i < cur->fnc.arg_count ; ++i)
@@ -448,13 +516,22 @@ void preorderTraversal(struct astnode *cur, FILE *output, int depth) {
             fprintf(output, "ELSE:\n");
             preorderTraversal(cur->ternary.else_expr, output, depth+1);
             break;
-        case TYPE_TYPE:
-            fprintf(output, "TYPE DESIGNATOR: %s\n", stringFromTokens(cur->type.type));
-            break;
         case ASS_TYPE:
             fprintf(output, "ASSIGNMENT\n");
             preorderTraversal(cur->assignment.left, output, depth+1);
             preorderTraversal(cur->assignment.right, output, depth+1);
+            break;
+        /********* NEEDS WORK *****/
+        case PTR_TYPE:
+            fprintf(output, "TYPE DESIGNATOR: %s\n", stringFromTokens(cur->type.type));
+            break;
+        case ARRAY_TYPE:
+            break;
+        case SCALAR_TYPE:
+            break;
+        case FNC_TYPE:
+            break;
+        case SU_TYPE:
             break;
     }
 }
@@ -475,8 +552,22 @@ void freeTree(struct astnode *root) {
         freeTree(root->binop.left);
         freeTree(root->binop.right);
     }
+    else if (root->nodetype == FNC_CALL) {
+        freeTree(root->fnc.ident);
+        for (int i = 0; i < root->fnc.arg_count ; ++i)
+            freeTree(root->fnc.arguments[i]);
+    }
     else if (root->nodetype == UNOP_TYPE)
         freeTree(root->unop.expr);
+    else if (root->nodetype == PTR_TYPE)
+        freeTree(root->ptr.pointee);
+    else if (root->nodetype == ARRAY_TYPE)
+        freeTree(root->arr.ptr);
+    else if (root->nodetype == FNC_TYPE) {
+        freeTree(root->fnc_type.return_type);
+        for (int i = 0 ; i < root->fnc_type.arg_count ; ++i)
+            freeTree(root->fnc_type.args_types[i]);
+    }
 
     free(root);
 }

@@ -10,7 +10,8 @@
 /* definitions and environment setup */
 %{
     #include "../front_end_header.h"
-    #include "./pheader_ast.h"
+    #include "symbol_table.h"
+    #include "pheader_ast.h"
 %}
 
 /* Specify bison header file of token and YYSTYPE definitions.  */
@@ -24,14 +25,21 @@
     struct YYstr str;
 
     struct astnode *astnode_p; /* abstract syntax node pointer */
+    struct astnode **astnode_pp;
+    SymbolTableEntry *st_entry;
+    enum possibleTypeQualifiers possible_type_qualifier;
+    enum SymbolTableStorageClass storage_class;
+    enum STEntry_Type ident_type;
 }
 
 /* getting some quality error handling up in here */
 %error-verbose 
 %locations      /* bison adds location code */
 
-/*  Defining the token names (and order) which will be used by both 
-    the lexer and the parser. For readability, over multiple lines.  */
+
+
+/***************************** TOKEN NAMES *****************************/
+/* Used by both the lexer and the parser. For readability, over multiple lines. */
 %token <str> IDENT CHARLIT STRING 
 %token <num> NUMBER 
 %token <simple_int> INDSEL PLUSPLUS MINUSMINUS SHL 
@@ -42,26 +50,50 @@
 %token <simple_int> RESTRICT RETURN SHORT SIGNED SIZEOF STATIC STRUCT SWITCH TYPEDEF
 %token <simple_int> UNION UNSIGNED VOID VOLATILE WHILE _BOOL _COMPLEX _IMAGINARY
 
+
+/****************************** EXPRESSION GRAMMAR ******************************/
 %type <astnode_p> comma-expr expr
 %type <astnode_p> conditional-expr
 %type <astnode_p> logical-or-expr logical-and-expr
 %type <astnode_p> mult-expr add-expr shift-expr relational-expr equality-expr bitwise-and-expr bitwise-xor-expr bitwise-or-expr
 %type <astnode_p> sizeof-expr unary-minus-expr unary-plus-expr logical-neg-expr bitwise-neg-expr address-expr indirection-expr preinc-expr predec-expr
 %type <astnode_p> unary-expr
-%type <astnode_p> cast-expr type-name
+%type <astnode_p> cast-expr type-name   /* need to get rid of this type-name after actually implemented */
 %type <astnode_p> expr-list assignment-expr
 %type <astnode_p> direct-comp-sel indirect-comp-sel
 %type <astnode_p> postfix-expr subscript-expr component-sel-expr function-call postinc-expr postdec-expr
 %type <astnode_p> primary-expr
-%type <astnode_p> expr-stmt
-%type <astnode_p> stmt
 
-%start stmt    /* last but most significant :) */
+
+/************************** TYPES GRAMMAR TYPES (hehe) **************************/
+%type <storage_class> storage-class-specifier 
+%type <possible_type_qualifier> type-qualifier
+%type <ident_type> enum-type-specifier float-type-specifier int-type-specifier struct-type-specifier typedef-type-specifier union-type-specifier void-type-specifier
+%type <ident_type> type-specifier
+
+%type <simple_int> fnc-specifier
+%type <astnode_p> simple-declarator
+
+
+%type <astnode_p> pointer-declarator direct-declarator fnc-declarator array-declarator
+%type <astnode_p> init-decl declarator /* initializer- technically here, but not integrated for now */
+%type <TmpSymbolTableEntry *> decl-specifiers /* pretty sure about this one */
+
+%type <astnode_pp> decl-init-list 
+%type <st_entry> declaration
+
+
+/*************************** TOP-LEVEL GRAMMAR TYPES ****************************/
+%type <astnode_p> compound-stmt stmt decl-or-stmt decl-or-stmt-list  
+%start decl-or-stmt-list    /* last but most significant :) */
 
 
 %%
 /* grammars and actions */
 
+/**********************************************************************
+***************************** EXPRESSIONS *****************************
+**********************************************************************/
 /* primary expressions */
 primary-expr: IDENT             { $$ = newNode_str(IDENT, $1);   }
             | CHARLIT           { $$ = newNode_str(CHARLIT, $1); }
@@ -162,18 +194,8 @@ unary-expr: postfix-expr        { $$ = $1; }
           | predec-expr         { $$ = $1; }
           ;
 
-type-name: INT          { $$ = newNode_type(INT);       }
-         | LONG         { $$ = newNode_type(LONG);      }
-         | UNSIGNED     { $$ = newNode_type(UNSIGNED);  }
-         | CHAR         { $$ = newNode_type(CHAR);      }
-         | CONST        { $$ = newNode_type(CONST);     }
-         | DOUBLE       { $$ = newNode_type(DOUBLE);    }
-         | FLOAT        { $$ = newNode_type(FLOAT);     }
-         | STATIC       { $$ = newNode_type(STATIC);    }
-         | SHORT        { $$ = newNode_type(SHORT);     }
-         ;
 
-sizeof-expr: SIZEOF '(' type-name ')'   { 
+sizeof-expr: SIZEOF '(' type-name ')'   {   /* type-name will be included as abstract type grammar */
                                             $$ = newNode_unop(SIZEOF);
                                             $$->unop.expr = $3; 
                                         }
@@ -402,15 +424,169 @@ expr: comma-expr { $$ = $1; }
     ;
 
 
-/* beginning of statements grammar */
-expr-stmt: expr ';' { $$ = $1; printAST($$, NULL); freeTree($$); }
+stmt: expr ';'              { /* NOTHING */ }
+    | compound-stmt         { /* NOTHING */ }
+    | error ';'             { if (error_count > 10) exit(-1); }
+    ;
+
+
+/**********************************************************************
+**************************** DECLARATIONS *****************************
+**********************************************************************/
+
+type-name:   { $$ = NULL; }
          ;
 
-stmt: /* empty */           { /* NOTHING */ }
-    | stmt expr-stmt        { /* NOTHING */ }
-    | error ';'             { if (error_count > 10) exit(-1); }
 
-    ;
+declaration: decl-specifiers ';'                    { /* valid but does NOTHING */ }
+           | decl-specifiers decl-init-list ';'     { 
+                                                        /* create_new_entry(tmp_st_entry);
+                                                          for each var in the decl-init-list.
+                                                          Then reset tmp_st_entry */  
+                                                    }
+           ;
+
+decl-specifiers: storage-class-specifier                    { 
+                                                                $$ = symbol_table_create_tmpentry();
+                                                                if (tmp_st_entry.var_fnc_storage_class)
+                                                                    error("Can't have multiple storage class specifiers");
+                                                                else
+                                                                    $$.var_fnc_storage_class = $1;
+                                                            }
+               | storage-class-specifier decl-specifiers    { 
+                                                                $$ = $2;
+                                                                if (tmp_st_entry.var_fnc_storage_class)
+                                                                    error("Can't have multiple storage classes per declaration specifiers");
+                                                                else
+                                                                    $$.var_fnc_storage_class = $1;
+                                                            }
+               | type-specifier                             {
+                                                                $$ = symbol_table_create_tmpentry();
+                                                                if (tmp_st_entry.type)
+                                                                    error("Can't have multiple types per declaration specifier");
+                                                                else
+                                                                    $$.type = $1;                                                                
+                                                            }
+               | type-specifier decl-specifiers             {
+                                                                $$ = $2;
+                                                                if (tmp_st_entry.type)
+                                                                    error("Can't have multiple storage classes per declaration specifiers");
+                                                                else
+                                                                    $$.type = $1;                                                                
+                                                            }
+               | type-qualifier {   
+                                    $$ = symbol_table_create_tmpentry();
+                                    update_type_qualifier_for_tmp_stable_entry($$, $1);         
+                                }
+               | type-qualifier decl-specifiers {   
+                                                    $$ = $2;
+                                                    update_type_qualifier_for_tmp_stable_entry($$, $1);         
+                                                }
+               | fnc-specifier                  {
+                                                    $$ = symbol_table_create_tmpentry();
+                                                    $$.fnc_is_inline = 1;
+                                                }               
+               | fnc-specifier decl-specifiers  {
+                                                    $$ = $2;
+                                                    $$.fnc_is_inline = 1;
+                                                }   
+               ;
+
+
+decl-init-list: init-decl    
+              | decl-init-list ',' init-decl
+              ; 
+
+init-decl: declarator                   { $$ = $1; }
+         /* we will not allow  'declarator = initializer' (initialized declerations), at least for now. */  
+         ;
+
+storage-class-specifier: AUTO           { $$ = Auto;        }
+                       | EXTERN         { $$ = Extern;      }
+                       | REGISTER       { $$ = Register;    }
+                       | STATIC         { $$ = Static;      }
+                       | TYPEDEF        { $$ = Typedef;     }
+                       ;
+
+
+
+fnc-specifier: INLINE  { $$ = 1; }
+             ;
+
+
+type-specifier: enum-type-specifier     { $$ = ENUM_TAG;    }
+              | float-type-specifier    { $$ = VARIABLE_TYPE;   }
+              | int-type-specifier      { $$ = VARIABLE_TYPE; }
+              | struct-type-specifier   { $$ = SU_TAG_TYPE;  }
+              | typedef-type-specifier  { $$ = TYPEDEF_NAME; }
+              | union-type-specifier    { $$ = SU_TAG_TYPE;   }
+              | void-type-specifier     { $$ = NO_TYPE;    }
+              ;
+
+
+type-qualifier: CONST           { $$ = Const; }
+              | VOLATILE        { $$ = Volatile; }
+              | RESTRICT        { $$ = Restrict; }
+              ;
+
+
+declarator: pointer-declarator          { $$ = $1; }
+          | direct-declarator           { $$ = $1; }
+          ;
+
+
+pointer-declarator: pointer direct-declarator
+                  ;
+
+pointer: '*'                        { /* what do we do? */ }
+       | '*' type-qualifier-list    { /* what do we do? */ }
+       | '*' pointer                        { /* what do we do? */ }
+       | '*' type-qualifier-list pointer    { 
+                                                $$ = $1;
+                                                $$.node = newNode_ptr();
+                                            }
+       ;
+
+type-qualifier-list: type-qualifier     {   
+                                            $$ = symbol_table_create_tmpentry();
+                                            update_type_qualifier_for_tmp_stable_entry($$, $1);         
+                                        }
+                   | type-qualifier-list type-qualifier {   
+                                                            $$ = $2;
+                                                            update_type_qualifier_for_tmp_stable_entry($$, $1);         
+                                                        }
+                   ;
+
+direct-declarator: simple-declarator
+                 | '(' declarator ')'   { $$ = $2; }
+                 | fnc-declarator
+                 | array-declarator
+                 ;
+
+
+simple-declarator: IDENT    { $$ = $1; } /* need to figure out what to do */
+                 ;
+
+
+
+/**********************************************************************
+************************** TOP-LEVEL GRAMMAR **************************
+**********************************************************************/
+
+
+decl-or-stmt: declaration   { $$ = $1; }
+            | stmt          { $$ = $1; }
+            ;
+
+
+decl-or-stmt-list: /* empty */                      { /* NOTHING */ }
+                 | decl-or-stmt-list decl-or-stmt   { /* NOTHING */ }
+                 ;
+
+
+compound-stmt: '{' decl-or-stmt-list '}'    { /* NOTHING */ }
+             ;
+
 
 
 %%
