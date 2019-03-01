@@ -22,9 +22,9 @@
 /*
  *  newNode_num - Creates a new AST node of type num.
  */
-struct astnode *newNode_num(struct YYnum num) {
-    struct astnode *node;
-    if ((node = malloc(sizeof(struct astnode))) == NULL) {
+astnode *newNode_num(struct YYnum num) {
+    astnode *node;
+    if ((node = malloc(sizeof(astnode))) == NULL) {
         fprintf(stderr, "Error allocating memory for AST node: %s\n", 
                                                     strerror(errno));
         exit(-1);
@@ -46,9 +46,9 @@ struct astnode *newNode_num(struct YYnum num) {
  * Because they all are contained in a struct str, we can
  * handle all of these differnet tokens together.
  */
-struct astnode *newNode_str(int token_name, struct YYstr str) {
-    struct astnode *node;
-    if ((node = malloc(sizeof(struct astnode))) == NULL) {
+astnode *newNode_str(int token_name, struct YYstr str) {
+    astnode *node;
+    if ((node = malloc(sizeof(astnode))) == NULL) {
         fprintf(stderr, "Error allocating memory for AST node: %s\n", 
                                                     strerror(errno));
         exit(-1);
@@ -76,9 +76,9 @@ struct astnode *newNode_str(int token_name, struct YYstr str) {
  * newNode_unop - Creates a new AST node for type unop 
  * (unary operation).
  */
-struct astnode *newNode_unop(int token_name) {
-    struct astnode *node;
-    if ((node = malloc(sizeof(struct astnode))) == NULL) {
+astnode *newNode_unop(int token_name) {
+    astnode *node;
+    if ((node = malloc(sizeof(astnode))) == NULL) {
         fprintf(stderr, "Error allocating memory for AST node: %s\n", 
                                                     strerror(errno));
         exit(-1);
@@ -106,9 +106,9 @@ struct astnode *newNode_unop(int token_name) {
  * newNode_binop - Creates a new AST node for type binop 
  * (binary operation).
  */
-struct astnode *newNode_binop(int token_name) {
-    struct astnode *node;
-    if ((node = malloc(sizeof(struct astnode))) == NULL) {
+astnode *newNode_binop(int token_name) {
+    astnode *node;
+    if ((node = malloc(sizeof(astnode))) == NULL) {
         fprintf(stderr, "Error allocating memory for AST node: %s\n", 
                                                     strerror(errno));
         exit(-1);
@@ -141,9 +141,9 @@ struct astnode *newNode_binop(int token_name) {
  * newNode_func - Creates a new AST node
  * of type function.
  */
-struct astnode *newNode_fnc() {
-    struct astnode *node;
-    if ((node = malloc(sizeof(struct astnode))) == NULL) {
+astnode *newNode_fnc() {
+    astnode *node;
+    if ((node = malloc(sizeof(astnode))) == NULL) {
         fprintf(stderr, "Error allocating memory for AST node: %s\n", 
                                                     strerror(errno));
         exit(-1);
@@ -159,9 +159,9 @@ struct astnode *newNode_fnc() {
  * newNode_arglist - creates a new AST node
  * for the argument list of a function.
  */
-struct astnode *newNode_arglist() {
-    struct astnode *node;
-    if ((node = malloc(sizeof(struct astnode))) == NULL) {
+astnode *newNode_arglist() {
+    astnode *node;
+    if ((node = malloc(sizeof(astnode))) == NULL) {
         fprintf(stderr, "Error allocating memory for AST node: %s\n", 
                                                     strerror(errno));
         exit(-1);
@@ -177,10 +177,10 @@ struct astnode *newNode_arglist() {
  * expand_arglist - Expands the list of arguments
  * by 1.
  */
-void expand_arglist(struct astnode *node) {
-    struct astnode **new_arg_list = malloc((node->arglist.size+1)*sizeof(struct astnode *));
+void expand_arglist(astnode *node) {
+    astnode **new_arg_list = malloc((node->arglist.size+1)*sizeof(astnode *));
 
-    memcpy(new_arg_list, node->arglist.list, sizeof(struct astnode *)*node->arglist.size);
+    memcpy(new_arg_list, node->arglist.list, sizeof(astnode *)*node->arglist.size);
 
     free(node->arglist.list);
     node->arglist.list = new_arg_list;
@@ -190,9 +190,9 @@ void expand_arglist(struct astnode *node) {
  * newNode_arg - creates a new AST node
  * of type function argument.
  */
-struct astnode *newNode_arg(int num) {
-    struct astnode *node;
-    if ((node = malloc(sizeof(struct astnode))) == NULL) {
+astnode *newNode_arg(int num) {
+    astnode *node;
+    if ((node = malloc(sizeof(astnode))) == NULL) {
         fprintf(stderr, "Error allocating memory for AST node: %s\n", 
                                                     strerror(errno));
         exit(-1);
@@ -210,9 +210,9 @@ struct astnode *newNode_arg(int num) {
  * Type:
  *  - 0: Direct component selection.
  */
-struct astnode *newNode_slct() {
-    struct astnode *node;
-    if ((node = malloc(sizeof(struct astnode))) == NULL) {
+astnode *newNode_slct() {
+    astnode *node;
+    if ((node = malloc(sizeof(astnode))) == NULL) {
         fprintf(stderr, "Error allocating memory for AST node: %s\n", 
                                                     strerror(errno));
         exit(-1);
@@ -228,9 +228,9 @@ struct astnode *newNode_slct() {
  * newNode_ternary - Creates an AST node for
  * the ternary operator (expr ? res1 : res 2).
  */
-struct astnode *newNode_ternary() {
-    struct astnode *node;
-    if ((node = malloc(sizeof(struct astnode))) == NULL) {
+astnode *newNode_ternary() {
+    astnode *node;
+    if ((node = malloc(sizeof(astnode))) == NULL) {
         fprintf(stderr, "Error allocating memory for AST node: %s\n", 
                                                     strerror(errno));
         exit(-1);
@@ -247,9 +247,9 @@ struct astnode *newNode_ternary() {
  * newNode_assment - Creates an AST node for the
  * assignment expression operator (=).
  */
-struct astnode *newNode_assment(int op) {
-    struct astnode *node;
-    if ((node = malloc(sizeof(struct astnode))) == NULL) {
+astnode *newNode_assment(int op) {
+    astnode *node;
+    if ((node = malloc(sizeof(astnode))) == NULL) {
         fprintf(stderr, "Error allocating memory for AST node: %s\n", 
                                                     strerror(errno));
         exit(-1);
@@ -264,9 +264,9 @@ struct astnode *newNode_assment(int op) {
 /*
  * newNode_ptr - Creates an AST node for a pointer.
  */
-struct astnode *newNode_ptr() {
-    struct astnode *node;
-    if ((node = malloc(sizeof(struct astnode))) == NULL) {
+astnode *newNode_ptr() {
+    astnode *node;
+    if ((node = malloc(sizeof(astnode))) == NULL) {
         fprintf(stderr, "Error allocating memory for AST node: %s\n", 
                                                     strerror(errno));
         exit(-1);
@@ -280,9 +280,9 @@ struct astnode *newNode_ptr() {
 /*
  * newNode_arr - Creates an AST node for an array.
  */
-struct astnode *newNode_arr(int size) {
-    struct astnode *node;
-    if ((node = malloc(sizeof(struct astnode))) == NULL) {
+astnode *newNode_arr(int size) {
+    astnode *node;
+    if ((node = malloc(sizeof(astnode))) == NULL) {
         fprintf(stderr, "Error allocating memory for AST node: %s\n", 
                                                     strerror(errno));
         exit(-1);
@@ -296,16 +296,16 @@ struct astnode *newNode_arr(int size) {
 /*
  * newNode_type - Creates a new AST node for a scalar type.
  */
-struct astnode *newNode_type(enum Types type, _Bool is_signed) {
-    struct astnode *node;
-    if ((node = malloc(sizeof(struct astnode))) == NULL) {
+astnode *newNode_type(enum ScalarTypes type, _Bool is_signed) {
+    astnode *node;
+    if ((node = malloc(sizeof(astnode))) == NULL) {
         fprintf(stderr, "Error allocating memory for AST node: %s\n", 
                                                     strerror(errno));
         exit(-1);
     }
     node->nodetype = SCALAR_TYPE;
-    node->type.sign = is_signed;
-    node->type.type = type;
+    node->scalar_type.sign = is_signed;
+    node->scalar_type.type = type;
     return node;
 }
 
@@ -314,36 +314,95 @@ struct astnode *newNode_type(enum Types type, _Bool is_signed) {
  * newNode_fnc_type - Creates a new AST node for a
  * function type.
  */
-struct astnode *newNode_fnc_type(int arg_len) {
-    struct astnode *node;
-    if ((node = malloc(sizeof(struct astnode))) == NULL) {
+astnode *newNode_fnc_type(int arg_len) {
+    astnode *node;
+    if ((node = malloc(sizeof(astnode))) == NULL) {
         fprintf(stderr, "Error allocating memory for AST node: %s\n", 
                                                     strerror(errno));
         exit(-1);
     }
     node->nodetype = FNC_TYPE;
     node->fnc_type.arg_count = arg_len;
-    node->fnc_type.args_types = calloc(arg_len, sizeof(struct astnode *));
+    node->fnc_type.args_types = calloc(arg_len, sizeof(astnode *));
     node->fnc_type.return_type = NULL;
     return node;
 }
 
-
 /*
- * newNode_su_type - Creates a new AST node for the type
- * of a struct or union.
+ * newNode_stable_entry - creates a new AST node
+ * as a symbol table entry. There are several different
+ * versions of this AST node, and will be decided 
+ * based on the inputted enum.
+ * 
+ * This function gets called only after an error checking 
+ * function called 'is_tmp_STentry_correct' is called on 
+ * the temporary symbol table entry. This function is 
+ * defined in 'symbol_table.h'.
  */
-struct astnode *newNode_su_type() {
-    struct astnode *node;
-    if ((node = malloc(sizeof(struct astnode))) == NULL) {
-        fprintf(stderr, "Error allocating memory for AST node: %s\n", 
-                                                    strerror(errno));
-        exit(-1);
+astnode *newNode_stable_entry(TmpSymbolTableEntry *tmp_entry) {
+    
+    astnode *new_entry = calloc(1, sizeof(astnode));
+    if (!new_entry) {
+        fprintf(stderr, "Unable to allocate memory for "
+                "a new Symbol Table Entry: %s\n", strerror(errno));
     }
-    node->nodetype = SU_TYPE;
-    node->su_type.table = symbol_table_create();
-    return node;
+
+    new_entry->stable_entry.file_name = tmp_entry->file_name;
+    new_entry->stable_entry.line_num = tmp_entry->line_num;
+    new_entry->stable_entry.ident = tmp_entry->ident;
+    new_entry->stable_entry.type = tmp_entry->type;
+    new_entry->stable_entry.node = tmp_entry->node;
+
+    switch(tmp_entry->type) {
+        case VARIABLE_TYPE:
+            new_entry->nodetype = STABLE_VAR;
+            new_entry->stable_entry.var.storage_class = tmp_entry->var_fnc_storage_class;
+            new_entry->stable_entry.var.type_qualifier = tmp_entry->var_type_qualifier;
+            new_entry->stable_entry.var.offset_within_stack_frame = tmp_entry->var_offset_within_stack_frame;
+            break;
+        case FUNCTION_TYPE:
+            new_entry->nodetype = STABLE_FNC;
+            new_entry->stable_entry.fnc.storage_class = tmp_entry->var_fnc_storage_class;
+            new_entry->stable_entry.fnc.is_inline = tmp_entry->fnc_is_inline;
+            new_entry->stable_entry.fnc.is_defined = tmp_entry->fnc_is_defined;
+            new_entry->stable_entry.fnc.return_type = tmp_entry->fnc_return_type;
+            new_entry->stable_entry.fnc.args_types = tmp_entry->fnc_args_type;
+            break;
+        case SU_TAG_TYPE:
+            new_entry->nodetype = STABLE_SU_TAG;
+            new_entry->stable_entry.sutag.is_defined = tmp_entry->su_tag_is_defined;
+            new_entry->stable_entry.sutag.s_u_table = tmp_entry->su_tag_su_table;
+            break;
+        case ENUM_TAG:
+            new_entry->nodetype = STABLE_ENUM_TAG;
+            new_entry->stable_entry.enumtag.is_defined = tmp_entry->enum_tag_is_defined;
+            break;
+        case STATEMENT_LABEL:
+            new_entry->nodetype = STABLE_STMT_LABEL;
+            new_entry->stable_entry.stmtlabel.IR_assembly_label = tmp_entry->stmt_IR_assembly_label;
+            break;
+        case ENUM_CONST_TYPE:
+            new_entry->nodetype = STABLE_ENUM_CONST;
+            new_entry->stable_entry.enumconst.tag = tmp_entry->enum_parent_tag;
+            new_entry->stable_entry.enumconst.val = tmp_entry->enum_const_val;
+            break;
+        case TYPEDEF_NAME:
+            new_entry->nodetype = STABLE_TYPEDEF;
+            new_entry->stable_entry.typedef_name.equivalent_type = tmp_entry->typedef_type;
+            break;
+        case SU_MEMBER_TYPE:
+            new_entry->nodetype = STABLE_SU_MEMB;
+            new_entry->stable_entry.sumemb.type = tmp_entry->su_memb_type;
+            new_entry->stable_entry.sumemb.offset_within_s_u = tmp_entry->su_memb_offset;
+            new_entry->stable_entry.sumemb.bit_field_width = tmp_entry->su_memb_bit_field_width;
+            new_entry->stable_entry.sumemb.bit_offset = tmp_entry->su_memb_bit_offset;
+            break;
+    }
+
+    return new_entry;
+
 }
+
 
 
 /*
@@ -412,7 +471,7 @@ char *token2op(int token_name) {
  * 
  * This is in essense a preorder traversal.
  */
-void printAST(struct astnode *root, FILE *output_file) {
+void printAST(astnode *root, FILE *output_file) {
 
     FILE *output = (output_file) ? output_file : stdout;
     preorderTraversal(root, output, 0);
@@ -424,7 +483,7 @@ void printAST(struct astnode *root, FILE *output_file) {
  * preorderTraversal - A helper function for printAST. This
  * function implements preorder traversal for the AST printing.
  */
-void preorderTraversal(struct astnode *cur, FILE *output, int depth) {
+void preorderTraversal(astnode *cur, FILE *output, int depth) {
     if (cur == NULL)    /* for error checking, might be beneficial to throw error here */
         return;
 
@@ -523,7 +582,7 @@ void preorderTraversal(struct astnode *cur, FILE *output, int depth) {
             break;
         /********* NEEDS WORK *****/
         case PTR_TYPE:
-            fprintf(output, "TYPE DESIGNATOR: %s\n", stringFromTokens(cur->type.type));
+            fprintf(output, "TYPE DESIGNATOR: %s\n", stringFromTokens(cur->scalar_type.type));
             break;
         case ARRAY_TYPE:
             break;
@@ -531,7 +590,23 @@ void preorderTraversal(struct astnode *cur, FILE *output, int depth) {
             break;
         case FNC_TYPE:
             break;
-        case SU_TYPE:
+
+        /* symbol table entries */
+        case STABLE_VAR:
+            break;
+        case STABLE_FNC:
+            break;
+        case STABLE_SU_TAG:
+            break;
+        case STABLE_ENUM_TAG:
+            break;
+        case STABLE_STMT_LABEL:
+            break;
+        case STABLE_ENUM_CONST:
+            break;
+        case STABLE_TYPEDEF:
+            break;
+        case STABLE_SU_MEMB:
             break;
     }
 }
@@ -543,7 +618,7 @@ void preorderTraversal(struct astnode *cur, FILE *output, int depth) {
  *
  * This function does not return anything.
  */
-void freeTree(struct astnode *root) {
+void freeTree(astnode *root) {
     if (root == NULL)
         return;
     

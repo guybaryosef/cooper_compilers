@@ -3,7 +3,7 @@
  * By: Guy Bar Yosef
  * 
  * pheader_ast.h - A header file for the parser
- * that contains the abstract syntax tree structure
+ * that contains the abstract syntax tree struct
  * and associated functions:
  *  -   Create a new node.
  *  -   Print out the AST in the hakner-designated format.
@@ -19,133 +19,245 @@
 #include "symbol_table.h"
 
 
-/* struct for a token Identifer */
-#define IDENT_TYPE 1
-struct astnode_ident {
+////////////////////////////////////////////////////////
+/// Structs used in Abstract Syntax Tree Definitions ///
+////////////////////////////////////////////////////////
+
+#define IDENT_TYPE 1  /* struct for a token Identifer */
+struct astnode_ident {  
     char *str;
 };
 
-/* struct for a token numer */
-#define NUM_TYPE 2
+#define NUM_TYPE 2    /* struct for a token numer */
 struct astnode_num {
     int types;
     unsigned long long val;
     double d_val;
 }; 
 
-/* struct for a token binary operator */
-#define BINOP_TYPE 3
-#define COMPARE_TYPE 4  /* Comparison operatores (< > <= >=) are binary ops with diff AST-printing format */
-#define LOG_TYPE 5
+/* Comparison operators (< > <= >=) and logical 
+   operators (&& ||) are both binary operations.
+   The distinction is made only for 
+   differentiating the AST-printing format. */
+#define BINOP_TYPE 3    /* a binary operator    */
+#define COMPARE_TYPE 4  /* comparison operators */
+#define LOG_TYPE 5      /* logiacal operators   */
 struct astnode_binop {
     int op;
     struct astnode *left, *right;
 };
 
-/* struct for a token uniary operator */
-#define UNOP_TYPE 6
-#define ADDR_TYPE 7     /* address of op (&) is a unary op with different AST-printing format */
-#define DEREF_TYPE 8    /* dereferece operator (*) is a unary op with different AST-printing format */
-#define SIZEOF_TYPE 9
+/* The address-of operator (&), the dereference 
+   operator (*), and the SIZEOF function/expression
+   are all binary operations. The distinction is 
+   made only for differentiating the AST-printing format. */
+#define UNOP_TYPE 6   /* a unary operator       */
+#define ADDR_TYPE 7   /* address operator(&)    */
+#define DEREF_TYPE 8  /* dereferece operator(*) */
+#define SIZEOF_TYPE 9 /* sizeof operator        */
 struct astnode_unop {
     int op;
     struct astnode *expr;
 };
 
-/* struct for a token string literal */
-#define STRLIT_TYPE 10
+#define STRLIT_TYPE 10  /* a string literal */
 struct astnode_strlit {
     char *str;
     int str_size;
 };
 
-/* struct for a token character literal */
-#define CHRLIT_TYPE 11
+#define CHRLIT_TYPE 11  /* a character literal */
 struct astnode_chrlit {
     char c_val;
 };
 
-/* struct for a function argument */
-#define ARG_TYPE 12
+#define ARG_TYPE 12     /* a function argument */
 struct astnode_arg {
-    int num;        /* the argument number of the function */
+    int num;        /* the argument count of the function */
     struct astnode *expr;
 };
 
-/* Struct for argument list. This struct won't get printed, rather
-   instead it is a helper for the structs astnode_fnc and astnode_arg. */
+/* Struct for argument list. This struct won't get printed
+   or used in the actual AST. Rather it is used as a helper 
+   for the structs 'astnode_fnc' and 'astnode_arg'. */
 #define ARGLIST_TYPE 13
 struct astnode_arglist {
     int size;               /* numbers of arguments in the list */
     struct astnode **list;  /* the list of arguments            */
 };
 
-/* struct for a function call */
-#define FNC_CALL 14
+#define FNC_CALL 14 /* a function call */
 struct astnode_fnc {
     struct astnode *ident;       /* ident (name) of the funtion         */
     struct astnode **arguments;  /* the argument list of the function   */
     int arg_count;               /* number of arguments in the function */
 };
 
-/* struct for a selection expression (direct & indrect) */
-#define SLCT_TYPE 15
+#define SLCT_TYPE 15        /* a selection expression (direct & indrect) */
 struct astnode_slct {
     struct astnode *left, *right;   /* left-expression, right-identifier */
 };
 
-/* struct for the ternary operator */
-#define TERNARY_TYPE 16
+#define TERNARY_TYPE 16     /* a ternary operator */
 struct astnode_ternary {
     struct astnode *if_expr, *then_expr, *else_expr;
 };
 
-/* struct for the assignment operators - similar to binary operator in implementation */
-#define ASS_TYPE 17
+/* The assignment operator struct has identical
+   members as the binary operator stuct, however
+   it isn't a binary op and so is made into a 
+   seperate struct. */
+#define ASS_TYPE 17 /* the assignment operator */
 struct astnode_assignment {
     int op;
     struct astnode *left, *right;
 };
 
-/* struct for a pointer */
-#define PTR_TYPE 18
+#define PTR_TYPE 18  /* a pointer */
 struct astnode_ptr {
     struct astnode *pointee;
 };
 
-/* struct for a pointer */
-#define ARRAY_TYPE 19
+#define ARRAY_TYPE 19   /* an array */
 struct astnode_arr {
     int size;
     struct astnode *ptr;
 };
 
-/* struct for a scalar type */
-enum Types {Void, Char, Short, Int, Long, LongLong, 
+/* There are 10 different scalar types. They can be
+   either signed or unsigned, and so will all share
+   the same struct in the AST, differentiated with
+   an enum. */
+enum ScalarTypes {Void, Char, Short, Int, Long, LongLong, 
             Bool, Float, Double, LongDouble};
-#define SCALAR_TYPE 20
-struct astnode_type {
+#define SCALAR_TYPE 20  /* struct for a scalar type */
+struct astnode_scalar_type {
     _Bool sign;         /* 0- unsigned, 1-signed */
-    enum Types type;
+    enum ScalarTypes type;
 };
 
-/* struct for a function type */
-#define FNC_TYPE 21
+#define FNC_TYPE 21  /* a function type */
 struct astnode_fnc_type {
     struct astnode **args_types;  /* the types of the arguments         */
     int arg_count;                /* number of arguments in the function*/
     struct astnode *return_type;  /* the return type of the function    */
 };
 
-/* struct for a struct & union type */
-#define SU_TYPE 22
-struct astnode_su_type {
-    struct SymbolTable *table;
+
+////////////////////////////////////////////////////////
+//////////////// Symbol Table Structs //////////////////
+////////////////////////////////////////////////////////
+/* There are 10 different uses for identifiers in the C language, most
+ * of which require different attributes to be kept by the compiler.
+ * These identifiers will be placed into a symbol table, and they
+ * will be constructed as AST nodes. 
+ * 
+ * They will all be prefixed with stable to symbolize that they will
+ * be the entries of a symbol table (defined in file 'symbol_table.h'). 
+ * 
+ * The 10 identifier purposes are: variable name, function name, 
+ * typedef name, enum constant, struct tag, union tag, enum tag, label, 
+ * struct member, and union member.
+ * 
+ * The decision to use AST nodes as symbol table entries instead of
+ * a different, more specific struct is give flexibility for types
+ * such as 'pointer to a const int'. This pointer needs to point
+ * to a scalar int with a const type qualifier, and so in this case
+ * it will point to a symbol table entry. By having this polymorphic
+ * strucutre to the symbol table entries & AST nodes we are much 
+ * more flexible with how we implement these declarations.  
+ */
+enum SymbolTableStorageClass { Auto = 1, Register, Extern, Static};
+enum possibleTypeQualifiers { Const, Volatile, Restrict};
+enum SymbolTableTypeQualifiers { None = 0, C, V, R, CV, CR, VR, CVR};
+
+enum STEntry_Type { NO_TYPE = 0, VARIABLE_TYPE, FUNCTION_TYPE, 
+                    SU_TAG_TYPE, ENUM_TAG, STATEMENT_LABEL, 
+                    ENUM_CONST_TYPE, TYPEDEF_NAME, SU_MEMBER_TYPE};
+
+#define STABLE_VAR 23  /* s_table entry for a variable */
+struct stable_var {
+    enum SymbolTableStorageClass storage_class;
+    enum SymbolTableTypeQualifiers type_qualifier;
+    int offset_within_stack_frame;
+};
+
+#define STABLE_FNC 24  /* s_table entry for a function */
+struct stable_fnc {
+    enum SymbolTableStorageClass storage_class;
+    _Bool is_inline;
+    _Bool is_defined;
+    struct astnode *return_type;
+    struct astnode **args_types;
+};
+
+#define STABLE_SU_TAG 25  /* s_table entry for a struct/union tag */
+struct stable_sutag {
+    _Bool is_defined;
+    struct SymbolTable *s_u_table;
+};
+
+#define STABLE_ENUM_TAG 26  /* s_table entry for an enum tag */
+struct stable_enumtag {
+    _Bool is_defined;
+};
+
+#define STABLE_STMT_LABEL 27  /* s_table entry for a statement label */
+struct stable_stmtlabel {
+    int IR_assembly_label;
+};
+
+#define STABLE_ENUM_CONST 28  /* s_table entry for an enum constant */
+struct stable_enumconst {
+    struct SymbolTableEntry *tag;
+    int val;
+};
+
+#define STABLE_TYPEDEF 29  /* s_table entry for a typedef name */
+struct stable_typedef {
+    struct astnode *equivalent_type;
+};
+
+#define STABLE_SU_MEMB 30  /* s_table entry for a struct/union member */
+struct stable_sumemb {
+    struct astnode *type;
+    int offset_within_s_u;
+    int bit_field_width;
+    int bit_offset;
 };
 
 
-/* struct for an Abstract Syntax Tree */
-struct astnode {
+struct astnode_stable_entry {
+    char *file_name;        /* file name where the ident first appeared  */
+    int line_num;           /* line number of file where ident appeared  */
+    enum STEntry_Type type; /* the type of ident that the entry holds     */
+    struct astnode *node;   /* the AST node that represents this entry    */
+    char *ident;            /* ident name */
+
+    union { /* anonymous union */
+        struct stable_var var;
+        struct stable_fnc fnc;
+        struct stable_sutag sutag;
+        struct stable_enumtag enumtag;
+        struct stable_stmtlabel stmtlabel;
+        struct stable_enumconst enumconst;
+        struct stable_typedef typedef_name;
+        struct stable_sumemb sumemb;
+    };
+};
+
+
+
+
+
+
+
+
+//////////////////////////////////////////////////////////
+///////////// Abstract Syntax Tree Definition ////////////
+//////////////////////////////////////////////////////////
+/* struct for an  */
+typedef struct astnode {
     int nodetype;   /* the node type as based on the macros above       */
     union {         /* anonymous union for the different token values   */
         struct astnode_num num;
@@ -162,35 +274,38 @@ struct astnode {
         struct astnode_assignment assignment;
         struct astnode_ptr ptr;
         struct astnode_arr arr;
-        struct astnode_type type;
+        struct astnode_scalar_type scalar_type;
         struct astnode_fnc_type fnc_type;
-        struct astnode_su_type su_type;
+        struct astnode_stable_entry stable_entry;
     };
 } astnode;
 
+//////////////////////////////////////////////////////////
+///////////// Abstract Syntax Tree Functions /////////////
+//////////////////////////////////////////////////////////
 
-/*
- * This class of functions create new Abstract Tree Nodes.
- */
-struct astnode *newNode_num(struct YYnum num);                  /* Integers and floats      */
-struct astnode *newNode_str(int token_name, struct YYstr str);  /* IDENTs, CHRLITs, & STRLITS */
-struct astnode *newNode_unop(int token_name);                   /* unary operation  */
-struct astnode *newNode_binop(int token_name);                  /* binary operation */
+//////// Constructors for the different AST nodes /////////
+astnode *newNode_num(struct YYnum num);                  /* Integers and floats      */
+astnode *newNode_str(int token_name, struct YYstr str);  /* IDENTs, CHRLITs, & STRLITS */
+astnode *newNode_unop(int token_name);                   /* unary operation  */
+astnode *newNode_binop(int token_name);                  /* binary operation */
 
 /* Handles functions and function arguments */
-struct astnode *newNode_fnc();
-struct astnode *newNode_arglist();
+astnode *newNode_fnc();
+astnode *newNode_arglist();
 void expand_arglist(struct astnode *);  /* makes the argument list greater by 1 */
-struct astnode *newNode_arg(int num);
+astnode *newNode_arg(int num);
 
-struct astnode *newNode_slct();                          /* Component selection */
-struct astnode *newNode_ternary();                  /* ternary operator         */
-struct astnode *newNode_assment();                  /* assignment expressions   */
-struct astnode *newNode_ptr();                                  /* pointer type */
-struct astnode *newNode_arr(int size);                          /* array type   */
-struct astnode *newNode_type(enum Types type, _Bool is_signed); /* scalar type  */
-struct astnode *newNode_fnc_type(int arg_len);                  /* function type*/
-struct astnode *newNode_su_type();                      /* struct or union type */
+astnode *newNode_slct();         /* Component selection */
+astnode *newNode_ternary();      /* ternary operator         */
+astnode *newNode_assment();      /* assignment expressions   */
+astnode *newNode_ptr();          /* pointer type */
+astnode *newNode_arr(int size);  /* array type   */
+astnode *newNode_type(enum ScalarTypes, _Bool is_signed); /* scalar type  */
+astnode *newNode_fnc_type(int arg_len);  /* function type*/
+
+/* Handles new symbol table entries */
+astnode *newNode_stable(enum STEntry_Type);
 
 
 /*

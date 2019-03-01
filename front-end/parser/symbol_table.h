@@ -24,72 +24,6 @@
 #include "pheader_ast.h"
 
 
-struct SymbolTable; /* Incomplete definition. Defined fully after SymbolTableEntry. */
-
-
-/* There are 10 different uses for identifiers in the C language, most
- * of which require different attributes to be kept by the compiler.
- * This will be implemented through an anonymous union. 
- * 
- * The 10 identifier purposes are: variable name, function name, 
- * typedef name, enum constant, struct tag, union tag, enum tag, label, 
- * struct member, and union member.
- */
-enum SymbolTableStorageClass { Auto = 1, Register, Extern, Static};
-enum possibleTypeQualifiers { Const, Volatile, Restrict};
-enum SymbolTableTypeQualifiers { None = 0, C, V, R, CV, CR, VR, CVR};
-
-
-enum STEntry_Type { NO_TYPE = 0, VARIABLE_TYPE, FUNCTION_TYPE, SU_TAG_TYPE, ENUM_TAG, STATEMENT_LABEL, 
-                    ENUM_CONST_TYPE, TYPEDEF_NAME, SU_MEMBER_TYPE};
-
-typedef struct SymbolTableEntry {
-    char *file_name;        /* file name where the identifier first appeared  */
-    int line_num;           /* line number of file where identifier appeared  */
-    char *ident;            /* identifier name */
-    enum STEntry_Type type;     /* the type of identifier that the entry holds    */
-    struct astnode *node;   /* the AST node that represents this entry    */
-
-    union { /* anonymous union for the different identifier uses */
-        struct variable {
-            enum SymbolTableStorageClass storage_class;
-            enum SymbolTableTypeQualifiers type_qualifier;
-            int offset_within_stack_frame;
-        } variable;
-        struct function {
-            enum SymbolTableStorageClass storage_class;
-            int is_inline;
-            int is_defined;
-            struct astnode *return_type;
-            struct astnode **args_types;
-        } function;
-        struct s_u_tag {
-            int is_defined;
-            struct SymbolTable *s_u_table;
-        } s_u_tag;
-        struct enum_tag {
-            int is_defined;
-        } enum_tag;
-        struct statement_label {
-            int IR_assembly_label;
-        } statement_label;
-        struct enum_const {
-            struct SymbolTableEntry *tag;
-            int val;
-        } enum_const;
-        struct typedef_name {
-            struct astnode *equivalent_type;
-        } typedef_name;
-        struct s_u_member {
-            struct astnode *type;
-            int offset_within_s_u;
-            int bit_field_width;
-            int bit_offset;
-        } s_u_member;
-    };
-} SymbolTableEntry;
-
-
 
 
 
@@ -99,9 +33,9 @@ typedef struct SymbolTableEntry {
 #define SYMBOL_TABLE_INIT_SIZE 5
 
 typedef struct SymbolTable {
-    int size;                   /* number of spaces for enties  */
-    int filled;                 /* number of entries in table   */
-    SymbolTableEntry **data;    /* hash table (pointer to an array of SymbolTableEntries) */
+    int size;          /* number of spaces for enties  */
+    int filled;        /* number of entries in table   */
+    astnode **data;    /* hash table (pointer to an array of SymbolTableEntries) */
 } SymbolTable;
 
 
@@ -118,22 +52,29 @@ enum ScopeType { File = 1, Function, Block, Proto };
 typedef struct ScopeStackLayer {
     enum ScopeType scope_type;  /* one of the 4 types of scopes     */
     SymbolTable *tables[4];     /* diff table for each namespace    */
-    struct ScopeStackLayer *parent;    /* the scope layer above this layer */ 
+    struct ScopeStackLayer *child;  /* next link in linked list of scopes */ 
 } ScopeStackLayer;
 
 
-/* contains a linked list of scopes, begining with the innermost scope. */
+/* The ScopeStack will be a singly linked list of scopes,
+   beginning with the innermost scope and working outwards
+   towards file (global) scope. */
 typedef struct ScopeStack {
     ScopeStackLayer *innermost_scope;
 } ScopeStack;
 
 
+/* The TmpSymbolTableEntry struct serves as an intermediatary
+   symbol table entry builder. It will hold all the declaration
+   types that are specified and will then be converted into an
+   actual symbol table entry (which is an abstract syntax tree
+   (AST) node) using an error checking function. */
 typedef struct TmpSymbolTableEntry {
     char *file_name;        /* file name where the identifier first appeared  */
     int line_num;           /* line number of file where identifier appeared  */
     char *ident;            /* identifier name */
     enum STEntry_Type type;/* the type of identifier that the entry holds    */
-    struct astnode *node;   /* the AST node that represents this entry    */
+    astnode *node;          /* the AST node that represents this entry    */
 
     /* variable and function */
     enum SymbolTableStorageClass var_fnc_storage_class;
@@ -149,11 +90,11 @@ typedef struct TmpSymbolTableEntry {
     struct astnode **fnc_args_type;
 
     /* struct/union tag */
-    int su_tag_is_defined;
+    _Bool su_tag_is_defined;
     struct SymbolTable *su_tag_su_table;
 
     /* enum tag */
-    int enum_tag_is_defined;
+    _Bool enum_tag_is_defined;
 
     /* enum const */
     struct SymbolTableEntry *enum_parent_tag;
@@ -197,8 +138,7 @@ void symbol_table_destroy(SymbolTable *table);
  * this function inserts the entry into the table and returns a 1
  * on sucess and a -1 on error.
  */
-int symbol_table_insert(SymbolTable *table, SymbolTableEntry *entry, 
-                        int dup_toggle);
+int symbol_table_insert(SymbolTable *table, astnode *entry, int dup_toggle);
 
 
 /*
@@ -252,12 +192,5 @@ void update_type_qualifier_for_tmp_stable_entry(TmpSymbolTableEntry *entry,
  */
 _Bool is_tmp_STentry_correct(TmpSymbolTableEntry *entry);
 
-
-/*
- * create_new_entry - Creates a new Symbol Table Entry. Will be called
- * after checking that the TempSymbolTableEntry is valid with regards
- * to the actual identifier type.
- */
-SymbolTableEntry *create_new_entry(TmpSymbolTableEntry *tmp_entry);
 
 #endif

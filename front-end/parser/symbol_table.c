@@ -59,17 +59,19 @@ void symbol_table_destroy(SymbolTable *table) {
  * Initially, the symbol table will use linear probing to address
  * hash collisions.
  */
-int symbol_table_insert(SymbolTable *table, SymbolTableEntry *entry, int dup_toggle) {
+int symbol_table_insert(SymbolTable *table, astnode *entry, int dup_toggle) {
     
     /*  keep the symbol table at least twice the size of the 
         # of elements so that our lookups stay fast */
     if (table->filled >= table->size/2)
         symbol_table_resize(table);
 
-    int data_ind = symbol_table_hash(entry->ident, table->size);
+    int data_ind = symbol_table_hash(entry->stable_entry.ident, table->size);
 
     // linear probing
-    while (table->data[data_ind] && table->data[data_ind]->ident != entry->ident)
+    while (table->data[data_ind] && 
+                table->data[data_ind]->stable_entry.ident != 
+                entry->stable_entry.ident)
         data_ind = (data_ind+1) % table->size;
 
     if (table->data[data_ind]) { /* identifier already appears in scope & namespace */
@@ -100,12 +102,13 @@ int symbol_table_insert(SymbolTable *table, SymbolTableEntry *entry, int dup_tog
  * Initially, the symbol table will use linear probing to address
  * hash collisions.
  * */
-SymbolTableEntry *symbol_table_lookup(SymbolTable *table, char *entry_name) {
+astnode *symbol_table_lookup(SymbolTable *table, char *entry_name) {
     
     int data_ind = symbol_table_hash(entry_name, table->size);
 
     // linear probing
-    while (table->data[data_ind] && table->data[data_ind]->ident != entry_name)
+    while (table->data[data_ind] && 
+           table->data[data_ind]->stable_entry.ident != entry_name)
         data_ind = (data_ind+1) % table->size;
 
     // Insert entry into correct place in table
@@ -135,7 +138,7 @@ int symbol_table_resize(SymbolTable *table) {
     }
 
     // Allocate space for the new array
-    SymbolTableEntry **new_data = calloc(new_size, sizeof(SymbolTableEntry *));
+    astnode **new_data = calloc(new_size, sizeof(astnode *));
     if (!new_data) {
         fprintf(stderr, "Error expanding a symbol table: %s\n", strerror(errno));
         return -1;
@@ -144,7 +147,7 @@ int symbol_table_resize(SymbolTable *table) {
     // Iterate through old data, updating new data array
     for (int i = 0 ; i < primes[prime_ind-1] ; ++i) {
         if (table->data[i]) {
-            new_data[symbol_table_hash(table->data[i]->ident, new_size)] = table->data[i];
+            new_data[symbol_table_hash(table->data[i]->stable_entry.ident, new_size)] = table->data[i];
         }
     }
 
@@ -379,64 +382,4 @@ _Bool is_tmp_STentry_correct(TmpSymbolTableEntry *entry) {
             break;
     }
     return 1;
-}
-
-
-/*
- * create_new_entry - Creates a new Symbol Table Entry. Will be called
- * after checking that the TempSymbolTableEntry is valid with regards
- * to the actual identifier type.
- */
-SymbolTableEntry *create_new_entry(TmpSymbolTableEntry *tmp_entry) {
-    SymbolTableEntry *new_entry = 
-        calloc(1, sizeof(SymbolTableEntry));
-    if (!new_entry) {
-        fprintf(stderr, "Unable to allocate memory for "
-                "a new Symbol Table Entry: %s\n", strerror(errno));
-    }
-    new_entry->file_name = tmp_entry->file_name;
-    new_entry->line_num = tmp_entry->line_num;
-    new_entry->ident = tmp_entry->ident;
-    new_entry->type = tmp_entry->type;
-    new_entry->node = tmp_entry->node;
-
-    switch(new_entry->type) {
-        case VARIABLE_TYPE:
-            new_entry->variable.storage_class = tmp_entry->var_fnc_storage_class;
-            new_entry->variable.type_qualifier = tmp_entry->var_type_qualifier;
-            new_entry->variable.offset_within_stack_frame = tmp_entry->var_offset_within_stack_frame;
-            break;
-        case FUNCTION_TYPE:
-            new_entry->function.storage_class = tmp_entry->var_fnc_storage_class;
-            new_entry->function.is_inline = tmp_entry->fnc_is_inline;
-            new_entry->function.is_defined = tmp_entry->fnc_is_defined;
-            new_entry->function.return_type = tmp_entry->fnc_return_type;
-            new_entry->function.args_types = tmp_entry->fnc_args_type;
-            break;
-        case SU_TAG_TYPE:
-            new_entry->s_u_tag.is_defined = tmp_entry->su_tag_is_defined;
-            new_entry->s_u_tag.s_u_table = tmp_entry->su_tag_su_table;
-            break;
-        case ENUM_TAG:
-            new_entry->enum_tag.is_defined = tmp_entry->enum_tag_is_defined;
-            break;
-        case STATEMENT_LABEL:
-            new_entry->statement_label.IR_assembly_label = tmp_entry->stmt_IR_assembly_label;
-            break;
-        case ENUM_CONST_TYPE:
-            new_entry->enum_const.tag = tmp_entry->enum_parent_tag;
-            new_entry->enum_const.val = tmp_entry->enum_const_val;
-            break;
-        case TYPEDEF_NAME:
-            new_entry->typedef_name.equivalent_type = tmp_entry->typedef_type;
-            break;
-        case SU_MEMBER_TYPE:
-            new_entry->s_u_member.type = tmp_entry->su_memb_type;
-            new_entry->s_u_member.offset_within_s_u = tmp_entry->su_memb_offset;
-            new_entry->s_u_member.bit_field_width = tmp_entry->su_memb_bit_field_width;
-            new_entry->s_u_member.bit_offset = tmp_entry->su_memb_bit_offset;
-            break;
-    }
-
-    return new_entry;
 }
