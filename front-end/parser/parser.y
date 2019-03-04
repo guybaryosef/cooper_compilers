@@ -51,7 +51,7 @@
 %token <simple_int> UNION UNSIGNED VOID VOLATILE WHILE _BOOL _COMPLEX _IMAGINARY
 
 
-/****************************** EXPRESSION GRAMMAR ******************************/
+/**************************** EXPRESSION GRAMMAR-TYPES ****************************/
 %type <astnode_p> comma-expr expr
 %type <astnode_p> conditional-expr
 %type <astnode_p> logical-or-expr logical-and-expr
@@ -65,10 +65,17 @@
 %type <astnode_p> primary-expr
 
 
-/************************** TYPES GRAMMAR TYPES (hehe) **************************/
+/************************** TYPES GRAMMAR-TYPES (hehe) **************************/
 %type <storage_class> storage-class-specifier 
 %type <possible_type_qualifier> type-qualifier
-%type <ident_type> enum-type-specifier float-type-specifier int-type-specifier struct-type-specifier typedef-type-specifier union-type-specifier void-type-specifier
+%type <astnode_p> enum-type-specifier float-type-specifier int-type-specifier struct-type-specifier typedef-type-specifier union-type-specifier void-type-specifier
+
+%type <astnode_p> signed-type-specifier unsigned-type-specifier character-type-specifier bool-type-specifier complex-type-specifier imag-type-specifier
+
+%type <astnode_p> struct-type-definition struct-type-reference
+
+%type <str> struct-tag
+
 %type <ident_type> type-specifier
 
 %type <simple_int> fnc-specifier
@@ -83,7 +90,7 @@
 %type <st_entry> declaration
 
 
-/*************************** TOP-LEVEL GRAMMAR TYPES ****************************/
+/*************************** TOP-LEVEL GRAMMAR-TYPES ****************************/
 %type <astnode_p> compound-stmt stmt decl-or-stmt decl-or-stmt-list  
 %start decl-or-stmt-list    /* last but most significant :) */
 
@@ -538,6 +545,108 @@ decl-specifiers: storage-class-specifier        {
                                                 }   
                ;
 
+type-specifier: enum-type-specifier     { $$ = $1; }
+              | float-type-specifier    { $$ = $1; }
+              | int-type-specifier      { $$ = $1; }
+              | struct-type-specifier   { $$ = $1; }
+              | typedef-type-specifier  { $$ = $1; } 
+              | union-type-specifier    { $$ = $1; }
+              | void-type-specifier     { $$ = $1; }
+              ;
+
+int-type-specifier: signed-type-specifier       { $$ = $1; }
+                  | unsigned-type-specifier     { $$ = $1; }
+                  | character-type-specifier    { $$ = $1; }
+                  | bool-type-specifier         { $$ = $1; }
+                  ;
+
+signed-type-specifier: SHORT            { $$ = newNode_scalarType(Short, 1);  }
+                     | SHORT INT        { $$ = newNode_scalarType(Short, 1);  }
+                     | SIGNED SHORT     { $$ = newNode_scalarType(Short, 1);  }
+                     | SIGNED SHORT INT { $$ = newNode_scalarType(Short, 1);  }
+                     | INT              { $$ = newNode_scalarType(Int, 1);    }
+                     | SIGNED INT       { $$ = newNode_scalarType(Int, 1);    }
+                     | SIGNED           { $$ = newNode_scalarType(Int, 1);    }
+                     | LONG             { $$ = newNode_scalarType(Long, 1);   } 
+                     | LONG INT         { $$ = newNode_scalarType(Long, 1);   }
+                     | SIGNED LONG      { $$ = newNode_scalarType(Long, 1);   }
+                     | SIGNED LONG INT  { $$ = newNode_scalarType(Long, 1);   }
+                     | LONG LONG            { $$ = newNode_scalarType(LongLong, 1);}
+                     | LONG LONG INT        { $$ = newNode_scalarType(LongLong, 1);}
+                     | SIGNED LONG LONG     { $$ = newNode_scalarType(LongLong, 1);}
+                     | SIGNED LONG LONG INT { $$ = newNode_scalarType(LongLong, 1);}
+                     ;
+
+unsigned-type-specifier: UNSIGNED SHORT        { $$ = newNode_scalarType(Short, 0);   }
+                       | UNSIGNED SHORT INT    { $$ = newNode_scalarType(Short, 0);   }
+                       | UNSIGNED              { $$ = newNode_scalarType(Int, 0);     }
+                       | UNSIGNED INT          { $$ = newNode_scalarType(Int, 0);     }
+                       | UNSIGNED LONG         { $$ = newNode_scalarType(Long, 0);    }
+                       | UNSIGNED LONG INT     { $$ = newNode_scalarType(Long, 0);    }
+                       | UNSIGNED LONG LONG    { $$ = newNode_scalarType(LongLong, 0);}
+                       | UNSIGND LONG LONG INT { $$ = newNode_scalarType(LongLong, 0);}
+                       ;
+
+/* a plain 'char' was chosen to be an 'unsigned char' */
+character-type-specifier: CHAR              { $$ = newNode_scalarType(Char, 0);}
+                        | SIGNED CHAR       { $$ = newNode_scalarType(LongLong, 1);}
+                        | UNSIGNED CHAR     { $$ = newNode_scalarType(LongLong, 1);}
+                        ;
+
+bool-type-specifier: _BOOL { $$ = newNode_scalarType(Bool, 0); }
+                   ;
+
+float-type-specifier: FLOAT                  { $$ = newNode_scalarType(Float, 0);       }
+                    | DOUBLE                 { $$ = newNode_scalarType(Double, 0);      }
+                    | LONG DOUBLE            { $$ = newNode_scalarType(LongDouble, 0);  }
+                    | complex-type-specifier { $$ = $1; }
+                    | imag-type-specifier    { $$ = $1; }
+                    ;
+
+complex-type-specifier: FLOAT _COMPLEX       { $$ = newNode_scalarType(FloatComplex, 0);     }
+                      | DOUBLE _COMPLEX      { $$ = newNode_scalarType(DoubleComplex, 0);    }
+                      | LONG DOUBLE _COMPLEX { $$ = newNode_scalarType(LongDoubleComplex, 0);}
+                      ;
+
+imag-type-specifier: FLOAT _IMAGINARY       { $$ = newNode_scalarType(FloatImag, 0);     }
+                   | DOUBLE _IMAGINARY      { $$ = newNode_scalarType(DoubleImag, 0);    }
+                   | LONG DOUBLE _IMAGINARY { $$ = newNode_scalarType(LongDoubleImag, 0);}
+                   ;
+
+/* for now not implementing enums, will be completed with more time */
+enum-type-specifier: ENUM   { $$ = newNode_scalarType(Int, 0); }
+                   ;
+
+struct-type-specifier: struct-type-definition   { $$ = $1; }
+                     | struct type-reference    { $$ = $1; }
+                     ;
+
+struct-type-definition: STRUCT '{' field-list '}'
+                      | STRUCT struct-tag '{' field-list '}'
+                      ;
+
+struct-type-reference: STRUCT struct-tag   { $$ = searchStackScope(3, $20>str); }
+                     ;
+
+struct-tag: IDENT   { $$ = $1; }
+          ;
+
+field-list: component-declaration
+          | field-list component-declaration
+          ;
+
+component-declaration: type-specifier component-declarator-list ';'
+                     ;
+
+component-declarator-list: component-declarator
+                         | component-declarator-list ',' component-declarator
+                         ;
+
+component-declarator: declarator
+                    /* we will not be implementing bit-fields in struct definitions */
+                    ;
+
+
 
 /* due to the possibility for a list of declarators, we implement the 
    decl-init-list nontoken as pointer to a pointer to an astnode_p.  */
@@ -563,16 +672,6 @@ storage-class-specifier: AUTO           { $$ = Auto;        }
 
 fnc-specifier: INLINE  { $$ = 1; }
              ;
-
-
-type-specifier: enum-type-specifier     { $$ = ENUM_TAG;    }
-              | float-type-specifier    { $$ = VARIABLE_TYPE;   }
-              | int-type-specifier      { $$ = VARIABLE_TYPE; }
-              | struct-type-specifier   { $$ = SU_TAG_TYPE;  }
-              | typedef-type-specifier  { $$ = TYPEDEF_NAME; }
-              | union-type-specifier    { $$ = SU_TAG_TYPE;   }
-              | void-type-specifier     { $$ = NO_TYPE;    }
-              ;
 
 
 type-qualifier: CONST           { $$ = Const;    }

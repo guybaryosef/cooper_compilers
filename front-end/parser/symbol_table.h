@@ -110,9 +110,9 @@ typedef struct TmpSymbolTableEntry {
 } TmpSymbolTableEntry;
 
 
-/////////////////////////////////////////////////////////////////////
-///////////////////////////// FUNCTIONS /////////////////////////////
-/////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////
+/////////////////////// Symbol Table Functions ///////////////////////
+//////////////////////////////////////////////////////////////////////
 
 /*
  * sTableCreate - Allocates memory for a new, empty symbol
@@ -142,7 +142,7 @@ int sTableInsert(SymbolTable *table, astnode *entry, int dup_toggle);
  * function returns a pointer to the symbol table entry that represents this
  * identifier. If no such entry is found in any scope, NULL is returned.
  */
-SymbolTableEntry *sTableLookUp(SymbolTable *table, char *entry);
+astnode *sTableLookUp(SymbolTable *table, char *entry);
 
 
 /*
@@ -186,6 +186,40 @@ void typeQualifierSTableEntry(TmpSymbolTableEntry *entry,
  * Returns 1 (true) or 0(false).
  */
 _Bool isTmpSTableEntryValid(TmpSymbolTableEntry *entry);
+
+
+//////////////////////////////////////////////////////////////////////
+////////////////////// Scope Related Functions ///////////////////////
+//////////////////////////////////////////////////////////////////////
+
+/*
+ * searchStackScope - Given a namespace and an identifier, this 
+ * function searches through the scope stack (innermost to outermost) 
+ * in search of the first variable identifier that correctly matches 
+ * the identifier.
+ * 
+ * If no such identifier it found, a NULL pointer is returned.
+ */
+astnode *searchStackScope(enum ScopeType namespace, char *ident);
+
+
+/*
+ * createNewScope - This function creates a new scope.
+ * 
+ * Implementation-wise, this function acts as a constructor for the
+ * ScopeStackLayer struct.
+ */
+ScopeStackLayer *createNewScope(enum ScopeType type);
+
+
+/*
+ * deleteInnermostScope - This function deletes the innermost scope
+ * that is in the scope stack. Deleting here refers to freeing the
+ * memory, erasing all the symbol tables in the scope. 
+ */
+void deleteInnermostScope();
+
+
 
 
 #endif

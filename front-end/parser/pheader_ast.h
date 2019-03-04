@@ -129,7 +129,9 @@ struct astnode_arr {
    the same struct in the AST, differentiated with
    an enum. */
 enum ScalarTypes {Void, Char, Short, Int, Long, LongLong, 
-            Bool, Float, Double, LongDouble};
+            Bool, Float, Double, LongDouble, FloatComplex,
+            DoubleComplex, LongDoublComplex, FloatImag, 
+            DoubleImag, LongDoubleImag};
 #define SCALAR_TYPE 20  /* struct for a scalar type */
 struct astnode_scalar_type {
     _Bool sign;         /* 0- unsigned, 1-signed */
@@ -312,8 +314,8 @@ astnode *newNode_ternary();      /* ternary operator         */
 astnode *newNode_assment();      /* assignment expressions   */
 astnode *newNode_ptr();          /* pointer type */
 astnode *newNode_arr(int size);  /* array type   */
-astnode *newNode_type(enum ScalarTypes, _Bool is_signed); /* scalar type  */
-astnode *newNode_fnc_type(int arg_len);  /* function type*/
+astnode *newNode_scalarType(enum ScalarTypes, _Bool is_signed); /* scalar type  */
+astnode *newNode_fncType(int arg_len);  /* function type*/
 
 /* Handles new symbol table entries */
 astnode *newNode_sTableEntry(TmpSymbolTableEntry *tmp_entry);

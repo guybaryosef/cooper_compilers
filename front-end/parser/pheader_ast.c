@@ -301,9 +301,9 @@ astnode *newNode_arr(int size) {
 }
 
 /*
- * newNode_type - Creates a new AST node for a scalar type.
+ * newNodeType - Creates a new AST node for a scalar type.
  */
-astnode *newNode_type(enum ScalarTypes type, _Bool is_signed) {
+astnode *newNodeType(enum ScalarTypes type, _Bool is_signed) {
     astnode *node;
     if ((node = malloc(sizeof(astnode))) == NULL) {
         fprintf(stderr, "Error allocating memory for AST node: %s\n", 
@@ -318,10 +318,10 @@ astnode *newNode_type(enum ScalarTypes type, _Bool is_signed) {
 
 
 /*
- * newNode_fnc_type - Creates a new AST node for a
+ * newNode_fncType - Creates a new AST node for a
  * function type.
  */
-astnode *newNode_fnc_type(int arg_len) {
+astnode *newNode_fncType(int arg_len) {
     astnode *node;
     if ((node = malloc(sizeof(astnode))) == NULL) {
         fprintf(stderr, "Error allocating memory for AST node: %s\n", 

@@ -13,6 +13,10 @@
 #include <stdlib.h>
 
 
+//////////////////////////////////////////////////////////////////////
+/////////////////////// Symbol Table Functions ///////////////////////
+//////////////////////////////////////////////////////////////////////
+
 /*
  * sTableCreate - Allocates memory for a new, empty symbol
  * table with the size specified in the macro SYMBOL_TABLE_INIT_SIZE.
@@ -111,8 +115,10 @@ astnode *sTableLookUp(SymbolTable *table, char *entry_name) {
            table->data[data_ind]->stable_entry.ident != entry_name)
         data_ind = (data_ind+1) % table->size;
 
-    // Insert entry into correct place in table
-    table->data[data_ind];
+    if (table->data[data_ind]->stable_entry.ident == entry_name)
+        return table->data[data_ind];
+    else
+        return NULL;
 }
 
 
@@ -383,3 +389,73 @@ _Bool isTmpSTableEntryValid(TmpSymbolTableEntry *entry) {
     }
     return 1;
 }
+
+
+//////////////////////////////////////////////////////////////////////
+////////////////////// Scope Related Functions ///////////////////////
+//////////////////////////////////////////////////////////////////////
+
+/*
+ * searchStackScope - Given a namespace and an identifier, this 
+ * function searches through the scope stack (innermost to outermost) 
+ * in search of the first variable identifier that correctly matches 
+ * the identifier.
+ * 
+ * If no such identifier it found, a NULL pointer is returned.
+ */
+astnode *searchStackScope(enum ScopeType namespace, char *ident) {
+    
+    ScopeStackLayer *cur_scope = scope_stack.innermost_scope;
+    while(cur_scope){
+        astnode *res = sTableLookup(cur_scope->tables[namespace], ident);
+        if (res)
+            return res;
+        
+        cur_scope = cur_scope->child;
+    }
+
+    return NULL;
+}
+
+
+/*
+ * createNewScope - This function creates a new scope.
+ * 
+ * Implementation-wise, this function acts as a constructor for the
+ * ScopeStackLayer struct.
+ */
+ScopeStackLayer *createNewScope(enum ScopeType type) {
+    ScopeStackLayer *new_scope = malloc(sizeof(ScopeStackLayer));
+    if (!new_scope) {
+        fprintf(stderr, "Unable to allocate memory for a new"
+                "temporary Symbol Table Entry: %s\n", strerror(errno));
+    }
+
+    for (int i = 0 ; i < 4 ; ++i)
+        new_scope->tables[i] = sTableCreate();
+
+    new_scope->child = NULL;
+    new_scope->scope_type = type;
+    return new_scope;
+}
+
+
+/*
+ * deleteInnermostScope - This function deletes the innermost scope
+ * that is in the scope stack. Deleting here refers to freeing the
+ * memory, erasing all the symbol tables in the scope. 
+ */
+void deleteInnermostScope() {
+    ScopeStackLayer *new_innermost = scope_stack.innermost_scope->child;
+    if (!new_innermost) {   /* the scope stack consists of only file scope */
+        error("Unable to delete file (global) scope of a translation unit");
+        exit(-1);
+    }
+
+    for (int i = 0 ; i < 4 ; ++i)
+        free(scope_stack.innermost_scope->tables[i]);
+    free(scope_stack.innermost_scope);
+    scope_stack.innermost_scope = new_innermost;
+}
+
+
