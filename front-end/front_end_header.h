@@ -40,17 +40,16 @@ struct YYstr {
 #define EXTERN_VAR extern
 #endif
 
-EXTERN_VAR int cur_line_num;		                /* current line number	                */
-EXTERN_VAR int error_count;                         /* Counts errors - stops after 10       */
-EXTERN_VAR char cur_file_name[LINESIZE+1];		    /* current file name                    */
-EXTERN_VAR char tmp[20];							/* temp helper variable                 */
-EXTERN_VAR char strlit_buffer[MAX_STRLIT_SIZE];	    /* buffer for string literals           */
+EXTERN_VAR int cur_line_num;		            /* current line number	           */
+EXTERN_VAR int error_count;                     /* Counts errors - stops after 10  */
+EXTERN_VAR char cur_file_name[LINESIZE+1];		/* current file name               */
+EXTERN_VAR char tmp[20];						/* temp helper variable            */
+EXTERN_VAR char strlit_buffer[MAX_STRLIT_SIZE]; /* buffer for string literals      */
 EXTERN_VAR char *helper_end, *helper_begin; 
-EXTERN_VAR int yycolumn;                            /* implements locations for the lexer   */
-EXTERN_VAR TmpSymbolTableEntry *tmp_st_entry;       /* temporarary symbol table entry       */
+EXTERN_VAR int yycolumn;                        /* implements locations for the lexer */
+EXTERN_VAR ScopeStack scope_stack;              /* scope linked list               */
 
-
-EXTERN_VAR YYSTYPE yylval;                          /* The infamous yylval */
+EXTERN_VAR YYSTYPE yylval;                      /* The infamous yylval */
 
 /*
  * initializeFrontEnd - A function for initializing

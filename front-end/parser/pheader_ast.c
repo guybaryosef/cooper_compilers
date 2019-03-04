@@ -19,6 +19,11 @@
 #include "pheader_ast.h"
 
 
+////////////////////////////////////////////////////////
+////// Constructors for Abstract Syntax Tree Nodes /////
+////////////////////////////////////////////////////////
+
+
 /*
  *  newNode_num - Creates a new AST node of type num.
  */
@@ -279,6 +284,8 @@ astnode *newNode_ptr() {
 
 /*
  * newNode_arr - Creates an AST node for an array.
+ * 
+ * An input of -1 indicates that it is an incomplete array type.
  */
 astnode *newNode_arr(int size) {
     astnode *node;
@@ -329,7 +336,7 @@ astnode *newNode_fnc_type(int arg_len) {
 }
 
 /*
- * newNode_stable_entry - creates a new AST node
+ * newNode_sTableEntry - creates a new AST node
  * as a symbol table entry. There are several different
  * versions of this AST node, and will be decided 
  * based on the inputted enum.
@@ -339,7 +346,7 @@ astnode *newNode_fnc_type(int arg_len) {
  * the temporary symbol table entry. This function is 
  * defined in 'symbol_table.h'.
  */
-astnode *newNode_stable_entry(TmpSymbolTableEntry *tmp_entry) {
+astnode *newNode_sTableEntry(TmpSymbolTableEntry *tmp_entry) {
     
     astnode *new_entry = calloc(1, sizeof(astnode));
     if (!new_entry) {
@@ -349,7 +356,6 @@ astnode *newNode_stable_entry(TmpSymbolTableEntry *tmp_entry) {
 
     new_entry->stable_entry.file_name = tmp_entry->file_name;
     new_entry->stable_entry.line_num = tmp_entry->line_num;
-    new_entry->stable_entry.ident = tmp_entry->ident;
     new_entry->stable_entry.type = tmp_entry->type;
     new_entry->stable_entry.node = tmp_entry->node;
 
@@ -403,6 +409,33 @@ astnode *newNode_stable_entry(TmpSymbolTableEntry *tmp_entry) {
 
 }
 
+
+/* 
+ * The constructor for the astnode_list struct.
+ * This struct will be used for a declaration list. 
+ */
+astnode_list *newASTnodeList(int len, astnode **cur_list) {
+    astnode_list *new_list = malloc(sizeof(astnode_list));
+    if (!new_list) {
+        fprintf(stderr, "Error allocating memory for astnode list: %s\n", strerror(errno));
+        exit(-1);
+    }
+
+    new_list->list = malloc(len*sizeof(astnode *));
+    if (!new_list->list) {
+        fprintf(stderr, "Error allocating memory for astnode list: %s\n", strerror(errno));
+        exit(-1);
+    }
+    if (cur_list)
+        *(new_list->list) = *cur_list;   
+
+    new_list->len = len;
+    return new_list;
+}
+
+//////////////////////////////////////////////////////////
+///////////// Abstract Syntax Tree Functions /////////////
+//////////////////////////////////////////////////////////
 
 
 /*

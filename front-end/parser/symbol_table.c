@@ -14,10 +14,10 @@
 
 
 /*
- * symbol_table_create - Allocates memory for a new, empty symbol
+ * sTableCreate - Allocates memory for a new, empty symbol
  * table with the size specified in the macro SYMBOL_TABLE_INIT_SIZE.
  */
-SymbolTable *symbol_table_create() {
+SymbolTable *sTableCreate() {
     SymbolTable *new_table = calloc(1, sizeof(SymbolTable));
     if (!new_table) {
         fprintf(stderr, "Error allocating memory for symbol table: %s\n",
@@ -37,11 +37,11 @@ SymbolTable *symbol_table_create() {
 
 
 /*
- * symbol_table_destroy - Given a symbol table, this function 
+ * sTableDestroy - Given a symbol table, this function 
  * frees all its associated memory and return a 1 on sucess and
  * a -1 on error.
  */
-void symbol_table_destroy(SymbolTable *table) {
+void sTableDestroy(SymbolTable *table) {
     for (int i = 0; i < table->size ; ++i ) {
         if (table->data[i])
             free(table->data[i]);
@@ -52,14 +52,14 @@ void symbol_table_destroy(SymbolTable *table) {
 
 
 /*
- * symbol_table_insert - Given a symbol table and a symbol table,
+ * sTableInsert - Given a symbol table and a symbol table,
  * this function inserts the entry into the table and returns a 1
  * on sucess and a -1 if the entry already exists.
  * 
  * Initially, the symbol table will use linear probing to address
  * hash collisions.
  */
-int symbol_table_insert(SymbolTable *table, astnode *entry, int dup_toggle) {
+int sTableInsert(SymbolTable *table, astnode *entry, int dup_toggle) {
     
     /*  keep the symbol table at least twice the size of the 
         # of elements so that our lookups stay fast */
@@ -95,14 +95,14 @@ int symbol_table_insert(SymbolTable *table, astnode *entry, int dup_toggle) {
 
 
 /*
- * symbol_table_lookup - Given a symbol table and a symbol table entry, this
+ * sTableLookUp - Given a symbol table and a symbol table entry, this
  * function returns a pointer to the symbol table entry that represents this
  * identifier. If no such entry is found in any scope, NULL is returned.
  * 
  * Initially, the symbol table will use linear probing to address
  * hash collisions.
  * */
-astnode *symbol_table_lookup(SymbolTable *table, char *entry_name) {
+astnode *sTableLookUp(SymbolTable *table, char *entry_name) {
     
     int data_ind = symbol_table_hash(entry_name, table->size);
 
@@ -117,12 +117,12 @@ astnode *symbol_table_lookup(SymbolTable *table, char *entry_name) {
 
 
 /*
- * symbol_table_resize - Resizes a symbol table by increasing its size 
+ * sTableResize - Resizes a symbol table by increasing its size 
  * to the next predetermined hash table size.
  * 
  * Returns 1 on sucess, -1 on error.
  */
-int symbol_table_resize(SymbolTable *table) {
+int sTableResize(SymbolTable *table) {
 
     // Determine new table size
     /* hash table size options. Lets be honest, wont be larger than 3569 */
@@ -160,9 +160,9 @@ int symbol_table_resize(SymbolTable *table) {
 
 
 /*
- * symbol_table_hash - Hashes an identifier, modulus the hashtable's capacity.
+ * sTableHash - Hashes an identifier, modulus the hashtable's capacity.
  */
-int symbol_table_hash(char *ident, int capacity) {
+int sTableHash(char *ident, int capacity) {
     int hashVal = 0;
 
     for (int i = 0 ;i < strlen(ident) ; ++i)
@@ -177,7 +177,7 @@ int symbol_table_hash(char *ident, int capacity) {
 
 
 /*
- * symbol_table_creat_tmpentry - creates a temporary symbol table
+ * createTmpSTableEntry - creates a temporary symbol table
  * entry strucutre, which will serve as a temporary place holder
  * for all the different declarator specifiers, until a type can 
  * be decided on, in which case an error checking function will
@@ -185,7 +185,7 @@ int symbol_table_hash(char *ident, int capacity) {
  * type and then form an actual symbol table entry out of this
  * temporary structure.
  */
-TmpSymbolTableEntry *symbol_table_create_tmpentry() {
+TmpSymbolTableEntry *createTmpSTableEntry() {
 
     TmpSymbolTableEntry *new_entry = 
         calloc(1, sizeof(TmpSymbolTableEntry));
@@ -198,10 +198,10 @@ TmpSymbolTableEntry *symbol_table_create_tmpentry() {
 
 
 /*
- * update_type_qualifier_for_tmp_stable_entry - Updates the
+ * typeQualifierSTableEntry - Updates the
  * type qualifier of the temporary symbol table entry.
  */
-void update_type_qualifier_for_tmp_stable_entry(TmpSymbolTableEntry *entry,
+void typeQualifierSTableEntry(TmpSymbolTableEntry *entry,
                                                 enum possibleTypeQualifiers qualifier) {
     switch(entry->var_type_qualifier) {
         case None:
@@ -270,13 +270,13 @@ void update_type_qualifier_for_tmp_stable_entry(TmpSymbolTableEntry *entry,
 
 
 /*
- * is_tmp_STentry_correct - Given a TmpSymbolTAbleEntry object,
+ * isTmpSTableEntryValid - Given a TmpSymbolTAbleEntry object,
  * this function determins whether the declaration specifiers
  * for the specified type are valid. 
  * 
  * Returns 1 (true) or 0(false).
  */
-_Bool is_tmp_STentry_correct(TmpSymbolTableEntry *entry) {
+_Bool isTmpSTableEntryValid(TmpSymbolTableEntry *entry) {
     
     /* This function checks, for each declared type, whether
     all specifier incompatible with this type are NULL or 0,

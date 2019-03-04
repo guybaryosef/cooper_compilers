@@ -24,9 +24,9 @@
     struct YYnum num;
     struct YYstr str;
 
-    struct astnode *astnode_p; /* abstract syntax node pointer */
-    struct astnode **astnode_pp;
-    SymbolTableEntry *st_entry;
+    struct astnode *astnode_p;      /* abstract syntax tree (AST) node pointer */
+    astnode_list astnode_pp;    /* pointer to an array of AST node pointers*/
+
     enum possibleTypeQualifiers possible_type_qualifier;
     enum SymbolTableStorageClass storage_class;
     enum STEntry_Type ident_type;
@@ -438,52 +438,98 @@ type-name:   { $$ = NULL; }
          ;
 
 
-declaration: decl-specifiers ';'                    { /* valid but does NOTHING */ }
-           | decl-specifiers decl-init-list ';'     { 
-                                                        /* create_new_entry(tmp_st_entry);
-                                                          for each var in the decl-init-list.
-                                                          Then reset tmp_st_entry */  
-                                                    }
+declaration: decl-specifiers ';'    { 
+                                        /* valid but does NOTHING */ 
+                                    }
+           | decl-specifiers decl-init-list ';' {
+
+                                        if (!isTmpSTableEntryValid($1)) {
+                                            error("Error in declaration specifiers.");
+                                        }
+                                        else {
+                                            for (int i = 0; i < $2->len; ++i) {
+                                                /* create new symbol table entry */
+                                                astnode *new_node = newNode_sTableEntry($1);
+                                                new_node->stable_entry.ident = 
+                                                    $2->list[i]->stable_entry.ident;
+                                                switch(new_node->stable_entry.type) {
+                                                    case VARIABLE_TYPE:
+                                                    break;
+                                                    case FUNCTION_TYPE:
+                                                        break;
+                                                    case SU_TAG_TYPE:
+                                                        break;
+                                                    case ENUM_TAG:
+                                                        break;
+                                                    case STATEMENT_LABEL:
+                                                        break;
+                                                    case ENUM_CONST_TYPE:
+                                                        break;
+                                                    case TYPEDEF_NAME:
+                                                        break;
+                                                    case SU_MEMBER_TYPE:
+                                                        break;
+                                                }
+                                                new_node->stable_entry.node = 
+                                                    $2->list[i]->stable_entry.node;
+                                                
+                                                /* add it to the symbol table */
+                                                int ns_ind;
+                                                if (new_node->stable_entry.type == STATEMENT_LABEL)
+                                                    ns_ind = 1;  /* statment labels        */
+                                                else if (new_node->stable_entry.type == ENUM_TAG ||
+                                                         new_node->stable_entry.type == SU_TAG_TYPE)
+                                                    ns_ind = 2;  /* tags (idents of struct/union/enum) */
+                                                else if (new_node->stable_entry.type == SU_MEMBER_TYPE)
+                                                    ns_ind = 3;  /* struct/union members */
+                                                else
+                                                    ns_ind = 4;  /* all other identifier classes */
+
+                                                if(sTableInsert(scope_stack->innermost_scope[ns_ind], 
+                                                                astnode *new_node) < 0)
+                                                    error("Unable to insert variable into symbol table");
+                                                
+                                                free($2->list[i]);
+                                            }
+                                        }
+                                        
+                                        free($2);
+                                        free($1);
+                                    }
            ;
 
-decl-specifiers: storage-class-specifier                    { 
-                                                                $$ = symbol_table_create_tmpentry();
-                                                                if (tmp_st_entry.var_fnc_storage_class)
-                                                                    error("Can't have multiple storage class specifiers");
-                                                                else
-                                                                    $$.var_fnc_storage_class = $1;
-                                                            }
+decl-specifiers: storage-class-specifier        { 
+                                                    $$ = createTmpSTableEntry();
+                                                    $$.var_fnc_storage_class = $1;
+                                                }
                | storage-class-specifier decl-specifiers    { 
-                                                                $$ = $2;
-                                                                if (tmp_st_entry.var_fnc_storage_class)
-                                                                    error("Can't have multiple storage classes per declaration specifiers");
-                                                                else
-                                                                    $$.var_fnc_storage_class = $1;
-                                                            }
-               | type-specifier                             {
-                                                                $$ = symbol_table_create_tmpentry();
-                                                                if (tmp_st_entry.type)
-                                                                    error("Can't have multiple types per declaration specifier");
-                                                                else
-                                                                    $$.type = $1;                                                                
-                                                            }
-               | type-specifier decl-specifiers             {
-                                                                $$ = $2;
-                                                                if (tmp_st_entry.type)
-                                                                    error("Can't have multiple storage classes per declaration specifiers");
-                                                                else
-                                                                    $$.type = $1;                                                                
-                                                            }
-               | type-qualifier {   
-                                    $$ = symbol_table_create_tmpentry();
-                                    update_type_qualifier_for_tmp_stable_entry($$, $1);         
-                                }
+                                                    $$ = $2;
+                                                    if ($$.var_fnc_storage_class)
+                                                        error("Can't have multiple storage classes per declaration specifiers");
+                                                    else
+                                                        $$.var_fnc_storage_class = $1;
+                                                }
+               | type-specifier                 {
+                                                    $$ = createTmpSTableEntry();
+                                                    $$.type = $1;                                                                
+                                                }
+               | type-specifier decl-specifiers {
+                                                    $$ = $2;
+                                                    if ($$.type)
+                                                        error("Can't have multiple storage classes per declaration specifiers");
+                                                    else
+                                                        $$.type = $1;                                                                
+                                                }
+               | type-qualifier                 {   
+                                                    $$ = createTmpSTableEntry();
+                                                    typeQualifierSTableEntry($$, $1);         
+                                                }
                | type-qualifier decl-specifiers {   
                                                     $$ = $2;
-                                                    update_type_qualifier_for_tmp_stable_entry($$, $1);         
+                                                    typeQualifierSTableEntry($$, $1);         
                                                 }
                | fnc-specifier                  {
-                                                    $$ = symbol_table_create_tmpentry();
+                                                    $$ = createTmpSTableEntry();
                                                     $$.fnc_is_inline = 1;
                                                 }               
                | fnc-specifier decl-specifiers  {
@@ -493,12 +539,17 @@ decl-specifiers: storage-class-specifier                    {
                ;
 
 
-decl-init-list: init-decl    
-              | decl-init-list ',' init-decl
+/* due to the possibility for a list of declarators, we implement the 
+   decl-init-list nontoken as pointer to a pointer to an astnode_p.  */
+decl-init-list: init-decl       { $$ = newASTnodeList(1, NULL); $$->list[0] = $1; }  
+              | decl-init-list ',' init-decl    {
+                                                    $$ = newASTnodeList($1->len+1, $1);
+                                                    $$->list[$$->len-1] = $3;
+                                                }
               ; 
 
 init-decl: declarator                   { $$ = $1; }
-         /* we will not allow  'declarator = initializer' (initialized declerations), at least for now. */  
+         /* For simplicity we will not implement initialized declerations. */  
          ;
 
 storage-class-specifier: AUTO           { $$ = Auto;        }
@@ -524,14 +575,14 @@ type-specifier: enum-type-specifier     { $$ = ENUM_TAG;    }
               ;
 
 
-type-qualifier: CONST           { $$ = Const; }
+type-qualifier: CONST           { $$ = Const;    }
               | VOLATILE        { $$ = Volatile; }
               | RESTRICT        { $$ = Restrict; }
               ;
 
 
-declarator: pointer-declarator          { $$ = $1; }
-          | direct-declarator           { $$ = $1; }
+declarator: pointer-declarator  { $$ = $1; }
+          | direct-declarator   { $$ = $1; }
           ;
 
 
@@ -547,25 +598,38 @@ pointer: '*'                        { /* what do we do? */ }
                                             }
        ;
 
-type-qualifier-list: type-qualifier     {   
-                                            $$ = symbol_table_create_tmpentry();
-                                            update_type_qualifier_for_tmp_stable_entry($$, $1);         
-                                        }
+type-qualifier-list: type-qualifier                     {   
+                                                            $$ = createTmpSTableEntry();
+                                                            typeQualifierSTableEntry($$, $1);         
+                                                        }
                    | type-qualifier-list type-qualifier {   
                                                             $$ = $2;
-                                                            update_type_qualifier_for_tmp_stable_entry($$, $1);         
+                                                            typeQualifierSTableEntry($$, $1);         
                                                         }
                    ;
 
-direct-declarator: simple-declarator
+direct-declarator: simple-declarator    { $$ = $1; }
                  | '(' declarator ')'   { $$ = $2; }
-                 | fnc-declarator
-                 | array-declarator
+                 | fnc-declarator       { $$ = $1; }
+                 | array-declarator     { $$ = $1; }
                  ;
 
 
 simple-declarator: IDENT    { $$ = $1; } /* need to figure out what to do */
                  ;
+
+array-declarator: direct-declarator '[' ']'         {
+                                                        $$ = newNode_arr(-1);
+                                                        $$
+                                                    }
+                | direct-declarator '[' NUMBER ']'
+                /* for now only allow these type of array declarations. We will 
+                   also simplify by not implementing variable-length arrays. */
+                ;
+
+fnc-declarator: direct-declarator '(' ')'
+              /* simpilify function parameters to only include (). */
+              ;
 
 
 

@@ -20,11 +20,7 @@
 #ifndef SYMBOL_TABLE
 #define SYMBOL_TABLE
 
-
 #include "pheader_ast.h"
-
-
-
 
 
 /* To allow for efficient symbol table lookups, the symbol table will be
@@ -119,51 +115,51 @@ typedef struct TmpSymbolTableEntry {
 /////////////////////////////////////////////////////////////////////
 
 /*
- * symbol_table_create - Allocates memory for a new, empty symbol
+ * sTableCreate - Allocates memory for a new, empty symbol
  * table with the size specified in the macro SYMBOL_TABLE_INIT_SIZE.
  */
-SymbolTable *symbol_table_create();
+SymbolTable *sTableCreate();
 
 
 /*
- * symbol_table_destroy - Given a symbol table, this function 
+ * sTableDestroy - Given a symbol table, this function 
  * frees all its associated memory and return a 1 on sucess and
  * a -1 on error.
  */
-void symbol_table_destroy(SymbolTable *table);
+void sTableDestroy(SymbolTable *table);
 
 
 /*
- * symbol_table_insert - Given a symbol table and a symbol table,
+ * sTableInsert - Given a symbol table and a symbol table,
  * this function inserts the entry into the table and returns a 1
  * on sucess and a -1 on error.
  */
-int symbol_table_insert(SymbolTable *table, astnode *entry, int dup_toggle);
+int sTableInsert(SymbolTable *table, astnode *entry, int dup_toggle);
 
 
 /*
- * symbol_table_lookup - Given a symbol table and a symbol table entry, this
+ * sTableLookUp - Given a symbol table and a symbol table entry, this
  * function returns a pointer to the symbol table entry that represents this
  * identifier. If no such entry is found in any scope, NULL is returned.
  */
-SymbolTableEntry *symbol_table_lookup(SymbolTable *table, char *entry);
+SymbolTableEntry *sTableLookUp(SymbolTable *table, char *entry);
 
 
 /*
- * symbol_table_resize - Resizes a symbol table by increasing its size 
+ * sTableResize - Resizes a symbol table by increasing its size 
  * to the next predetermined hash table size.
  */
-int symbol_table_resize(SymbolTable *table);
+int sTableResize(SymbolTable *table);
 
 
 /*
- * symbol_table_hash - Produces the hash of an identifier.
+ * sTableHash - Produces the hash of an identifier.
  */
-int symbol_table_hash(char *ident, int mod);
+int sTableHash(char *ident, int mod);
 
 
 /*
- * symbol_table_creat_tmpentry - creates a temporary symbol table
+ * createTmpSTableEntry - creates a temporary symbol table
  * entry strucutre, which will serve as a temporary place holder
  * for all the different declarator specifiers, until a type can 
  * be decided on, in which case an error checking function will
@@ -171,26 +167,25 @@ int symbol_table_hash(char *ident, int mod);
  * type and then form an actual symbol table entry out of this
  * temporary structure.
  */
-TmpSymbolTableEntry *symbol_table_create_tmpentry();
+TmpSymbolTableEntry *createTmpSTableEntry();
 
 
 /*
- * update_type_qualifier_for_tmp_stable_entry - Updates the
+ * typeQualifierSTableEntry - Updates the
  * type qualifier of the temporary symbol table entry.
  */
-void update_type_qualifier_for_tmp_stable_entry(TmpSymbolTableEntry *entry,
+void typeQualifierSTableEntry(TmpSymbolTableEntry *entry,
                                                 enum possibleTypeQualifiers qualifier);
 
 
-
 /*
- * is_tmp_STentry_correct - Given a TmpSymbolTAbleEntry object,
+ * isTmpSTableEntryValid - Given a TmpSymbolTAbleEntry object,
  * this function determins whether the declaration specifiers
  * for the specified type are valid. 
  * 
  * Returns 1 (true) or 0(false).
  */
-_Bool is_tmp_STentry_correct(TmpSymbolTableEntry *entry);
+_Bool isTmpSTableEntryValid(TmpSymbolTableEntry *entry);
 
 
 #endif

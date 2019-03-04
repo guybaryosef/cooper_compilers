@@ -18,8 +18,14 @@
  * the front-end.
  */
 void initializeFrontEnd() {
+    /* error checking variables */
     cur_line_num = 1;
 	error_count = 0;
     yycolumn = 1;
-    tmp_st_entry = symbol_table_create_tmpentry();
+
+    /* scope stack initialization */
+    scope_stack.innermost_scope = calloc(sizeof(ScopeStackLayer));
+    if (!scope_stack.innermost_scope)
+        error("Unable to allocate memory for the scope stack");
+    scope_stack.innermost_scope->scope_type = File;
 }

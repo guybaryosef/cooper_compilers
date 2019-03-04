@@ -256,7 +256,6 @@ struct astnode_stable_entry {
 //////////////////////////////////////////////////////////
 ///////////// Abstract Syntax Tree Definition ////////////
 //////////////////////////////////////////////////////////
-/* struct for an  */
 typedef struct astnode {
     int nodetype;   /* the node type as based on the macros above       */
     union {         /* anonymous union for the different token values   */
@@ -279,6 +278,18 @@ typedef struct astnode {
         struct astnode_stable_entry stable_entry;
     };
 } astnode;
+
+
+/* A simple struct used in the parser that acts as an array of 
+   AST nodes. It is used when we have a declarator list. */
+typedef struct astnode_list {
+    astnode **list;
+    int len;
+} astnode_list;
+
+/* astnode_list's constructor */
+astnode_list *newASTnodeList(int len, astnode **cur_list);
+
 
 //////////////////////////////////////////////////////////
 ///////////// Abstract Syntax Tree Functions /////////////
@@ -305,7 +316,7 @@ astnode *newNode_type(enum ScalarTypes, _Bool is_signed); /* scalar type  */
 astnode *newNode_fnc_type(int arg_len);  /* function type*/
 
 /* Handles new symbol table entries */
-astnode *newNode_stable(enum STEntry_Type);
+astnode *newNode_sTableEntry(TmpSymbolTableEntry *tmp_entry);
 
 
 /*
