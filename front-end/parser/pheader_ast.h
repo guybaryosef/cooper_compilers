@@ -145,6 +145,10 @@ struct astnode_fnc_type {
     struct astnode *return_type;  /* the return type of the function    */
 };
 
+#define STRUCT_TYPE 22 /* struct for a struct type */
+struct astnode_struct {
+    struct SymbolTable *stable;
+};
 
 ////////////////////////////////////////////////////////
 //////////////// Symbol Table Structs //////////////////
@@ -277,6 +281,7 @@ typedef struct astnode {
         struct astnode_arr arr;
         struct astnode_scalar_type scalar_type;
         struct astnode_fnc_type fnc_type;
+        struct astnode_struct strct;
         struct astnode_stable_entry stable_entry;
     };
 } astnode;
@@ -316,6 +321,7 @@ astnode *newNode_ptr();          /* pointer type */
 astnode *newNode_arr(int size);  /* array type   */
 astnode *newNode_scalarType(enum ScalarTypes, _Bool is_signed); /* scalar type  */
 astnode *newNode_fncType(int arg_len);  /* function type*/
+astnode *newNode_strctType();    /* struct type  */
 
 /* Handles new symbol table entries */
 astnode *newNode_sTableEntry(TmpSymbolTableEntry *tmp_entry);

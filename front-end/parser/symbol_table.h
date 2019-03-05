@@ -87,7 +87,6 @@ typedef struct TmpSymbolTableEntry {
 
     /* struct/union tag */
     _Bool su_tag_is_defined;
-    struct SymbolTable *su_tag_su_table;
 
     /* enum tag */
     _Bool enum_tag_is_defined;
@@ -188,6 +187,22 @@ void typeQualifierSTableEntry(TmpSymbolTableEntry *entry,
 _Bool isTmpSTableEntryValid(TmpSymbolTableEntry *entry);
 
 
+/*
+ * Takes in a temporary symbol table entry of declaration specifiers
+ * (which includes type specifiers, qualifiers, storage class, etc) as 
+ * well as an astnode_list struct that contains an array of declarators,
+ * and combines them into a astnode_list of symbol table entries.
+ * 
+ * This function is used for both the declarator grammar and for the 
+ * grammar that makes up a struct definition.
+ * 
+ * Note that this function is called after any error checking and assumes
+ * the input to be valid.
+ */
+astnode_list *combineSpecifierDeclarator(TmpSymbolTableEntry *specifier, astnode_list declarator_list);
+
+
+
 //////////////////////////////////////////////////////////////////////
 ////////////////////// Scope Related Functions ///////////////////////
 //////////////////////////////////////////////////////////////////////
@@ -218,6 +233,7 @@ ScopeStackLayer *createNewScope(enum ScopeType type);
  * memory, erasing all the symbol tables in the scope. 
  */
 void deleteInnermostScope();
+
 
 
 

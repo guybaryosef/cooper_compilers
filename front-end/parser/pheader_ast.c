@@ -336,6 +336,25 @@ astnode *newNode_fncType(int arg_len) {
 }
 
 /*
+ * newNode_strctType - Creates a new AST node that holds
+ * the symbol table of a struct type.
+ */
+astnode *newNode_strctType() {
+    astnode *node;
+    if ((node = malloc(sizeof(astnode))) == NULL) {
+        fprintf(stderr, "Error allocating memory for AST node: %s\n", 
+                                                    strerror(errno));
+        exit(-1);
+    }
+    node->nodetype = STRUCT_TYPE;
+    node->strct.stable = sTableCreate();
+    return node;
+}
+
+
+
+
+/*
  * newNode_sTableEntry - creates a new AST node
  * as a symbol table entry. There are several different
  * versions of this AST node, and will be decided 
@@ -352,6 +371,11 @@ astnode *newNode_sTableEntry(TmpSymbolTableEntry *tmp_entry) {
     if (!new_entry) {
         fprintf(stderr, "Unable to allocate memory for "
                 "a new Symbol Table Entry: %s\n", strerror(errno));
+    }
+
+    if (!tmp_entry) {   /* applies to struct declarations */
+
+        return new_entry;
     }
 
     new_entry->stable_entry.file_name = tmp_entry->file_name;
@@ -377,7 +401,6 @@ astnode *newNode_sTableEntry(TmpSymbolTableEntry *tmp_entry) {
         case SU_TAG_TYPE:
             new_entry->nodetype = STABLE_SU_TAG;
             new_entry->stable_entry.sutag.is_defined = tmp_entry->su_tag_is_defined;
-            new_entry->stable_entry.sutag.s_u_table = tmp_entry->su_tag_su_table;
             break;
         case ENUM_TAG:
             new_entry->nodetype = STABLE_ENUM_TAG;
@@ -426,6 +449,7 @@ astnode_list *newASTnodeList(int len, astnode **cur_list) {
         fprintf(stderr, "Error allocating memory for astnode list: %s\n", strerror(errno));
         exit(-1);
     }
+
     if (cur_list)
         *(new_list->list) = *cur_list;   
 

@@ -25,7 +25,7 @@
     struct YYstr str;
 
     struct astnode *astnode_p;      /* abstract syntax tree (AST) node pointer */
-    astnode_list astnode_pp;    /* pointer to an array of AST node pointers*/
+    astnode_list *astnode_pp;    /* pointer to an array of AST node pointers*/
 
     enum possibleTypeQualifiers possible_type_qualifier;
     enum SymbolTableStorageClass storage_class;
@@ -73,8 +73,10 @@
 %type <astnode_p> signed-type-specifier unsigned-type-specifier character-type-specifier bool-type-specifier complex-type-specifier imag-type-specifier
 
 %type <astnode_p> struct-type-definition struct-type-reference
-
 %type <str> struct-tag
+%type <astnode_pp> field-list member-declaration member-declarator-list
+%type <astnode_p> member-declarator8ujm  
+
 
 %type <ident_type> type-specifier
 
@@ -87,7 +89,7 @@
 %type <TmpSymbolTableEntry *> decl-specifiers /* pretty sure about this one */
 
 %type <astnode_pp> decl-init-list 
-%type <st_entry> declaration
+%type <astnode_pp> declaration
 
 
 /*************************** TOP-LEVEL GRAMMAR-TYPES ****************************/
@@ -446,103 +448,74 @@ type-name:   { $$ = NULL; }
 
 
 declaration: decl-specifiers ';'    { 
-                                        /* valid but does NOTHING */ 
-                                    }
+                    /* valid but does NOTHING */ 
+                }
            | decl-specifiers decl-init-list ';' {
+                    if (!isTmpSTableEntryValid($1)) {
+                        error("Error in declaration specifiers.");
+                    }
+                    else {
+                        /* create the new symbol table entries */
+                        $$ = combineSpecifierDeclarator($1, $2); 
 
-                                        if (!isTmpSTableEntryValid($1)) {
-                                            error("Error in declaration specifiers.");
-                                        }
-                                        else {
-                                            for (int i = 0; i < $2->len; ++i) {
-                                                /* create new symbol table entry */
-                                                astnode *new_node = newNode_sTableEntry($1);
-                                                new_node->stable_entry.ident = 
-                                                    $2->list[i]->stable_entry.ident;
-                                                switch(new_node->stable_entry.type) {
-                                                    case VARIABLE_TYPE:
-                                                    break;
-                                                    case FUNCTION_TYPE:
-                                                        break;
-                                                    case SU_TAG_TYPE:
-                                                        break;
-                                                    case ENUM_TAG:
-                                                        break;
-                                                    case STATEMENT_LABEL:
-                                                        break;
-                                                    case ENUM_CONST_TYPE:
-                                                        break;
-                                                    case TYPEDEF_NAME:
-                                                        break;
-                                                    case SU_MEMBER_TYPE:
-                                                        break;
-                                                }
-                                                new_node->stable_entry.node = 
-                                                    $2->list[i]->stable_entry.node;
-                                                
-                                                /* add it to the symbol table */
-                                                int ns_ind;
-                                                if (new_node->stable_entry.type == STATEMENT_LABEL)
-                                                    ns_ind = 1;  /* statment labels        */
-                                                else if (new_node->stable_entry.type == ENUM_TAG ||
-                                                         new_node->stable_entry.type == SU_TAG_TYPE)
-                                                    ns_ind = 2;  /* tags (idents of struct/union/enum) */
-                                                else if (new_node->stable_entry.type == SU_MEMBER_TYPE)
-                                                    ns_ind = 3;  /* struct/union members */
-                                                else
-                                                    ns_ind = 4;  /* all other identifier classes */
+                        /* add the new entries to the symbol table */
+                        int ns_ind;
+                        for (int i = 0 ; i < $$.len; ++i) {
+                            if ($$->list[i]->stable_entry.type == STATEMENT_LABEL)
+                                ns_ind = 1;  /* statment labels        */
+                            else if ($$->list[i]->stable_entry.type == ENUM_TAG ||
+                                     $$->list[i]->stable_entry.type == SU_TAG_TYPE)
+                                ns_ind = 2;  /* tags (idents of struct/union/enum) */
+                            else if ($$->list[i]->stable_entry.type == SU_MEMBER_TYPE)
+                                ns_ind = 3;  /* struct/union members */
+                            else
+                                ns_ind = 4;  /* all other identifier classes */
 
-                                                if(sTableInsert(scope_stack->innermost_scope[ns_ind], 
-                                                                astnode *new_node) < 0)
-                                                    error("Unable to insert variable into symbol table");
-                                                
-                                                free($2->list[i]);
-                                            }
-                                        }
-                                        
-                                        free($2);
-                                        free($1);
-                                    }
+                            if(sTableInsert(scope_stack->innermost_scope[ns_ind], $$->list[i]) < 0)
+                                error("Unable to insert variable into symbol table");
+                        }
+                    }
+                }
            ;
 
-decl-specifiers: storage-class-specifier        { 
-                                                    $$ = createTmpSTableEntry();
-                                                    $$.var_fnc_storage_class = $1;
-                                                }
-               | storage-class-specifier decl-specifiers    { 
-                                                    $$ = $2;
-                                                    if ($$.var_fnc_storage_class)
-                                                        error("Can't have multiple storage classes per declaration specifiers");
-                                                    else
-                                                        $$.var_fnc_storage_class = $1;
-                                                }
-               | type-specifier                 {
-                                                    $$ = createTmpSTableEntry();
-                                                    $$.type = $1;                                                                
-                                                }
+decl-specifiers: storage-class-specifier { 
+                        $$ = createTmpSTableEntry();
+                        $$->var_fnc_storage_class = $1;
+                    }
+               | storage-class-specifier decl-specifiers { 
+                        $$ = $2;
+                        if ($$->var_fnc_storage_class)
+                            error("Can't have multiple storage classes per declaration specifiers");
+                        else
+                            $$->var_fnc_storage_class = $1;
+                    }
+               | type-specifier {
+                        $$ = createTmpSTableEntry();
+                        $$->node = $1;                                                                
+                    }
                | type-specifier decl-specifiers {
-                                                    $$ = $2;
-                                                    if ($$.type)
-                                                        error("Can't have multiple storage classes per declaration specifiers");
-                                                    else
-                                                        $$.type = $1;                                                                
-                                                }
-               | type-qualifier                 {   
-                                                    $$ = createTmpSTableEntry();
-                                                    typeQualifierSTableEntry($$, $1);         
-                                                }
+                        $$ = $2;
+                        if ($$->node)
+                            error("Can't have multiple type specifiers for a declaration specifiers");
+                        else
+                            $$->node = $1;                                                                
+                    }
+               | type-qualifier {   
+                        $$ = createTmpSTableEntry();
+                        typeQualifierSTableEntry($$, $1);         
+                    }
                | type-qualifier decl-specifiers {   
-                                                    $$ = $2;
-                                                    typeQualifierSTableEntry($$, $1);         
-                                                }
-               | fnc-specifier                  {
-                                                    $$ = createTmpSTableEntry();
-                                                    $$.fnc_is_inline = 1;
-                                                }               
+                        $$ = $2;
+                        typeQualifierSTableEntry($$, $1);         
+                    }
+               | fnc-specifier      {
+                        $$ = createTmpSTableEntry();
+                        $$->fnc_is_inline = 1;
+                    }               
                | fnc-specifier decl-specifiers  {
-                                                    $$ = $2;
-                                                    $$.fnc_is_inline = 1;
-                                                }   
+                        $$ = $2;
+                        $$->fnc_is_inline = 1;
+                    }   
                ;
 
 type-specifier: enum-type-specifier     { $$ = $1; }
@@ -613,48 +586,97 @@ imag-type-specifier: FLOAT _IMAGINARY       { $$ = newNode_scalarType(FloatImag,
                    | LONG DOUBLE _IMAGINARY { $$ = newNode_scalarType(LongDoubleImag, 0);}
                    ;
 
-/* for now not implementing enums, will be completed with more time */
-enum-type-specifier: ENUM   { $$ = newNode_scalarType(Int, 0); }
+/* for now not implementing enums, typedefs, or union.
+   With enough time, will see how many more can be included. */
+enum-type-specifier: ENUM        { $$ = newNode_scalarType(Int, 0); }
                    ;
 
+typedef-type-specifier: TYPEDEF  { $$ = newNode_scalarType(Int, 0); } 
+                      ;
+
+union-type-specifier: UNION      { $$ = newNode_scalarType(Int, 0); }
+                    ;
+
+void-type-specifier: VOID        { $$ = newNode_scalarType(Int, 0); }
+                   ;
+
+/* struct-type-specifier is a symbol table entry, not just a 
 struct-type-specifier: struct-type-definition   { $$ = $1; }
                      | struct type-reference    { $$ = $1; }
                      ;
 
-struct-type-definition: STRUCT '{' field-list '}'
-                      | STRUCT struct-tag '{' field-list '}'
+struct-type-definition: STRUCT '{' field-list '}' {   
+                                $$ = newNode_sTableEntry(NULL);
+                                $$->nodetype = STABLE_SU_TAG;
+                                $$->stable_entry.node = newNode_strctType();
+
+                                for (int i = 0; i < $3.len; ++i)
+                                    if (!sTableInsert($$->stable_entry.node->strct.stable, 
+                                                      $3.list[i], 1) ) 
+                                        error("Inserting members into struct symbol table.");
+                            }
+                      | STRUCT struct-tag '{' field-list '}' { 
+                                $$ = newNode_sTableEntry(NULL);
+                                $$->nodetype = STABLE_SU_TAG;
+                                $$->stable_entry.node = newNode_strctType();
+                                $$->stable_entry.ident = $2->str;
+
+                                for (int i = 0; i < $4.len; ++i)
+                                    if (!sTableInsert($$->stable_entry.node->strct.stable, 
+                                                      $4.list[i], 1) ) 
+                                        error("Inserting members into struct symbol table.");
+                            }
                       ;
 
-struct-type-reference: STRUCT struct-tag   { $$ = searchStackScope(3, $20>str); }
+struct-type-reference: STRUCT struct-tag   { $$ = searchStackScope(3, $2->str); }
                      ;
 
 struct-tag: IDENT   { $$ = $1; }
           ;
 
-field-list: component-declaration
-          | field-list component-declaration
+field-list: member-declaration              { $$ = $1; }
+          | field-list member-declaration   { 
+                    $$ = newASTnodeList($1.len + $2.len, $1.list);
+                    
+                    for (int i = $1.len, k=0 ; i < $$.len ; ++i, ++k)  
+                        $$.list[i] = $2.list[k];
+                }
           ;
 
-component-declaration: type-specifier component-declarator-list ';'
-                     ;
+member-declaration: type-specifier member-declarator-list ';' { 
+                            if (!isTmpSTableEntryValid($1))
+                                error("Invalid struct declaration specifiers.");
+                            else
+                                $$ = combineSpecifierDeclarator($1, $2); 
+                        }
+                  ;
 
-component-declarator-list: component-declarator
-                         | component-declarator-list ',' component-declarator
-                         ;
+member-declarator-list: member-declarator { 
+                                $$ = newASTnodeList(1, NULL); 
+                                $$->list[0] = $1;
+                            }
+                      | member-declarator-list ',' member-declarator {
+                                $$ = newASTnodeList($1->len+1, $1);
+                                $$->list[$1->len] = $3;
+                            }
+                      ;
 
-component-declarator: declarator
-                    /* we will not be implementing bit-fields in struct definitions */
-                    ;
+member-declarator: declarator   { $$ = $1; }
+                 /* we will not be implementing bit-fields in struct definitions */
+                 ;
 
 
 
 /* due to the possibility for a list of declarators, we implement the 
-   decl-init-list nontoken as pointer to a pointer to an astnode_p.  */
-decl-init-list: init-decl       { $$ = newASTnodeList(1, NULL); $$->list[0] = $1; }  
+   decl-init-list non-token as pointer to a pointer to an astnode_p.  */
+decl-init-list: init-decl { 
+                        $$ = newASTnodeList(1, NULL); 
+                        $$->list[0] = $1;
+                    }  
               | decl-init-list ',' init-decl    {
-                                                    $$ = newASTnodeList($1->len+1, $1);
-                                                    $$->list[$$->len-1] = $3;
-                                                }
+                        $$ = newASTnodeList($1->len+1, $1);
+                        $$->list[$$->len-1] = $3;
+                    }
               ; 
 
 init-decl: declarator                   { $$ = $1; }

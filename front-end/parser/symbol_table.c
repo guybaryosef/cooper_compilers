@@ -60,6 +60,10 @@ void sTableDestroy(SymbolTable *table) {
  * this function inserts the entry into the table and returns a 1
  * on sucess and a -1 if the entry already exists.
  * 
+ * If dup_toggle is 1, then a duplication is valid (will delete 
+ * old variable). Otherwise duplication is not allowed and an
+ * error is thrown.
+ * 
  * Initially, the symbol table will use linear probing to address
  * hash collisions.
  */
@@ -291,7 +295,7 @@ _Bool isTmpSTableEntryValid(TmpSymbolTableEntry *entry) {
         case VARIABLE_TYPE:
             if (entry->fnc_is_inline || entry->fnc_is_defined || 
                 entry->fnc_return_type || entry->fnc_args_type || 
-                entry->su_tag_is_defined || entry->su_tag_su_table ||
+                entry->su_tag_is_defined  ||
                 entry->enum_tag_is_defined || entry->enum_parent_tag || 
                 entry->enum_const_val || entry->stmt_IR_assembly_label ||
                 entry->typedef_type || entry->su_memb_offset ||
@@ -302,7 +306,7 @@ _Bool isTmpSTableEntryValid(TmpSymbolTableEntry *entry) {
         case FUNCTION_TYPE:
             if (entry->var_type_qualifier ||
                 entry->var_offset_within_stack_frame ||
-                entry->su_tag_is_defined || entry->su_tag_su_table ||
+                entry->su_tag_is_defined  ||
                 entry->enum_tag_is_defined || entry->enum_parent_tag || 
                 entry->enum_const_val || entry->stmt_IR_assembly_label ||
                 entry->typedef_type || entry->su_memb_offset ||
@@ -327,7 +331,7 @@ _Bool isTmpSTableEntryValid(TmpSymbolTableEntry *entry) {
                 entry->var_offset_within_stack_frame ||
                 entry->fnc_is_inline || entry->fnc_is_defined || 
                 entry->fnc_return_type || entry->fnc_args_type || 
-                entry->su_tag_is_defined || entry->su_tag_su_table ||
+                entry->su_tag_is_defined  ||
                 entry->enum_parent_tag || 
                 entry->enum_const_val || entry->stmt_IR_assembly_label ||
                 entry->su_memb_type ||
@@ -340,7 +344,7 @@ _Bool isTmpSTableEntryValid(TmpSymbolTableEntry *entry) {
                 entry->var_offset_within_stack_frame ||
                 entry->fnc_is_inline || entry->fnc_is_defined || 
                 entry->fnc_return_type || entry->fnc_args_type || 
-                entry->su_tag_is_defined || entry->su_tag_su_table ||
+                entry->su_tag_is_defined  ||
                 entry->enum_tag_is_defined || entry->enum_parent_tag || 
                 entry->enum_const_val || entry->su_memb_type ||
                 entry->typedef_type || entry->su_memb_offset || 
@@ -352,7 +356,7 @@ _Bool isTmpSTableEntryValid(TmpSymbolTableEntry *entry) {
                 entry->var_offset_within_stack_frame ||
                 entry->fnc_is_inline || entry->fnc_is_defined || 
                 entry->fnc_return_type || entry->fnc_args_type || 
-                entry->su_tag_is_defined || entry->su_tag_su_table ||
+                entry->su_tag_is_defined  ||
                 entry->enum_tag_is_defined || entry->stmt_IR_assembly_label ||
                 entry->typedef_type || entry->su_memb_offset || 
                 entry->su_memb_type ||
@@ -364,7 +368,7 @@ _Bool isTmpSTableEntryValid(TmpSymbolTableEntry *entry) {
                 entry->var_offset_within_stack_frame ||
                 entry->fnc_is_inline || entry->fnc_is_defined || 
                 entry->fnc_return_type || entry->fnc_args_type || 
-                entry->su_tag_is_defined || entry->su_tag_su_table ||
+                entry->su_tag_is_defined  ||
                 entry->enum_tag_is_defined || entry->enum_parent_tag || 
                 entry->enum_const_val || entry->stmt_IR_assembly_label ||
                 entry->su_memb_offset || entry->su_memb_type ||
@@ -376,7 +380,7 @@ _Bool isTmpSTableEntryValid(TmpSymbolTableEntry *entry) {
                 entry->var_offset_within_stack_frame ||
                 entry->fnc_is_inline || entry->fnc_is_defined || 
                 entry->fnc_return_type || entry->fnc_args_type || 
-                entry->su_tag_is_defined || entry->su_tag_su_table ||
+                entry->su_tag_is_defined ||
                 entry->enum_tag_is_defined || entry->enum_parent_tag || 
                 entry->enum_const_val || entry->stmt_IR_assembly_label ||
                 entry->typedef_type)
@@ -389,6 +393,54 @@ _Bool isTmpSTableEntryValid(TmpSymbolTableEntry *entry) {
     }
     return 1;
 }
+
+
+/*
+ * Takes in a temporary symbol table entry of declaration specifiers
+ * (which includes type specifiers, qualifiers, storage class, etc) as 
+ * well as an astnode_list struct that contains an array of declarators,
+ * and combines them into a astnode_list of symbol table entries.
+ * 
+ * This function is used for both the declarator grammar and for the 
+ * grammar that makes up a struct definition.
+ * 
+ * Note that this function is called after any error checking and assumes
+ * the input to be valid.
+ */
+astnode_list *combineSpecifierDeclarator(TmpSymbolTableEntry *specifier, 
+                                         astnode_list decl_list) {
+    
+    astnode_list *new_entry = newASTnodeList(decl_list.len, NULL);
+    
+    for (int i = 0; i < decl_list.len; ++i) {
+        astnode *cur_node = newNode_sTableEntry(specifier);
+        
+        cur_node->stable_entry.ident = decl_list.list[i]->stable_entry.ident;
+        
+        switch(cur_node->nodetype) {
+            case VARIABLE_TYPE:
+                break;
+            case FUNCTION_TYPE:
+                break;
+            case SU_TAG_TYPE:
+                break;
+            case ENUM_TAG:
+                break;
+            case STATEMENT_LABEL:
+                break;
+            case ENUM_CONST_TYPE:
+                break;
+            case TYPEDEF_NAME:
+                break;
+            case SU_MEMBER_TYPE:
+                break;
+        }
+        
+        free(decl_list.list[i]);
+    }
+    free(specifier);
+}
+
 
 
 //////////////////////////////////////////////////////////////////////
