@@ -123,9 +123,14 @@ union YYSTYPE
     struct YYnum num;
     struct YYstr str;
 
-    struct astnode *astnode_p; /* abstract syntax node pointer */
+    astnode *astnode_p;   /* abstract syntax tree (AST) node pointer */
+    astnode_list *astnode_pp;    /* pointer to an array of AST node pointers*/
 
-#line 129 "../lexer/lheader.h" /* yacc.c:1909  */
+    enum possibleTypeQualifiers possible_type_qualifier;
+    enum SymbolTableStorageClass storage_class;
+    enum STEntry_Type ident_type;
+
+#line 134 "../lexer/lheader.h" /* yacc.c:1909  */
 };
 
 typedef union YYSTYPE YYSTYPE;

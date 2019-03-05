@@ -6,6 +6,7 @@
  */
 
 #include "symbol_table.h"
+#include "../front_end_header.h"
 
 #include <stdio.h>
 #include <errno.h>
@@ -33,7 +34,7 @@ SymbolTable *sTableCreate() {
     new_table->size = 0;
 
     /* initialize the actual data array of the symbol table */
-    if (symbol_table_resize(new_table) < 0)
+    if (sTableResize(new_table) < 0)
         exit(-1);
 
     return new_table;
@@ -72,9 +73,9 @@ int sTableInsert(SymbolTable *table, astnode *entry, int dup_toggle) {
     /*  keep the symbol table at least twice the size of the 
         # of elements so that our lookups stay fast */
     if (table->filled >= table->size/2)
-        symbol_table_resize(table);
+        sTableResize(table);
 
-    int data_ind = symbol_table_hash(entry->stable_entry.ident, table->size);
+    int data_ind = sTableHash(entry->stable_entry.ident, table->size);
 
     // linear probing
     while (table->data[data_ind] && 
@@ -89,7 +90,7 @@ int sTableInsert(SymbolTable *table, astnode *entry, int dup_toggle) {
         }
         else {
         fprintf(stderr, "Attempted duplicate definition for identifier %s: %s\n",
-                                                    entry->ident, strerror(errno));
+                                                    entry->stable_entry.ident, strerror(errno));
         return -1;
         }
     }
@@ -112,7 +113,7 @@ int sTableInsert(SymbolTable *table, astnode *entry, int dup_toggle) {
  * */
 astnode *sTableLookUp(SymbolTable *table, char *entry_name) {
     
-    int data_ind = symbol_table_hash(entry_name, table->size);
+    int data_ind = sTableHash(entry_name, table->size);
 
     // linear probing
     while (table->data[data_ind] && 
@@ -157,7 +158,7 @@ int sTableResize(SymbolTable *table) {
     // Iterate through old data, updating new data array
     for (int i = 0 ; i < primes[prime_ind-1] ; ++i) {
         if (table->data[i]) {
-            new_data[symbol_table_hash(table->data[i]->stable_entry.ident, new_size)] = table->data[i];
+            new_data[sTableHash(table->data[i]->stable_entry.ident, new_size)] = table->data[i];
         }
     }
 
@@ -417,22 +418,22 @@ astnode_list *combineSpecifierDeclarator(TmpSymbolTableEntry *specifier,
         
         cur_node->stable_entry.ident = decl_list.list[i]->stable_entry.ident;
         
-        switch(cur_node->nodetype) {
-            case VARIABLE_TYPE:
+        /* for specific declarator types, we alter the declaration type: */
+        astnode *get_pointee;
+        switch(decl_list.list[i]->nodetype) {
+            case PTR_TYPE:
+                decl_list.list[i]->ptr.pointee = specifier->node;
+                cur_node->stable_entry.node = decl_list.list[i];  
                 break;
-            case FUNCTION_TYPE:
+            case ARRAY_TYPE:
+                get_pointee = decl_list.list[i]->arr.ptr->ptr.pointee;
+                while (get_pointee)
+                    get_pointee = get_pointee->arr.ptr->ptr.pointee;
+
+                get_pointee = specifier->node;
+                cur_node->stable_entry.node = decl_list.list[i];  
                 break;
-            case SU_TAG_TYPE:
-                break;
-            case ENUM_TAG:
-                break;
-            case STATEMENT_LABEL:
-                break;
-            case ENUM_CONST_TYPE:
-                break;
-            case TYPEDEF_NAME:
-                break;
-            case SU_MEMBER_TYPE:
+            case FNC_TYPE:  /* not sure what to do with this yet */
                 break;
         }
         
@@ -459,7 +460,7 @@ astnode *searchStackScope(enum ScopeType namespace, char *ident) {
     
     ScopeStackLayer *cur_scope = scope_stack.innermost_scope;
     while(cur_scope){
-        astnode *res = sTableLookup(cur_scope->tables[namespace], ident);
+        astnode *res = sTableLookUp(cur_scope->tables[namespace], ident);
         if (res)
             return res;
         
@@ -500,7 +501,7 @@ ScopeStackLayer *createNewScope(enum ScopeType type) {
 void deleteInnermostScope() {
     ScopeStackLayer *new_innermost = scope_stack.innermost_scope->child;
     if (!new_innermost) {   /* the scope stack consists of only file scope */
-        error("Unable to delete file (global) scope of a translation unit");
+        fprintf(stderr, "Unable to delete file (global) scope of a translation unit.\n");
         exit(-1);
     }
 

@@ -296,7 +296,7 @@ astnode *newNode_arr(int size) {
     }
     node->nodetype = ARRAY_TYPE;
     node->arr.size = size;
-    node->arr.ptr = NULL;
+    node->arr.ptr = newNode_ptr();
     return node;
 }
 

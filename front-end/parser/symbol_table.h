@@ -31,7 +31,7 @@
 typedef struct SymbolTable {
     int size;          /* number of spaces for enties  */
     int filled;        /* number of entries in table   */
-    astnode **data;    /* hash table (pointer to an array of SymbolTableEntries) */
+    struct astnode **data;    /* hash table (pointer to an array of SymbolTableEntries) */
 } SymbolTable;
 
 
@@ -70,7 +70,7 @@ typedef struct TmpSymbolTableEntry {
     int line_num;           /* line number of file where identifier appeared  */
     char *ident;            /* identifier name */
     enum STEntry_Type type;/* the type of identifier that the entry holds    */
-    astnode *node;          /* the AST node that represents this entry    */
+    struct astnode *node;          /* the AST node that represents this entry    */
 
     /* variable and function */
     enum SymbolTableStorageClass var_fnc_storage_class;
@@ -133,7 +133,7 @@ void sTableDestroy(SymbolTable *table);
  * this function inserts the entry into the table and returns a 1
  * on sucess and a -1 on error.
  */
-int sTableInsert(SymbolTable *table, astnode *entry, int dup_toggle);
+int sTableInsert(SymbolTable *table, struct astnode *entry, int dup_toggle);
 
 
 /*
@@ -141,7 +141,7 @@ int sTableInsert(SymbolTable *table, astnode *entry, int dup_toggle);
  * function returns a pointer to the symbol table entry that represents this
  * identifier. If no such entry is found in any scope, NULL is returned.
  */
-astnode *sTableLookUp(SymbolTable *table, char *entry);
+struct astnode *sTableLookUp(SymbolTable *table, char *entry);
 
 
 /*
@@ -199,7 +199,7 @@ _Bool isTmpSTableEntryValid(TmpSymbolTableEntry *entry);
  * Note that this function is called after any error checking and assumes
  * the input to be valid.
  */
-astnode_list *combineSpecifierDeclarator(TmpSymbolTableEntry *specifier, astnode_list declarator_list);
+struct astnode_list *combineSpecifierDeclarator(TmpSymbolTableEntry *specifier, struct astnode_list declarator_list);
 
 
 

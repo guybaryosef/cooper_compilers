@@ -43,7 +43,7 @@ frontEndHeaders.o: ../front_end_header.h ../front_end_header.c
 pheader_ast.o: pheader_ast.c pheader_ast.h symbol_table.h
 	gcc -c pheader_ast.c
 
-symbol_table.o: symbol_table.c symbol_table.h pheader_ast.h
+symbol_table.o: symbol_table.c symbol_table.h
 
 clear:
 	rm  *.o ../lexer/lexer.c ./parser.c ./parser.output ./parser ./tests_2/my_results* ./tests_2/my_test1* ./tests_3/MYRESULTS*

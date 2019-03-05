@@ -10,8 +10,8 @@
 /* definitions and environment setup */
 %{
     #include "../front_end_header.h"
-    #include "symbol_table.h"
-    #include "pheader_ast.h"
+    #include "./symbol_table.h"
+    #include "./pheader_ast.h"
 %}
 
 /* Specify bison header file of token and YYSTYPE definitions.  */
@@ -24,7 +24,7 @@
     struct YYnum num;
     struct YYstr str;
 
-    struct astnode *astnode_p;      /* abstract syntax tree (AST) node pointer */
+    astnode *astnode_p;   /* abstract syntax tree (AST) node pointer */
     astnode_list *astnode_pp;    /* pointer to an array of AST node pointers*/
 
     enum possibleTypeQualifiers possible_type_qualifier;
@@ -67,7 +67,7 @@
 
 /************************** TYPES GRAMMAR-TYPES (hehe) **************************/
 %type <storage_class> storage-class-specifier 
-%type <possible_type_qualifier> type-qualifier
+%type <possible_type_qualifier> type-qualifier type-qualifier-list
 %type <astnode_p> enum-type-specifier float-type-specifier int-type-specifier struct-type-specifier typedef-type-specifier union-type-specifier void-type-specifier
 
 %type <astnode_p> signed-type-specifier unsigned-type-specifier character-type-specifier bool-type-specifier complex-type-specifier imag-type-specifier
@@ -75,7 +75,7 @@
 %type <astnode_p> struct-type-definition struct-type-reference
 %type <str> struct-tag
 %type <astnode_pp> field-list member-declaration member-declarator-list
-%type <astnode_p> member-declarator8ujm  
+%type <astnode_p> member-declarator
 
 
 %type <ident_type> type-specifier
@@ -84,7 +84,7 @@
 %type <astnode_p> simple-declarator
 
 
-%type <astnode_p> pointer-declarator direct-declarator fnc-declarator array-declarator
+%type <astnode_p> pointer-declarator pointer direct-declarator fnc-declarator array-declarator
 %type <astnode_p> init-decl declarator /* initializer- technically here, but not integrated for now */
 %type <TmpSymbolTableEntry *> decl-specifiers /* pretty sure about this one */
 
@@ -557,7 +557,7 @@ unsigned-type-specifier: UNSIGNED SHORT        { $$ = newNode_scalarType(Short, 
                        | UNSIGNED LONG         { $$ = newNode_scalarType(Long, 0);    }
                        | UNSIGNED LONG INT     { $$ = newNode_scalarType(Long, 0);    }
                        | UNSIGNED LONG LONG    { $$ = newNode_scalarType(LongLong, 0);}
-                       | UNSIGND LONG LONG INT { $$ = newNode_scalarType(LongLong, 0);}
+                       | UNSIGNED LONG LONG INT { $$ = newNode_scalarType(LongLong, 0);}
                        ;
 
 /* a plain 'char' was chosen to be an 'unsigned char' */
@@ -600,9 +600,9 @@ union-type-specifier: UNION      { $$ = newNode_scalarType(Int, 0); }
 void-type-specifier: VOID        { $$ = newNode_scalarType(Int, 0); }
                    ;
 
-/* struct-type-specifier is a symbol table entry, not just a 
+/* struct-type-specifier is a symbol table entry, not just a astnode type */
 struct-type-specifier: struct-type-definition   { $$ = $1; }
-                     | struct type-reference    { $$ = $1; }
+                     | struct-type-reference    { $$ = $1; }
                      ;
 
 struct-type-definition: STRUCT '{' field-list '}' {   
@@ -687,7 +687,6 @@ storage-class-specifier: AUTO           { $$ = Auto;        }
                        | EXTERN         { $$ = Extern;      }
                        | REGISTER       { $$ = Register;    }
                        | STATIC         { $$ = Static;      }
-                       | TYPEDEF        { $$ = Typedef;     }
                        ;
 
 
@@ -714,7 +713,7 @@ pointer: '*'                        { /* what do we do? */ }
        | '*' type-qualifier-list    { /* what do we do? */ }
        | '*' pointer                        { /* what do we do? */ }
        | '*' type-qualifier-list pointer    { 
-                                                $$ = $1;
+                                                $$ = $2;
                                                 $$.node = newNode_ptr();
                                             }
        ;

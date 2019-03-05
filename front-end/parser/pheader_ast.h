@@ -15,8 +15,6 @@
 #define PARSER_AST
 
 #include <stdio.h>
-#include "../front_end_header.h"
-#include "symbol_table.h"
 
 
 ////////////////////////////////////////////////////////
@@ -302,6 +300,9 @@ astnode_list *newASTnodeList(int len, astnode **cur_list);
 ///////////// Abstract Syntax Tree Functions /////////////
 //////////////////////////////////////////////////////////
 
+/* forward declartion - defined in front_end_header.h */
+struct YYstr; struct YYnum;
+
 //////// Constructors for the different AST nodes /////////
 astnode *newNode_num(struct YYnum num);                  /* Integers and floats      */
 astnode *newNode_str(int token_name, struct YYstr str);  /* IDENTs, CHRLITs, & STRLITS */
@@ -323,8 +324,11 @@ astnode *newNode_scalarType(enum ScalarTypes, _Bool is_signed); /* scalar type  
 astnode *newNode_fncType(int arg_len);  /* function type*/
 astnode *newNode_strctType();    /* struct type  */
 
+/* forward declaration, will be defined in symbol_table.h */
+struct TmpSymbolTableEntry; 
+
 /* Handles new symbol table entries */
-astnode *newNode_sTableEntry(TmpSymbolTableEntry *tmp_entry);
+astnode *newNode_sTableEntry(struct TmpSymbolTableEntry *tmp_entry);
 
 
 /*

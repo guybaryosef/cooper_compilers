@@ -10,6 +10,8 @@
 
 #include "front_end_header.h"
 
+#include <stdlib.h>
+
 
 /*
  * initializeFrontEnd - A function for initializing
@@ -24,7 +26,7 @@ void initializeFrontEnd() {
     yycolumn = 1;
 
     /* scope stack initialization */
-    scope_stack.innermost_scope = calloc(sizeof(ScopeStackLayer));
+    scope_stack.innermost_scope = calloc(1, sizeof(ScopeStackLayer));
     if (!scope_stack.innermost_scope)
         error("Unable to allocate memory for the scope stack");
     scope_stack.innermost_scope->scope_type = File;

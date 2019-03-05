@@ -15,9 +15,6 @@
 #ifndef FRONT_END
 #define FRONT_END
 
-#include "./lexer/lheader.h"
-#include "./parser/symbol_table.h"
-
 
 /* Defines a str and num structs that will appear in YYSTYPE (yylval) */
 struct YYnum {
@@ -30,6 +27,7 @@ struct YYstr {
     int str_size;
     char char_val;
 };
+
 
 
 #define LINESIZE 1024
@@ -47,8 +45,11 @@ EXTERN_VAR char tmp[20];						/* temp helper variable            */
 EXTERN_VAR char strlit_buffer[MAX_STRLIT_SIZE]; /* buffer for string literals      */
 EXTERN_VAR char *helper_end, *helper_begin; 
 EXTERN_VAR int yycolumn;                        /* implements locations for the lexer */
+
+#include "./parser/symbol_table.h"
 EXTERN_VAR ScopeStack scope_stack;              /* scope linked list               */
 
+#include "./lexer/lheader.h"
 EXTERN_VAR YYSTYPE yylval;                      /* The infamous yylval */
 
 /*
