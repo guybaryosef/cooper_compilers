@@ -10,4 +10,5 @@ Building a compiler for the C programming language.
 * Build grammar for C declarations and finish up SIZEOF and casting expressions.
 
 Next on the agenda:
-* Look into and add type grammar as well as logic to incorporate into the symbol table entries.
+* Finish implementing combineSpecifierDeclarator.
+* Begin debugging, see if you need to add any more skeleton pieces to get the basic grammar working.
