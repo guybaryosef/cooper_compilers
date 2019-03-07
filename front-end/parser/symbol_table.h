@@ -132,6 +132,10 @@ void sTableDestroy(SymbolTable *table);
  * sTableInsert - Given a symbol table and a symbol table,
  * this function inserts the entry into the table and returns a 1
  * on sucess and a -1 on error.
+ *
+ * If dup_toggle is 1, then a duplication is valid (will delete 
+ * old variable). Otherwise duplication is not allowed and an
+ * error is thrown.
  */
 int sTableInsert(SymbolTable *table, struct astnode *entry, int dup_toggle);
 
@@ -199,7 +203,7 @@ _Bool isTmpSTableEntryValid(TmpSymbolTableEntry *entry);
  * Note that this function is called after any error checking and assumes
  * the input to be valid.
  */
-struct astnode_list *combineSpecifierDeclarator(TmpSymbolTableEntry *specifier, struct astnode_list declarator_list);
+struct astnode_list *combineSpecifierDeclarator(TmpSymbolTableEntry *specifier, struct astnode_list *declarator_list);
 
 
 

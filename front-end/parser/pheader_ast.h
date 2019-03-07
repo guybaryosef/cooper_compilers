@@ -128,7 +128,7 @@ struct astnode_arr {
    an enum. */
 enum ScalarTypes {Void, Char, Short, Int, Long, LongLong, 
             Bool, Float, Double, LongDouble, FloatComplex,
-            DoubleComplex, LongDoublComplex, FloatImag, 
+            DoubleComplex, LongDoubleComplex, FloatImag, 
             DoubleImag, LongDoubleImag};
 #define SCALAR_TYPE 20  /* struct for a scalar type */
 struct astnode_scalar_type {

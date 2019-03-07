@@ -129,8 +129,9 @@ union YYSTYPE
     enum possibleTypeQualifiers possible_type_qualifier;
     enum SymbolTableStorageClass storage_class;
     enum STEntry_Type ident_type;
+    TmpSymbolTableEntry *tmp_stable_entry;
 
-#line 134 "../lexer/lheader.h" /* yacc.c:1909  */
+#line 135 "../lexer/lheader.h" /* yacc.c:1909  */
 };
 
 typedef union YYSTYPE YYSTYPE;

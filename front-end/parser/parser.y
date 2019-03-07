@@ -30,6 +30,7 @@
     enum possibleTypeQualifiers possible_type_qualifier;
     enum SymbolTableStorageClass storage_class;
     enum STEntry_Type ident_type;
+    TmpSymbolTableEntry *tmp_stable_entry;
 }
 
 /* getting some quality error handling up in here */
@@ -67,7 +68,7 @@
 
 /************************** TYPES GRAMMAR-TYPES (hehe) **************************/
 %type <storage_class> storage-class-specifier 
-%type <possible_type_qualifier> type-qualifier type-qualifier-list
+%type <possible_type_qualifier> type-qualifier
 %type <astnode_p> enum-type-specifier float-type-specifier int-type-specifier struct-type-specifier typedef-type-specifier union-type-specifier void-type-specifier
 
 %type <astnode_p> signed-type-specifier unsigned-type-specifier character-type-specifier bool-type-specifier complex-type-specifier imag-type-specifier
@@ -78,7 +79,7 @@
 %type <astnode_p> member-declarator
 
 
-%type <ident_type> type-specifier
+%type <astnode_p> type-specifier
 
 %type <simple_int> fnc-specifier
 %type <astnode_p> simple-declarator
@@ -86,7 +87,7 @@
 
 %type <astnode_p> pointer-declarator pointer direct-declarator fnc-declarator array-declarator
 %type <astnode_p> init-decl declarator /* initializer- technically here, but not integrated for now */
-%type <TmpSymbolTableEntry *> decl-specifiers /* pretty sure about this one */
+%type <tmp_stable_entry> type-qualifier-list decl-specifiers /* pretty sure about this one */
 
 %type <astnode_pp> decl-init-list 
 %type <astnode_pp> declaration
@@ -452,7 +453,7 @@ declaration: decl-specifiers ';'    {
                 }
            | decl-specifiers decl-init-list ';' {
                     if (!isTmpSTableEntryValid($1)) {
-                        error("Error in declaration specifiers.");
+                        yyerror("Error in declaration specifiers.");
                     }
                     else {
                         /* create the new symbol table entries */
@@ -460,7 +461,7 @@ declaration: decl-specifiers ';'    {
 
                         /* add the new entries to the symbol table */
                         int ns_ind;
-                        for (int i = 0 ; i < $$.len; ++i) {
+                        for (int i = 0 ; i < $$->len; ++i) {
                             if ($$->list[i]->stable_entry.type == STATEMENT_LABEL)
                                 ns_ind = 1;  /* statment labels        */
                             else if ($$->list[i]->stable_entry.type == ENUM_TAG ||
@@ -471,8 +472,8 @@ declaration: decl-specifiers ';'    {
                             else
                                 ns_ind = 4;  /* all other identifier classes */
 
-                            if(sTableInsert(scope_stack->innermost_scope[ns_ind], $$->list[i]) < 0)
-                                error("Unable to insert variable into symbol table");
+                            if(sTableInsert(scope_stack.innermost_scope->tables[ns_ind], $$->list[i], 1) < 0)
+                                yyerror("Unable to insert variable into symbol table");
                         }
                     }
                 }
@@ -485,7 +486,7 @@ decl-specifiers: storage-class-specifier {
                | storage-class-specifier decl-specifiers { 
                         $$ = $2;
                         if ($$->var_fnc_storage_class)
-                            error("Can't have multiple storage classes per declaration specifiers");
+                            yyerror("Can't have multiple storage classes per declaration specifiers");
                         else
                             $$->var_fnc_storage_class = $1;
                     }
@@ -496,7 +497,7 @@ decl-specifiers: storage-class-specifier {
                | type-specifier decl-specifiers {
                         $$ = $2;
                         if ($$->node)
-                            error("Can't have multiple type specifiers for a declaration specifiers");
+                            yyerror("Can't have multiple type specifiers for a declaration specifiers");
                         else
                             $$->node = $1;                                                                
                     }
@@ -610,25 +611,25 @@ struct-type-definition: STRUCT '{' field-list '}' {
                                 $$->nodetype = STABLE_SU_TAG;
                                 $$->stable_entry.node = newNode_strctType();
 
-                                for (int i = 0; i < $3.len; ++i)
+                                for (int i = 0; i < $3->len; ++i)
                                     if (!sTableInsert($$->stable_entry.node->strct.stable, 
-                                                      $3.list[i], 1) ) 
-                                        error("Inserting members into struct symbol table.");
+                                                      $3->list[i], 1) ) 
+                                        yyerror("Inserting members into struct symbol table.");
                             }
                       | STRUCT struct-tag '{' field-list '}' { 
                                 $$ = newNode_sTableEntry(NULL);
                                 $$->nodetype = STABLE_SU_TAG;
                                 $$->stable_entry.node = newNode_strctType();
-                                $$->stable_entry.ident = $2->str;
+                                $$->stable_entry.ident = $2.str;
 
-                                for (int i = 0; i < $4.len; ++i)
+                                for (int i = 0; i < $4->len; ++i)
                                     if (!sTableInsert($$->stable_entry.node->strct.stable, 
-                                                      $4.list[i], 1) ) 
-                                        error("Inserting members into struct symbol table.");
+                                                      $4->list[i], 1) ) 
+                                        yyerror("Inserting members into struct symbol table.");
                             }
                       ;
 
-struct-type-reference: STRUCT struct-tag   { $$ = searchStackScope(3, $2->str); }
+struct-type-reference: STRUCT struct-tag   { $$ = searchStackScope(3, $2.str); }
                      ;
 
 struct-tag: IDENT   { $$ = $1; }
@@ -636,18 +637,20 @@ struct-tag: IDENT   { $$ = $1; }
 
 field-list: member-declaration              { $$ = $1; }
           | field-list member-declaration   { 
-                    $$ = newASTnodeList($1.len + $2.len, $1.list);
+                    $$ = newASTnodeList($1->len + $2->len, $1->list);
                     
-                    for (int i = $1.len, k=0 ; i < $$.len ; ++i, ++k)  
-                        $$.list[i] = $2.list[k];
+                    for (int i = $1->len, k=0 ; i < $$->len ; ++i, ++k)  
+                        $$->list[i] = $2->list[k];
                 }
           ;
 
 member-declaration: type-specifier member-declarator-list ';' { 
-                            if (!isTmpSTableEntryValid($1))
-                                error("Invalid struct declaration specifiers.");
+                            TmpSymbolTableEntry *tmp_entry = createTmpSTableEntry();
+                            tmp_entry->node = $1;
+                            if (!isTmpSTableEntryValid(tmp_entry))
+                                yyerror("Invalid struct declaration specifiers.");
                             else
-                                $$ = combineSpecifierDeclarator($1, $2); 
+                                $$ = combineSpecifierDeclarator(tmp_entry, $2); 
                         }
                   ;
 
@@ -656,7 +659,7 @@ member-declarator-list: member-declarator {
                                 $$->list[0] = $1;
                             }
                       | member-declarator-list ',' member-declarator {
-                                $$ = newASTnodeList($1->len+1, $1);
+                                $$ = newASTnodeList($1->len+1, $1->list);
                                 $$->list[$1->len] = $3;
                             }
                       ;
@@ -674,7 +677,7 @@ decl-init-list: init-decl {
                         $$->list[0] = $1;
                     }  
               | decl-init-list ',' init-decl    {
-                        $$ = newASTnodeList($1->len+1, $1);
+                        $$ = newASTnodeList($1->len+1, $1->list);
                         $$->list[$$->len-1] = $3;
                     }
               ; 
@@ -713,8 +716,7 @@ pointer: '*'                        { /* what do we do? */ }
        | '*' type-qualifier-list    { /* what do we do? */ }
        | '*' pointer                        { /* what do we do? */ }
        | '*' type-qualifier-list pointer    { 
-                                                $$ = $2;
-                                                $$.node = newNode_ptr();
+                                                /* what do we do? */
                                             }
        ;
 
@@ -723,8 +725,8 @@ type-qualifier-list: type-qualifier                     {
                                                             typeQualifierSTableEntry($$, $1);         
                                                         }
                    | type-qualifier-list type-qualifier {   
-                                                            $$ = $2;
-                                                            typeQualifierSTableEntry($$, $1);         
+                                                            $$ = $1;
+                                                            typeQualifierSTableEntry($$, $2);         
                                                         }
                    ;
 
@@ -735,12 +737,11 @@ direct-declarator: simple-declarator    { $$ = $1; }
                  ;
 
 
-simple-declarator: IDENT    { $$ = $1; } /* need to figure out what to do */
+simple-declarator: IDENT    { /* no answer yet */ } /* need to figure out what to do */
                  ;
 
 array-declarator: direct-declarator '[' ']'         {
                                                         $$ = newNode_arr(-1);
-                                                        $$
                                                     }
                 | direct-declarator '[' NUMBER ']'
                 /* for now only allow these type of array declarations. We will 
@@ -758,8 +759,8 @@ fnc-declarator: direct-declarator '(' ')'
 **********************************************************************/
 
 
-decl-or-stmt: declaration   { $$ = $1; }
-            | stmt          { $$ = $1; }
+decl-or-stmt: declaration   { /* NOTHING */ }
+            | stmt          { /* NOTHING */ }
             ;
 
 

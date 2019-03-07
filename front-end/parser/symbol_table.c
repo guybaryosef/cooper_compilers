@@ -409,35 +409,36 @@ _Bool isTmpSTableEntryValid(TmpSymbolTableEntry *entry) {
  * the input to be valid.
  */
 astnode_list *combineSpecifierDeclarator(TmpSymbolTableEntry *specifier, 
-                                         astnode_list decl_list) {
+                                         struct astnode_list *decl_list) {
     
-    astnode_list *new_entry = newASTnodeList(decl_list.len, NULL);
+    astnode_list *new_entry = newASTnodeList(decl_list->len, NULL);
     
-    for (int i = 0; i < decl_list.len; ++i) {
+    for (int i = 0; i < decl_list->len; ++i) {
         astnode *cur_node = newNode_sTableEntry(specifier);
         
-        cur_node->stable_entry.ident = decl_list.list[i]->stable_entry.ident;
+        // Todo: Implement how to cary the actual ident into the symbol table entry
+        // cur_node->stable_entry.ident = decl_list->list[i]->stable_entry.ident;
         
         /* for specific declarator types, we alter the declaration type: */
         astnode *get_pointee;
-        switch(decl_list.list[i]->nodetype) {
+        switch(decl_list->list[i]->nodetype) {
             case PTR_TYPE:
-                decl_list.list[i]->ptr.pointee = specifier->node;
-                cur_node->stable_entry.node = decl_list.list[i];  
+                decl_list->list[i]->ptr.pointee = specifier->node;
+                cur_node->stable_entry.node = decl_list->list[i];  
                 break;
             case ARRAY_TYPE:
-                get_pointee = decl_list.list[i]->arr.ptr->ptr.pointee;
+                get_pointee = decl_list->list[i]->arr.ptr->ptr.pointee;
                 while (get_pointee)
                     get_pointee = get_pointee->arr.ptr->ptr.pointee;
 
                 get_pointee = specifier->node;
-                cur_node->stable_entry.node = decl_list.list[i];  
+                cur_node->stable_entry.node = decl_list->list[i];  
                 break;
             case FNC_TYPE:  /* not sure what to do with this yet */
                 break;
         }
         
-        free(decl_list.list[i]);
+        free(decl_list->list[i]);
     }
     free(specifier);
 }

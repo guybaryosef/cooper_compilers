@@ -303,7 +303,7 @@ astnode *newNode_arr(int size) {
 /*
  * newNodeType - Creates a new AST node for a scalar type.
  */
-astnode *newNodeType(enum ScalarTypes type, _Bool is_signed) {
+astnode *newNode_scalarType(enum ScalarTypes type, _Bool is_signed) {
     astnode *node;
     if ((node = malloc(sizeof(astnode))) == NULL) {
         fprintf(stderr, "Error allocating memory for AST node: %s\n", 
@@ -373,10 +373,8 @@ astnode *newNode_sTableEntry(TmpSymbolTableEntry *tmp_entry) {
                 "a new Symbol Table Entry: %s\n", strerror(errno));
     }
 
-    if (!tmp_entry) {   /* applies to struct declarations */
-
+    if (!tmp_entry)   /* applies to struct declarations */
         return new_entry;
-    }
 
     new_entry->stable_entry.file_name = tmp_entry->file_name;
     new_entry->stable_entry.line_num = tmp_entry->line_num;
