@@ -28,6 +28,6 @@ void initializeFrontEnd() {
     /* scope stack initialization */
     scope_stack.innermost_scope = calloc(1, sizeof(ScopeStackLayer));
     if (!scope_stack.innermost_scope)
-        error("Unable to allocate memory for the scope stack");
+        fprintf(stderr, "Unable to allocate memory for the scope stack");
     scope_stack.innermost_scope->scope_type = File;
 }

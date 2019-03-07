@@ -72,6 +72,8 @@
 %type <astnode_p> enum-type-specifier float-type-specifier int-type-specifier struct-type-specifier typedef-type-specifier union-type-specifier void-type-specifier
 
 %type <astnode_p> signed-type-specifier unsigned-type-specifier character-type-specifier bool-type-specifier complex-type-specifier imag-type-specifier
+%type <simple_int> longlong-int-type-specifier long-int-type-specifier type-intermediate unsigned-intermediate long-intermediate longlong-intermediate signed-intermediate
+%type <simple_int> int-intermediate
 
 %type <astnode_p> struct-type-definition struct-type-reference
 %type <str> struct-tag
@@ -534,37 +536,100 @@ int-type-specifier: signed-type-specifier       { $$ = $1; }
                   | bool-type-specifier         { $$ = $1; }
                   ;
 
-signed-type-specifier: SHORT            { $$ = newNode_scalarType(Short, 1);  }
-                     | SHORT INT        { $$ = newNode_scalarType(Short, 1);  }
-                     | SIGNED SHORT     { $$ = newNode_scalarType(Short, 1);  }
-                     | SIGNED SHORT INT { $$ = newNode_scalarType(Short, 1);  }
-                     | INT              { $$ = newNode_scalarType(Int, 1);    }
-                     | SIGNED INT       { $$ = newNode_scalarType(Int, 1);    }
-                     | SIGNED           { $$ = newNode_scalarType(Int, 1);    }
-                     | LONG             { $$ = newNode_scalarType(Long, 1);   } 
-                     | LONG INT         { $$ = newNode_scalarType(Long, 1);   }
-                     | SIGNED LONG      { $$ = newNode_scalarType(Long, 1);   }
-                     | SIGNED LONG INT  { $$ = newNode_scalarType(Long, 1);   }
-                     | LONG LONG            { $$ = newNode_scalarType(LongLong, 1);}
-                     | LONG LONG INT        { $$ = newNode_scalarType(LongLong, 1);}
-                     | SIGNED LONG LONG     { $$ = newNode_scalarType(LongLong, 1);}
-                     | SIGNED LONG LONG INT { $$ = newNode_scalarType(LongLong, 1);}
+signed-type-specifier: signed-intermediate type-intermediate { 
+                            switch($2) {
+                                case 1:
+                                    $$ = newNode_scalarType(Short, 1);
+                                    break;
+                                case 2:
+                                    $$ = newNode_scalarType(Int, 1);
+                                    break;
+                                case 3:
+                                    $$ = newNode_scalarType(Long, 1);
+                                    break;
+                                case 4:
+                                    $$ = newNode_scalarType(LongLong, 1);
+                                    break;
+                            }  
+                        }
+                     | type-intermediate { 
+                            switch($1) {
+                                case 1:
+                                    $$ = newNode_scalarType(Short, 1);
+                                    break;
+                                case 2:
+                                    $$ = newNode_scalarType(Int, 1);
+                                    break;
+                                case 3:
+                                    $$ = newNode_scalarType(Long, 1);
+                                    break;
+                                case 4:
+                                    $$ = newNode_scalarType(LongLong, 1);
+                                    break;
+                            }  
+                        }
                      ;
 
-unsigned-type-specifier: UNSIGNED SHORT        { $$ = newNode_scalarType(Short, 0);   }
-                       | UNSIGNED SHORT INT    { $$ = newNode_scalarType(Short, 0);   }
-                       | UNSIGNED              { $$ = newNode_scalarType(Int, 0);     }
-                       | UNSIGNED INT          { $$ = newNode_scalarType(Int, 0);     }
-                       | UNSIGNED LONG         { $$ = newNode_scalarType(Long, 0);    }
-                       | UNSIGNED LONG INT     { $$ = newNode_scalarType(Long, 0);    }
-                       | UNSIGNED LONG LONG    { $$ = newNode_scalarType(LongLong, 0);}
-                       | UNSIGNED LONG LONG INT { $$ = newNode_scalarType(LongLong, 0);}
+
+
+short-int-type-specifier: short-intermediate                    { /* NOTHING */ }
+                        | short-intermediate int-intermediate   { /* NOTHING */ }
+                        ;
+
+long-int-type-specifier: long-intermediate                      { /* NOTHING */ }
+                       ;
+
+longlong-int-type-specifier: longlong-intermediate                  { /* NOTHING */ }
+                           | longlong-intermediate int-intermediate { /* NOTHING */ }
+                           ;
+
+unsigned-intermediate: UNSIGNED { /* NOTHING */ }
+                     ;
+
+signed-intermediate: SIGNED     { /* NOTHING */ }
+                   ;
+
+short-intermediate: SHORT       { /* NOTHING */ }
+                  ;
+
+long-intermediate: LONG         { /* NOTHING */ }
+                 ;
+
+int-intermediate: INT           { /* NOTHING */ }
+                ;
+
+longlong-intermediate: long-intermediate long-intermediate { /* NOTHING */ }
+                     ;
+
+/* todo: break these into a more readable and intuitive enum */
+type-intermediate: short-int-type-specifier { $$ = 1; }
+                 | int-intermediate            { $$ = 2; }
+                 | long-int-type-specifier     { $$ = 3; }
+                 | longlong-int-type-specifier { $$ = 4; }
+                 ;
+
+unsigned-type-specifier: unsigned-intermediate type-intermediate { 
+                                switch($2) {
+                                    case 1:
+                                        $$ = newNode_scalarType(Short, 0); 
+                                        break;
+                                    case 2:
+                                        $$ = newNode_scalarType(Int, 0);
+                                        break;
+                                    case 3:
+                                        $$ = newNode_scalarType(Long, 0);
+                                        break;
+                                    case 4:
+                                        $$ = newNode_scalarType(LongLong, 0);
+                                        break;
+                                }
+                            }
                        ;
 
 /* a plain 'char' was chosen to be an 'unsigned char' */
 character-type-specifier: CHAR              { $$ = newNode_scalarType(Char, 0);}
-                        | SIGNED CHAR       { $$ = newNode_scalarType(LongLong, 1);}
-                        | UNSIGNED CHAR     { $$ = newNode_scalarType(LongLong, 1);}
+                        | signed-intermediate CHAR       { $$ = newNode_scalarType(LongLong, 1);}
+                        | unsigned-intermediate CHAR     { $$ = newNode_scalarType(LongLong, 1);}
                         ;
 
 bool-type-specifier: _BOOL { $$ = newNode_scalarType(Bool, 0); }
