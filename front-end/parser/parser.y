@@ -71,9 +71,12 @@
 %type <possible_type_qualifier> type-qualifier
 %type <astnode_p> enum-type-specifier float-type-specifier int-type-specifier struct-type-specifier typedef-type-specifier union-type-specifier void-type-specifier
 
-%type <astnode_p> signed-type-specifier unsigned-type-specifier character-type-specifier bool-type-specifier complex-type-specifier imag-type-specifier
-%type <simple_int> longlong-int-type-specifier long-int-type-specifier type-intermediate unsigned-intermediate long-intermediate longlong-intermediate signed-intermediate
-%type <simple_int> int-intermediate
+%type <astnode_p> signed-type-specifier unsigned-type-specifier character-type-specifier bool-type-specifier 
+%type <astnode_p> complex-type-specifier imag-type-specifier
+
+%type <simple_int> prev-specifiers unsigned-intermediate signed-intermediate 
+%type <simple_int> type-intermediate
+
 
 %type <astnode_p> struct-type-definition struct-type-reference
 %type <str> struct-tag
@@ -570,42 +573,20 @@ signed-type-specifier: signed-intermediate type-intermediate {
                         }
                      ;
 
-
-
-short-int-type-specifier: short-intermediate                    { /* NOTHING */ }
-                        | short-intermediate int-intermediate   { /* NOTHING */ }
-                        ;
-
-long-int-type-specifier: long-intermediate                      { /* NOTHING */ }
-                       ;
-
-longlong-int-type-specifier: longlong-intermediate                  { /* NOTHING */ }
-                           | longlong-intermediate int-intermediate { /* NOTHING */ }
-                           ;
-
 unsigned-intermediate: UNSIGNED { /* NOTHING */ }
                      ;
 
 signed-intermediate: SIGNED     { /* NOTHING */ }
                    ;
 
-short-intermediate: SHORT       { /* NOTHING */ }
-                  ;
-
-long-intermediate: LONG         { /* NOTHING */ }
-                 ;
-
-int-intermediate: INT           { /* NOTHING */ }
-                ;
-
-longlong-intermediate: long-intermediate long-intermediate { /* NOTHING */ }
-                     ;
-
 /* todo: break these into a more readable and intuitive enum */
-type-intermediate: short-int-type-specifier { $$ = 1; }
-                 | int-intermediate            { $$ = 2; }
-                 | long-int-type-specifier     { $$ = 3; }
-                 | longlong-int-type-specifier { $$ = 4; }
+prev-specifiers: /* empty */    { $$ = 2; }
+               |  SHORT         { $$ = 1; }
+               | LONG           { $$ = 3; }
+               | LONG LONG      { $$ = 4; }
+               ;
+
+type-intermediate: prev-specifiers INT { $$ = $1;}
                  ;
 
 unsigned-type-specifier: unsigned-intermediate type-intermediate { 
