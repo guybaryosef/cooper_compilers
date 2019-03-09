@@ -26,8 +26,5 @@ void initializeFrontEnd() {
     yycolumn = 1;
 
     /* scope stack initialization */
-    scope_stack.innermost_scope = calloc(1, sizeof(ScopeStackLayer));
-    if (!scope_stack.innermost_scope)
-        fprintf(stderr, "Unable to allocate memory for the scope stack");
-    scope_stack.innermost_scope->scope_type = File;
+    scope_stack.innermost_scope = createNewScope(File);
 }

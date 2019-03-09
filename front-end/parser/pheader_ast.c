@@ -382,13 +382,13 @@ astnode *newNode_sTableEntry(TmpSymbolTableEntry *tmp_entry) {
     new_entry->stable_entry.node = tmp_entry->node;
 
     switch(tmp_entry->type) {
-        case VARIABLE_TYPE:
+        case Variable_Type:
             new_entry->nodetype = STABLE_VAR;
             new_entry->stable_entry.var.storage_class = tmp_entry->var_fnc_storage_class;
             new_entry->stable_entry.var.type_qualifier = tmp_entry->var_type_qualifier;
             new_entry->stable_entry.var.offset_within_stack_frame = tmp_entry->var_offset_within_stack_frame;
             break;
-        case FUNCTION_TYPE:
+        case Function_Type:
             new_entry->nodetype = STABLE_FNC;
             new_entry->stable_entry.fnc.storage_class = tmp_entry->var_fnc_storage_class;
             new_entry->stable_entry.fnc.is_inline = tmp_entry->fnc_is_inline;
@@ -396,28 +396,28 @@ astnode *newNode_sTableEntry(TmpSymbolTableEntry *tmp_entry) {
             new_entry->stable_entry.fnc.return_type = tmp_entry->fnc_return_type;
             new_entry->stable_entry.fnc.args_types = tmp_entry->fnc_args_type;
             break;
-        case SU_TAG_TYPE:
+        case SU_Tag_Type:
             new_entry->nodetype = STABLE_SU_TAG;
             new_entry->stable_entry.sutag.is_defined = tmp_entry->su_tag_is_defined;
             break;
-        case ENUM_TAG:
+        case Enum_Tag:
             new_entry->nodetype = STABLE_ENUM_TAG;
             new_entry->stable_entry.enumtag.is_defined = tmp_entry->enum_tag_is_defined;
             break;
-        case STATEMENT_LABEL:
+        case Statement_Label:
             new_entry->nodetype = STABLE_STMT_LABEL;
             new_entry->stable_entry.stmtlabel.IR_assembly_label = tmp_entry->stmt_IR_assembly_label;
             break;
-        case ENUM_CONST_TYPE:
+        case Enum_Const_Type:
             new_entry->nodetype = STABLE_ENUM_CONST;
             new_entry->stable_entry.enumconst.tag = tmp_entry->enum_parent_tag;
             new_entry->stable_entry.enumconst.val = tmp_entry->enum_const_val;
             break;
-        case TYPEDEF_NAME:
+        case Typedef_Name:
             new_entry->nodetype = STABLE_TYPEDEF;
             new_entry->stable_entry.typedef_name.equivalent_type = tmp_entry->typedef_type;
             break;
-        case SU_MEMBER_TYPE:
+        case SU_Member_Type:
             new_entry->nodetype = STABLE_SU_MEMB;
             new_entry->stable_entry.sumemb.type = tmp_entry->su_memb_type;
             new_entry->stable_entry.sumemb.offset_within_s_u = tmp_entry->su_memb_offset;
@@ -435,7 +435,7 @@ astnode *newNode_sTableEntry(TmpSymbolTableEntry *tmp_entry) {
  * The constructor for the astnode_list struct.
  * This struct will be used for a declaration list. 
  */
-astnode_list *newASTnodeList(int len, astnode **cur_list) {
+astnode_list *newASTnodeList(int len, astnode_list *cur_list) {
     astnode_list *new_list = malloc(sizeof(astnode_list));
     if (!new_list) {
         fprintf(stderr, "Error allocating memory for astnode list: %s\n", strerror(errno));
@@ -449,7 +449,8 @@ astnode_list *newASTnodeList(int len, astnode **cur_list) {
     }
 
     if (cur_list)
-        *(new_list->list) = *cur_list;   
+        for (int i = 0 ; i < cur_list->len ; ++i)
+            new_list->list[i] = cur_list->list[i];   
 
     new_list->len = len;
     return new_list;
@@ -525,7 +526,11 @@ char *token2op(int token_name) {
  * Hakner's in the assignment sheet.
  * 
  * This is in essense a preorder traversal.
+ * 
+ * If the output_file input is NULL, then the AST is printed
+ * to standard out.
  */
+
 void printAST(astnode *root, FILE *output_file) {
 
     FILE *output = (output_file) ? output_file : stdout;
@@ -637,23 +642,63 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
             break;
         /********* NEEDS WORK *****/
         case PTR_TYPE:
-            fprintf(output, "TYPE DESIGNATOR: %s\n", stringFromTokens(cur->scalar_type.type));
+            fprintf(output, "pointer to:\n");
+            preorderTraversal(cur->ptr.pointee, output, depth+1);
             break;
         case ARRAY_TYPE:
+            fprintf(output, "array of %d elements of type\n", cur->arr.size);
+            preorderTraversal(cur->arr.ptr, output, depth+1);
             break;
         case SCALAR_TYPE:
+            if (!cur->scalar_type.sign)
+                fprintf(output, "unsigned ");
+            switch(cur->scalar_type.type) {
+                case Int: fprintf(output, "int");                   break;
+                case Void: fprintf(output, "void");                 break;
+                case Char: fprintf(output, "char");                 break;
+                case Short: fprintf(output, "short");           break;
+                case Long: fprintf(output, "long");             break;
+                case LongLong: fprintf(output, "long long");    break;
+                case Bool: fprintf(output, "bool");                 break;
+                case Float: fprintf(output, "float");               break;
+                case Double: fprintf(output, "double");             break;
+                case LongDouble: fprintf(output, "long double");    break;
+                case FloatComplex: fprintf(output, "float complex");            break;
+                case DoubleComplex: fprintf(output, "double complex");          break;
+                case LongDoubleComplex: fprintf(output, "long double complex"); break;
+                case FloatImag: fprintf(output, "float imaginary");             break;
+                case DoubleImag: fprintf(output, "double imaginary");           break;
+                case LongDoubleImag: fprintf(output, "long double imaginary");  break;
+            }
             break;
         case FNC_TYPE:
             break;
 
         /* symbol table entries */
         case STABLE_VAR:
+        case STABLE_ENUM_TAG:
+            fprintf( output, 
+                "%s is defined at %s:%d [in %s scope starting at %s:%d] "
+                "as a \nvariable with stgclass %s of type:\n", 
+                cur->stable_entry.ident, 
+                cur_file_name, 
+                cur_line_num, 
+                translateScopeType(scope_stack.innermost_scope->scope_type),
+                scope_stack.innermost_scope->beginning_file, 
+                scope_stack.innermost_scope->begin_line_num,
+                translateStgClass(cur->stable_entry.var.storage_class)); 
+            
+            /* pad accordingly */
+            for (int i = 0; i < depth+1; ++i)
+                fprintf(output, "  ");
+
+            fprintf(output, "%s", 
+                    translateTypeQualifier(cur->stable_entry.var.type_qualifier));
+            preorderTraversal(cur->stable_entry.node, output, depth);
             break;
         case STABLE_FNC:
             break;
         case STABLE_SU_TAG:
-            break;
-        case STABLE_ENUM_TAG:
             break;
         case STABLE_STMT_LABEL:
             break;
@@ -666,6 +711,51 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
     }
 }
 
+
+/*
+ * translateStgclass - A helper function for gettint the correct
+ * printing format for variable storage classes.s
+ */
+char *translateStgClass(enum SymbolTableStorageClass stgclass) {
+    switch (stgclass) {
+        case Auto:      return "auto ";      break;
+        case Extern:    return "extern ";    break;
+        case Static:    return "static ";    break;
+        case Register:  return "register ";  break;
+        default:        return "typedef ";
+    }
+}
+
+
+/*
+ * translateTypeQualifier - A helper function for gettint the correct
+ * printing format for variable storage classes.s
+ */
+char *translateTypeQualifier(enum SymbolTableTypeQualifiers qualifier) {
+    switch (qualifier) {
+        case C:     return "const ";                   break;
+        case V:     return "volatile ";                break;
+        case R:     return "restrict ";                break;
+        case CV:    return "const volatile ";          break;
+        case CR:    return "const restrict ";          break;
+        case VR:    return "volatile restrict ";       break;
+        case CVR:   return "const volatile restrict "; break;
+        default:    return ""; 
+    }
+}
+
+/*
+ * translateScopeType - A helper function for gettint the correct
+ * printing format for variable storage classes.s
+ */
+char *translateScopeType(enum ScopeType type) {
+    switch(type) {
+        case File:          return "global";    break;
+        case Function:      return "function";  break;
+        case Block:         return "block";     break;
+        default: Proto:     return "prototype"; break;
+    }
+}
 
 /* 
  * freeTree - Frees the dynamically allocated memory 

@@ -46,9 +46,11 @@ typedef struct SymbolTable {
 enum ScopeType { File = 1, Function, Block, Proto };
 
 typedef struct ScopeStackLayer {
-    enum ScopeType scope_type;  /* one of the 4 types of scopes     */
-    SymbolTable *tables[4];     /* diff table for each namespace    */
-    struct ScopeStackLayer *child;  /* next link in linked list of scopes */ 
+    enum ScopeType scope_type;  /* one of the 4 types of scopes             */
+    SymbolTable *tables[4];     /* diff table for each namespace            */
+    struct ScopeStackLayer *child;  /* next link in linked list of scopes   */
+    char *beginning_file;       /* name of the file the scope began at      */
+    int begin_line_num;         /* the line number that the scope begain at */ 
 } ScopeStackLayer;
 
 
@@ -69,8 +71,8 @@ typedef struct TmpSymbolTableEntry {
     char *file_name;        /* file name where the identifier first appeared  */
     int line_num;           /* line number of file where identifier appeared  */
     char *ident;            /* identifier name */
-    enum STEntry_Type type;/* the type of identifier that the entry holds    */
-    struct astnode *node;          /* the AST node that represents this entry    */
+    enum STEntry_Type type; /* the type of identifier that the entry holds    */
+    struct astnode *node;   /* the AST node that represents this entry    */
 
     /* variable and function */
     enum SymbolTableStorageClass var_fnc_storage_class;

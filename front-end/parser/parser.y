@@ -47,7 +47,9 @@
 %token <simple_int> SHR LTEQ GTEQ EQEQ NOTEQ LOGAND LOGOR ELLIPSIS TIMESEQ 
 %token <simple_int> DIVEQ MODEQ PLUSEQ MINUSEQ SHLEQ SHREQ ANDEQ OREQ XOREQ
 %token <simple_int> AUTO BREAK CASE CHAR CONST CONTINUE DEFAULT DO DOUBLE ELSE
-%token <simple_int> ENUM EXTERN FLOAT FOR GOTO IF INLINE INT LONG REGISTER
+%token <simple_int> ENUM EXTERN FLOAT FOR GOTO IF INLINE 
+%token <simple_int> INT 
+%token <simple_int> LONG REGISTER
 %token <simple_int> RESTRICT RETURN SHORT SIGNED SIZEOF STATIC STRUCT SWITCH TYPEDEF
 %token <simple_int> UNION UNSIGNED VOID VOLATILE WHILE _BOOL _COMPLEX _IMAGINARY
 
@@ -71,20 +73,17 @@
 %type <possible_type_qualifier> type-qualifier
 %type <astnode_p> enum-type-specifier float-type-specifier int-type-specifier struct-type-specifier typedef-type-specifier union-type-specifier void-type-specifier
 
-%type <astnode_p> signed-type-specifier unsigned-type-specifier character-type-specifier bool-type-specifier 
+
+%type <astnode_p> signed-type-specifier unsigned-type-specifier character-type-specifier bool-type-specifier
+%type <astnode_p> short-signed-type reg-signed-type long-signed-type longlong-signed-type short-unsigned-type int-unsigned-type long-unsigned-type longlong-unsigned-type
 %type <astnode_p> complex-type-specifier imag-type-specifier
-
-%type <simple_int> prev-specifiers unsigned-intermediate signed-intermediate 
-%type <simple_int> type-intermediate
-
 
 %type <astnode_p> struct-type-definition struct-type-reference
 %type <str> struct-tag
 %type <astnode_pp> field-list member-declaration member-declarator-list
 %type <astnode_p> member-declarator
 
-
-%type <astnode_p> type-specifier
+%type <tmp_stable_entry> type-specifier 
 
 %type <simple_int> fnc-specifier
 %type <astnode_p> simple-declarator
@@ -439,8 +438,8 @@ expr: comma-expr { $$ = $1; }
     ;
 
 
-stmt: expr ';'              { /* NOTHING */ }
-    | compound-stmt         { /* NOTHING */ }
+stmt: expr ';'              { $$ = $1; }
+    | compound-stmt         { $$ = $1; }
     | error ';'             { if (error_count > 10) exit(-1); }
     ;
 
@@ -457,25 +456,38 @@ declaration: decl-specifiers ';'    {
                     /* valid but does NOTHING */ 
                 }
            | decl-specifiers decl-init-list ';' {
+                    if (!($1->node)) {
+                        $1->node = newNode_scalarType(Int, 1);
+                        $1->type = Variable_Type;
+                    }
                     if (!isTmpSTableEntryValid($1)) {
                         yyerror("Error in declaration specifiers.");
                     }
                     else {
                         /* create the new symbol table entries */
                         $$ = combineSpecifierDeclarator($1, $2); 
-
+                        
                         /* add the new entries to the symbol table */
                         int ns_ind;
+
                         for (int i = 0 ; i < $$->len; ++i) {
-                            if ($$->list[i]->stable_entry.type == STATEMENT_LABEL)
-                                ns_ind = 1;  /* statment labels        */
-                            else if ($$->list[i]->stable_entry.type == ENUM_TAG ||
-                                     $$->list[i]->stable_entry.type == SU_TAG_TYPE)
-                                ns_ind = 2;  /* tags (idents of struct/union/enum) */
-                            else if ($$->list[i]->stable_entry.type == SU_MEMBER_TYPE)
-                                ns_ind = 3;  /* struct/union members */
+                            
+                            if ($$->list[i]->stable_entry.type == Statement_Label)
+                                ns_ind = 0;  /* statment labels        */
+                            else if ($$->list[i]->stable_entry.type == Enum_Tag ||
+                                     $$->list[i]->stable_entry.type == SU_Tag_Type)
+                                ns_ind = 1;  /* tags (idents of struct/union/enum) */
+                            else if ($$->list[i]->stable_entry.type == SU_Member_Type)
+                                ns_ind = 2;  /* struct/union members */
                             else
-                                ns_ind = 4;  /* all other identifier classes */
+                                ns_ind = 3;  /* all other identifier classes */
+
+
+                            /* check if we are in global scope, as this will make
+                            variables extern by default instead of auto. */
+                            if (scope_stack.innermost_scope->scope_type == File &&
+                                    $$->list[i]->stable_entry.type == Variable_Type)
+                                $$->list[i]->stable_entry.var.storage_class = Extern;
 
                             if(sTableInsert(scope_stack.innermost_scope->tables[ns_ind], $$->list[i], 1) < 0)
                                 yyerror("Unable to insert variable into symbol table");
@@ -496,15 +508,16 @@ decl-specifiers: storage-class-specifier {
                             $$->var_fnc_storage_class = $1;
                     }
                | type-specifier {
-                        $$ = createTmpSTableEntry();
-                        $$->node = $1;                                                                
+                        $$ = $1;
                     }
                | type-specifier decl-specifiers {
-                        $$ = $2;
+                        $$ = $1;
                         if ($$->node)
                             yyerror("Can't have multiple type specifiers for a declaration specifiers");
-                        else
-                            $$->node = $1;                                                                
+                        else {
+                            $$->node = $1->node;
+                            $$->type = $1->type;
+                        }                                                                
                     }
                | type-qualifier {   
                         $$ = createTmpSTableEntry();
@@ -524,13 +537,41 @@ decl-specifiers: storage-class-specifier {
                     }   
                ;
 
-type-specifier: enum-type-specifier     { $$ = $1; }
-              | float-type-specifier    { $$ = $1; }
-              | int-type-specifier      { $$ = $1; }
-              | struct-type-specifier   { $$ = $1; }
-              | typedef-type-specifier  { $$ = $1; } 
-              | union-type-specifier    { $$ = $1; }
-              | void-type-specifier     { $$ = $1; }
+type-specifier: enum-type-specifier {                         
+                        $$ = createTmpSTableEntry();
+                        $$->node = $1; 
+                        $$->type =  Enum_Tag;
+                    }
+              | float-type-specifier  {                         
+                        $$ = createTmpSTableEntry();
+                        $$->node = $1; 
+                        $$->type =  Variable_Type;
+                    }
+              | int-type-specifier  {                         
+                        $$ = createTmpSTableEntry();
+                        $$->node = $1; 
+                        $$->type =  Variable_Type;
+                    }
+              | struct-type-specifier  {                         
+                        $$ = createTmpSTableEntry();
+                        $$->node = $1; 
+                        $$->type =  SU_Tag_Type;
+                    }
+              | typedef-type-specifier  {                         
+                        $$ = createTmpSTableEntry();
+                        $$->node = $1; 
+                        $$->type =  Typedef_Name;
+                    } 
+              | union-type-specifier  {                         
+                        $$ = createTmpSTableEntry();
+                        $$->node = $1; 
+                        $$->type =  SU_Tag_Type;
+                    }
+              | void-type-specifier  {                         
+                        $$ = createTmpSTableEntry();
+                        $$->node = $1; 
+                        $$->type =  Void_Type;
+                    }
               ;
 
 int-type-specifier: signed-type-specifier       { $$ = $1; }
@@ -539,112 +580,95 @@ int-type-specifier: signed-type-specifier       { $$ = $1; }
                   | bool-type-specifier         { $$ = $1; }
                   ;
 
-signed-type-specifier: signed-intermediate type-intermediate { 
-                            switch($2) {
-                                case 1:
-                                    $$ = newNode_scalarType(Short, 1);
-                                    break;
-                                case 2:
-                                    $$ = newNode_scalarType(Int, 1);
-                                    break;
-                                case 3:
-                                    $$ = newNode_scalarType(Long, 1);
-                                    break;
-                                case 4:
-                                    $$ = newNode_scalarType(LongLong, 1);
-                                    break;
-                            }  
-                        }
-                     | type-intermediate { 
-                            switch($1) {
-                                case 1:
-                                    $$ = newNode_scalarType(Short, 1);
-                                    break;
-                                case 2:
-                                    $$ = newNode_scalarType(Int, 1);
-                                    break;
-                                case 3:
-                                    $$ = newNode_scalarType(Long, 1);
-                                    break;
-                                case 4:
-                                    $$ = newNode_scalarType(LongLong, 1);
-                                    break;
-                            }  
-                        }
-                     ;
+signed-type-specifier: short-signed-type    { $$ = $1; }
+                     | reg-signed-type      { $$ = $1; }
+                     | long-signed-type     { $$ = $1; }
+                     | longlong-signed-type { $$ = $1; }
+                     ; 
 
-unsigned-intermediate: UNSIGNED { /* NOTHING */ }
-                     ;
-
-signed-intermediate: SIGNED     { /* NOTHING */ }
-                   ;
-
-/* todo: break these into a more readable and intuitive enum */
-prev-specifiers: /* empty */    { $$ = 2; }
-               |  SHORT         { $$ = 1; }
-               | LONG           { $$ = 3; }
-               | LONG LONG      { $$ = 4; }
-               ;
-
-type-intermediate: prev-specifiers INT { $$ = $1;}
+short-signed-type: SHORT            { $$ = newNode_scalarType(Short, 1); }
+                 | SHORT INT        { $$ = newNode_scalarType(Short, 1); }
+                 | SIGNED SHORT     { $$ = newNode_scalarType(Short, 1); }
+                 | SIGNED SHORT INT { $$ = newNode_scalarType(Short, 1); }
                  ;
 
-unsigned-type-specifier: unsigned-intermediate type-intermediate { 
-                                switch($2) {
-                                    case 1:
-                                        $$ = newNode_scalarType(Short, 0); 
-                                        break;
-                                    case 2:
-                                        $$ = newNode_scalarType(Int, 0);
-                                        break;
-                                    case 3:
-                                        $$ = newNode_scalarType(Long, 0);
-                                        break;
-                                    case 4:
-                                        $$ = newNode_scalarType(LongLong, 0);
-                                        break;
-                                }
-                            }
-                       ;
+reg-signed-type: INT        { $$ = newNode_scalarType(Int, 1); }
+               | SIGNED INT { $$ = newNode_scalarType(Int, 1); }
+               | SIGNED     { $$ = newNode_scalarType(Int, 1); }
+               ;
+
+long-signed-type: LONG              { $$ = newNode_scalarType(Long, 1); }
+                | LONG INT          { $$ = newNode_scalarType(Long, 1); }
+                | SIGNED LONG       { $$ = newNode_scalarType(Long, 1); }
+                | SIGNED LONG INT   { $$ = newNode_scalarType(Long, 1); }
+                ;
+
+longlong-signed-type: LONG LONG             { $$ = newNode_scalarType(LongLong, 1); }
+                    | LONG LONG INT         { $$ = newNode_scalarType(LongLong, 1); }
+                    | SIGNED LONG LONG      { $$ = newNode_scalarType(LongLong, 1); }
+                    | SIGNED LONG LONG INT  { $$ = newNode_scalarType(LongLong, 1); }
+                    ;
+
+unsigned-type-specifier: short-unsigned-type    { $$ = $1; }
+                       | int-unsigned-type      { $$ = $1; }
+                       | long-unsigned-type     { $$ = $1; }
+                       | longlong-unsigned-type { $$ = $1; }
+                       ; 
+
+short-unsigned-type: UNSIGNED SHORT     { $$ = newNode_scalarType(Short, 0); }         
+                   | UNSIGNED SHORT INT { $$ = newNode_scalarType(Short, 0); }
+                   ;
+
+int-unsigned-type: UNSIGNED     { $$ = newNode_scalarType(Int, 0); }
+                 | UNSIGNED INT { $$ = newNode_scalarType(Int, 0); }
+                 ;
+
+long-unsigned-type: UNSIGNED LONG       { $$ = newNode_scalarType(Long, 0); }
+                  | UNSIGNED LONG INT   { $$ = newNode_scalarType(Long, 0); }
+                  ;
+
+longlong-unsigned-type: UNSIGNED LONG LONG      { $$ = newNode_scalarType(LongLong, 0); }
+                      | UNSIGNED LONG LONG INT  { $$ = newNode_scalarType(LongLong, 0); }
+                      ;
 
 /* a plain 'char' was chosen to be an 'unsigned char' */
-character-type-specifier: CHAR              { $$ = newNode_scalarType(Char, 0);}
-                        | signed-intermediate CHAR       { $$ = newNode_scalarType(LongLong, 1);}
-                        | unsigned-intermediate CHAR     { $$ = newNode_scalarType(LongLong, 1);}
+character-type-specifier: CHAR          { $$ = newNode_scalarType(Char, 0); }
+                        | SIGNED CHAR   { $$ = newNode_scalarType(Char, 1); }
+                        | UNSIGNED CHAR { $$ = newNode_scalarType(Char, 0); }
                         ;
 
 bool-type-specifier: _BOOL { $$ = newNode_scalarType(Bool, 0); }
                    ;
 
-float-type-specifier: FLOAT                  { $$ = newNode_scalarType(Float, 0);       }
-                    | DOUBLE                 { $$ = newNode_scalarType(Double, 0);      }
-                    | LONG DOUBLE            { $$ = newNode_scalarType(LongDouble, 0);  }
+float-type-specifier: FLOAT                  { $$ = newNode_scalarType(Float, 1);       }
+                    | DOUBLE                 { $$ = newNode_scalarType(Double, 1);      }
+                    | LONG DOUBLE   { $$ = newNode_scalarType(LongDouble, 1);  }
                     | complex-type-specifier { $$ = $1; }
                     | imag-type-specifier    { $$ = $1; }
                     ;
 
-complex-type-specifier: FLOAT _COMPLEX       { $$ = newNode_scalarType(FloatComplex, 0);     }
-                      | DOUBLE _COMPLEX      { $$ = newNode_scalarType(DoubleComplex, 0);    }
-                      | LONG DOUBLE _COMPLEX { $$ = newNode_scalarType(LongDoubleComplex, 0);}
+complex-type-specifier: FLOAT _COMPLEX       { $$ = newNode_scalarType(FloatComplex, 1);     }
+                      | DOUBLE _COMPLEX      { $$ = newNode_scalarType(DoubleComplex, 1);    }
+                      | LONG DOUBLE _COMPLEX { $$ = newNode_scalarType(LongDoubleComplex, 1);}
                       ;
 
-imag-type-specifier: FLOAT _IMAGINARY       { $$ = newNode_scalarType(FloatImag, 0);     }
-                   | DOUBLE _IMAGINARY      { $$ = newNode_scalarType(DoubleImag, 0);    }
-                   | LONG DOUBLE _IMAGINARY { $$ = newNode_scalarType(LongDoubleImag, 0);}
+imag-type-specifier: FLOAT _IMAGINARY       { $$ = newNode_scalarType(FloatImag, 1);     }
+                   | DOUBLE _IMAGINARY      { $$ = newNode_scalarType(DoubleImag, 1);    }
+                   | LONG DOUBLE _IMAGINARY { $$ = newNode_scalarType(LongDoubleImag, 1);}
                    ;
 
 /* for now not implementing enums, typedefs, or union.
    With enough time, will see how many more can be included. */
-enum-type-specifier: ENUM        { $$ = newNode_scalarType(Int, 0); }
+enum-type-specifier: ENUM        { $$ = newNode_scalarType(Int, 1); }
                    ;
 
-typedef-type-specifier: TYPEDEF  { $$ = newNode_scalarType(Int, 0); } 
+typedef-type-specifier: TYPEDEF  { $$ = newNode_scalarType(Int, 1); } 
                       ;
 
-union-type-specifier: UNION      { $$ = newNode_scalarType(Int, 0); }
+union-type-specifier: UNION      { $$ = newNode_scalarType(Int, 1); }
                     ;
 
-void-type-specifier: VOID        { $$ = newNode_scalarType(Int, 0); }
+void-type-specifier: VOID        { $$ = newNode_scalarType(Int, 1); }
                    ;
 
 /* struct-type-specifier is a symbol table entry, not just a astnode type */
@@ -683,7 +707,7 @@ struct-tag: IDENT   { $$ = $1; }
 
 field-list: member-declaration              { $$ = $1; }
           | field-list member-declaration   { 
-                    $$ = newASTnodeList($1->len + $2->len, $1->list);
+                    $$ = newASTnodeList($1->len + $2->len, $1);
                     
                     for (int i = $1->len, k=0 ; i < $$->len ; ++i, ++k)  
                         $$->list[i] = $2->list[k];
@@ -691,12 +715,11 @@ field-list: member-declaration              { $$ = $1; }
           ;
 
 member-declaration: type-specifier member-declarator-list ';' { 
-                            TmpSymbolTableEntry *tmp_entry = createTmpSTableEntry();
-                            tmp_entry->node = $1;
-                            if (!isTmpSTableEntryValid(tmp_entry))
+                            $1->type = SU_Member_Type;
+                            if (!isTmpSTableEntryValid($1))
                                 yyerror("Invalid struct declaration specifiers.");
                             else
-                                $$ = combineSpecifierDeclarator(tmp_entry, $2); 
+                                $$ = combineSpecifierDeclarator($1, $2); 
                         }
                   ;
 
@@ -705,25 +728,24 @@ member-declarator-list: member-declarator {
                                 $$->list[0] = $1;
                             }
                       | member-declarator-list ',' member-declarator {
-                                $$ = newASTnodeList($1->len+1, $1->list);
+                                $$ = newASTnodeList($1->len+1, $1);
                                 $$->list[$1->len] = $3;
                             }
                       ;
 
-member-declarator: declarator   { $$ = $1; }
+member-declarator: declarator   { 
+                        $$ = $1;
+                    }
                  /* we will not be implementing bit-fields in struct definitions */
                  ;
 
 
-
-/* due to the possibility for a list of declarators, we implement the 
-   decl-init-list non-token as pointer to a pointer to an astnode_p.  */
 decl-init-list: init-decl { 
                         $$ = newASTnodeList(1, NULL); 
                         $$->list[0] = $1;
                     }  
               | decl-init-list ',' init-decl    {
-                        $$ = newASTnodeList($1->len+1, $1->list);
+                        $$ = newASTnodeList($1->len+1, $1);
                         $$->list[$$->len-1] = $3;
                     }
               ; 
@@ -783,7 +805,10 @@ direct-declarator: simple-declarator    { $$ = $1; }
                  ;
 
 
-simple-declarator: IDENT    { /* no answer yet */ } /* need to figure out what to do */
+simple-declarator: IDENT { 
+                        $$ = newNode_sTableEntry(NULL);
+                        $$->stable_entry.ident = $1.str; 
+                    }
                  ;
 
 array-declarator: direct-declarator '[' ']'         {
@@ -805,8 +830,11 @@ fnc-declarator: direct-declarator '(' ')'
 **********************************************************************/
 
 
-decl-or-stmt: declaration   { /* NOTHING */ }
-            | stmt          { /* NOTHING */ }
+decl-or-stmt: declaration { 
+                    for (int i = 0; i < $1->len; ++i) 
+                        printAST($1->list[i], NULL);  
+                }
+            | stmt          { printAST($1, NULL);  }
             ;
 
 

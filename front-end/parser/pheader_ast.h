@@ -16,7 +16,6 @@
 
 #include <stdio.h>
 
-
 ////////////////////////////////////////////////////////
 /// Structs used in Abstract Syntax Tree Definitions ///
 ////////////////////////////////////////////////////////
@@ -171,13 +170,13 @@ struct astnode_struct {
  * strucutre to the symbol table entries & AST nodes we are much 
  * more flexible with how we implement these declarations.  
  */
-enum SymbolTableStorageClass { Auto = 1, Register, Extern, Static};
-enum possibleTypeQualifiers { Const, Volatile, Restrict};
+enum SymbolTableStorageClass { Auto = 0, Register, Extern, Static, Typedef};
+enum possibleTypeQualifiers { No_Qualifier = 0, Const, Volatile, Restrict};
 enum SymbolTableTypeQualifiers { None = 0, C, V, R, CV, CR, VR, CVR};
 
-enum STEntry_Type { NO_TYPE = 0, VARIABLE_TYPE, FUNCTION_TYPE, 
-                    SU_TAG_TYPE, ENUM_TAG, STATEMENT_LABEL, 
-                    ENUM_CONST_TYPE, TYPEDEF_NAME, SU_MEMBER_TYPE};
+enum STEntry_Type { Void_Type = 0, Variable_Type, Function_Type, 
+                    SU_Tag_Type, Enum_Tag, Statement_Label, 
+                    Enum_Const_Type, Typedef_Name, SU_Member_Type};
 
 #define STABLE_VAR 23  /* s_table entry for a variable */
 struct stable_var {
@@ -293,7 +292,7 @@ typedef struct astnode_list {
 } astnode_list;
 
 /* astnode_list's constructor */
-astnode_list *newASTnodeList(int len, astnode **cur_list);
+astnode_list *newASTnodeList(int len, astnode_list *cur_list);
 
 
 //////////////////////////////////////////////////////////
@@ -347,6 +346,9 @@ char *token2op(int token_name);
  * Hakner's in the assignment sheet.
  * 
  * This is in essense a preorder traversal.
+ *
+ * If the output_file input is NULL, then the AST is printed
+ * to standard out.
  */
 void printAST(struct astnode *root, FILE *output_file);
 
@@ -356,6 +358,29 @@ void printAST(struct astnode *root, FILE *output_file);
  * function implements preorder traversal for the AST printing.
  */
 void preorderTraversal(struct astnode *cur, FILE *output, int depth);
+
+
+/*
+ * translateStgclass - A helper function for gettint the correct
+ * printing format for variable storage classes.s
+ */
+char *translateStgClass(enum SymbolTableStorageClass stgclass);
+
+
+/*
+ * translateTypeQualifier - A helper function for gettint the correct
+ * printing format for variable storage classes.s
+ */
+char *translateTypeQualifier(enum SymbolTableTypeQualifiers qualifier);
+
+
+/*
+ * translateScopeType - A helper function for gettint the correct
+ * printing format for variable storage classes.s
+ */
+enum ScopeType;
+char *translateScopeType(enum ScopeType type);
+
 
 
 /* 

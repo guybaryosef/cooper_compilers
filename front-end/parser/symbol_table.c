@@ -76,7 +76,6 @@ int sTableInsert(SymbolTable *table, astnode *entry, int dup_toggle) {
         sTableResize(table);
 
     int data_ind = sTableHash(entry->stable_entry.ident, table->size);
-
     // linear probing
     while (table->data[data_ind] && 
                 table->data[data_ind]->stable_entry.ident != 
@@ -89,14 +88,15 @@ int sTableInsert(SymbolTable *table, astnode *entry, int dup_toggle) {
             table->data[data_ind] = entry;
         }
         else {
-        fprintf(stderr, "Attempted duplicate definition for identifier %s: %s\n",
-                                                    entry->stable_entry.ident, strerror(errno));
-        return -1;
+            fprintf(stderr, "Attempted duplicate definition for identifier %s: %s\n",
+                                                        entry->stable_entry.ident, strerror(errno));
+            return -1;
         }
     }
     else {
         // Insert entry into correct place in table
         table->data[data_ind] = entry;
+        table->filled++;
     }
 
     return 1;
@@ -155,6 +155,8 @@ int sTableResize(SymbolTable *table) {
         return -1;
     } 
 
+
+
     // Iterate through old data, updating new data array
     for (int i = 0 ; i < primes[prime_ind-1] ; ++i) {
         if (table->data[i]) {
@@ -165,7 +167,7 @@ int sTableResize(SymbolTable *table) {
     // Free old data array and update table with the new data array
     free(table->data);
     table->data = new_data;
-
+    table->size = new_size;
     return 1;
 }
 
@@ -180,6 +182,7 @@ int sTableHash(char *ident, int capacity) {
         hashVal = 37*hashVal + ident[i];
 
     hashVal %= capacity;
+
     if (hashVal < 0)
         hashVal += capacity;
 
@@ -213,7 +216,7 @@ TmpSymbolTableEntry *createTmpSTableEntry() {
  * type qualifier of the temporary symbol table entry.
  */
 void typeQualifierSTableEntry(TmpSymbolTableEntry *entry,
-                                                enum possibleTypeQualifiers qualifier) {
+                              enum possibleTypeQualifiers qualifier) {
     switch(entry->var_type_qualifier) {
         case None:
             switch(qualifier) {
@@ -288,110 +291,104 @@ void typeQualifierSTableEntry(TmpSymbolTableEntry *entry,
  * Returns 1 (true) or 0(false).
  */
 _Bool isTmpSTableEntryValid(TmpSymbolTableEntry *entry) {
+    /*
+    printf("fncinline %d\n", entry->fnc_is_inline);
+    printf("fncisdefined %d\n", entry->fnc_is_defined);
+    printf("fncreturntype %d\n", entry->fnc_return_type);
+    printf("fncargstype %d\n", entry->fnc_args_type);
+    printf("sutagdefined %d\n", entry->su_tag_is_defined);
+    printf("enumtagdefined %d\n", entry->enum_tag_is_defined);
+    printf("enumparenttag %d\n", entry->enum_parent_tag);
+    printf("enumconstval %d\n", entry->enum_const_val);
+    printf("stmtIRassemblylabel %d\n", entry->stmt_IR_assembly_label);
+    printf("typedeftype %d\n", entry->typedef_type);
+    printf("sumemboffset %d\n", entry->su_memb_offset);
+    printf("sumembtype %d\n", entry->su_memb_type);
+    printf("sumembbitfield %d\n", entry->su_memb_bit_field_width);
+    printf("sumembbitoffset %d\n", entry->su_memb_bit_offset);
     
-    /* This function checks, for each declared type, whether
-    all specifier incompatible with this type are NULL or 0,
-    (which are the values they are initialized with).   */
-    switch(entry->type) {
-        case VARIABLE_TYPE:
-            if (entry->fnc_is_inline || entry->fnc_is_defined || 
-                entry->fnc_return_type || entry->fnc_args_type || 
-                entry->su_tag_is_defined  ||
-                entry->enum_tag_is_defined || entry->enum_parent_tag || 
-                entry->enum_const_val || entry->stmt_IR_assembly_label ||
-                entry->typedef_type || entry->su_memb_offset ||
-                entry->su_memb_type ||
-                entry->su_memb_bit_field_width || entry->su_memb_bit_offset)
-                return 0;
-            break;
-        case FUNCTION_TYPE:
-            if (entry->var_type_qualifier ||
-                entry->var_offset_within_stack_frame ||
-                entry->su_tag_is_defined  ||
-                entry->enum_tag_is_defined || entry->enum_parent_tag || 
-                entry->enum_const_val || entry->stmt_IR_assembly_label ||
-                entry->typedef_type || entry->su_memb_offset ||
-                entry->su_memb_type || 
-                entry->su_memb_bit_field_width || entry->su_memb_bit_offset)
-                return 0;
-            break;
-        case SU_TAG_TYPE:
-            if (entry->var_fnc_storage_class || entry->var_type_qualifier ||
-                entry->var_offset_within_stack_frame ||
-                entry->fnc_is_inline || entry->fnc_is_defined || 
-                entry->fnc_return_type || entry->fnc_args_type ||
-                entry->enum_tag_is_defined || entry->enum_parent_tag || 
-                entry->enum_const_val || entry->stmt_IR_assembly_label ||
-                entry->typedef_type || entry->su_memb_offset || 
-                entry->su_memb_type ||
-                entry->su_memb_bit_field_width || entry->su_memb_bit_offset)
-                return 0;
-            break;
-        case ENUM_TAG:
-            if (entry->var_fnc_storage_class || entry->var_type_qualifier ||
-                entry->var_offset_within_stack_frame ||
-                entry->fnc_is_inline || entry->fnc_is_defined || 
-                entry->fnc_return_type || entry->fnc_args_type || 
-                entry->su_tag_is_defined  ||
-                entry->enum_parent_tag || 
-                entry->enum_const_val || entry->stmt_IR_assembly_label ||
-                entry->su_memb_type ||
-                entry->typedef_type || entry->su_memb_offset || 
-                entry->su_memb_bit_field_width || entry->su_memb_bit_offset)
-                return 0;
-            break;
-        case STATEMENT_LABEL:
-            if (entry->var_fnc_storage_class || entry->var_type_qualifier ||
-                entry->var_offset_within_stack_frame ||
-                entry->fnc_is_inline || entry->fnc_is_defined || 
-                entry->fnc_return_type || entry->fnc_args_type || 
-                entry->su_tag_is_defined  ||
-                entry->enum_tag_is_defined || entry->enum_parent_tag || 
-                entry->enum_const_val || entry->su_memb_type ||
-                entry->typedef_type || entry->su_memb_offset || 
-                entry->su_memb_bit_field_width || entry->su_memb_bit_offset)
-                return 0;
-            break;
-        case ENUM_CONST_TYPE:
-            if (entry->var_fnc_storage_class || entry->var_type_qualifier ||
-                entry->var_offset_within_stack_frame ||
-                entry->fnc_is_inline || entry->fnc_is_defined || 
-                entry->fnc_return_type || entry->fnc_args_type || 
-                entry->su_tag_is_defined  ||
-                entry->enum_tag_is_defined || entry->stmt_IR_assembly_label ||
-                entry->typedef_type || entry->su_memb_offset || 
-                entry->su_memb_type ||
-                entry->su_memb_bit_field_width || entry->su_memb_bit_offset)
-                return 0;
-            break;
-        case TYPEDEF_NAME:
-            if (entry->var_fnc_storage_class || entry->var_type_qualifier ||
-                entry->var_offset_within_stack_frame ||
-                entry->fnc_is_inline || entry->fnc_is_defined || 
-                entry->fnc_return_type || entry->fnc_args_type || 
-                entry->su_tag_is_defined  ||
-                entry->enum_tag_is_defined || entry->enum_parent_tag || 
-                entry->enum_const_val || entry->stmt_IR_assembly_label ||
-                entry->su_memb_offset || entry->su_memb_type ||
-                entry->su_memb_bit_field_width || entry->su_memb_bit_offset)
-                return 0;
-            break;
-        case SU_MEMBER_TYPE:
-            if (entry->var_fnc_storage_class || entry->var_type_qualifier ||
-                entry->var_offset_within_stack_frame ||
-                entry->fnc_is_inline || entry->fnc_is_defined || 
-                entry->fnc_return_type || entry->fnc_args_type || 
-                entry->su_tag_is_defined ||
-                entry->enum_tag_is_defined || entry->enum_parent_tag || 
-                entry->enum_const_val || entry->stmt_IR_assembly_label ||
-                entry->typedef_type)
-                return 0;
-            break;
-        case NO_TYPE:
-        default:
-            return 0;
-            break;
-    }
+    /* This function checks whether all specifier 
+       incompatible with this type are NULL or 0,
+       (which are the values they are initialized with).   
+    if (entry->fnc_is_inline || entry->fnc_is_defined || 
+            entry->fnc_return_type || entry->fnc_args_type || 
+            entry->su_tag_is_defined  ||
+            entry->enum_tag_is_defined || entry->enum_parent_tag || 
+            entry->enum_const_val || entry->stmt_IR_assembly_label ||
+            entry->typedef_type || entry->su_memb_offset ||
+            entry->su_memb_type ||
+            entry->su_memb_bit_field_width || entry->su_memb_bit_offset)
+        return 0;
+    if (entry->var_type_qualifier ||
+            entry->var_offset_within_stack_frame ||
+            entry->su_tag_is_defined  ||
+            entry->enum_tag_is_defined || entry->enum_parent_tag || 
+            entry->enum_const_val || entry->stmt_IR_assembly_label ||
+            entry->typedef_type || entry->su_memb_offset ||
+            entry->su_memb_type || 
+            entry->su_memb_bit_field_width || entry->su_memb_bit_offset)
+        return 0;
+    if (entry->var_fnc_storage_class || entry->var_type_qualifier ||
+            entry->var_offset_within_stack_frame ||
+            entry->fnc_is_inline || entry->fnc_is_defined || 
+            entry->fnc_return_type || entry->fnc_args_type ||
+            entry->enum_tag_is_defined || entry->enum_parent_tag || 
+            entry->enum_const_val || entry->stmt_IR_assembly_label ||
+            entry->typedef_type || entry->su_memb_offset || 
+            entry->su_memb_type ||
+            entry->su_memb_bit_field_width || entry->su_memb_bit_offset)
+        return 0;
+    if (entry->var_fnc_storage_class || entry->var_type_qualifier ||
+            entry->var_offset_within_stack_frame ||
+            entry->fnc_is_inline || entry->fnc_is_defined || 
+            entry->fnc_return_type || entry->fnc_args_type || 
+            entry->su_tag_is_defined  ||
+            entry->enum_parent_tag || 
+            entry->enum_const_val || entry->stmt_IR_assembly_label ||
+            entry->su_memb_type ||
+            entry->typedef_type || entry->su_memb_offset || 
+            entry->su_memb_bit_field_width || entry->su_memb_bit_offset)
+        return 0;
+    if (entry->var_fnc_storage_class || entry->var_type_qualifier ||
+            entry->var_offset_within_stack_frame ||
+            entry->fnc_is_inline || entry->fnc_is_defined || 
+            entry->fnc_return_type || entry->fnc_args_type || 
+            entry->su_tag_is_defined  ||
+            entry->enum_tag_is_defined || entry->enum_parent_tag || 
+            entry->enum_const_val || entry->su_memb_type ||
+            entry->typedef_type || entry->su_memb_offset || 
+            entry->su_memb_bit_field_width || entry->su_memb_bit_offset)
+        return 0;
+    if (entry->var_fnc_storage_class || entry->var_type_qualifier ||
+            entry->var_offset_within_stack_frame ||
+            entry->fnc_is_inline || entry->fnc_is_defined || 
+            entry->fnc_return_type || entry->fnc_args_type || 
+            entry->su_tag_is_defined  ||
+            entry->enum_tag_is_defined || entry->stmt_IR_assembly_label ||
+            entry->typedef_type || entry->su_memb_offset || 
+            entry->su_memb_type ||
+            entry->su_memb_bit_field_width || entry->su_memb_bit_offset)
+        return 0;
+    if (entry->var_fnc_storage_class || entry->var_type_qualifier ||
+            entry->var_offset_within_stack_frame ||
+            entry->fnc_is_inline || entry->fnc_is_defined || 
+            entry->fnc_return_type || entry->fnc_args_type || 
+            entry->su_tag_is_defined  ||
+            entry->enum_tag_is_defined || entry->enum_parent_tag || 
+            entry->enum_const_val || entry->stmt_IR_assembly_label ||
+            entry->su_memb_offset || entry->su_memb_type ||
+            entry->su_memb_bit_field_width || entry->su_memb_bit_offset)
+        return 0;
+    if (entry->var_fnc_storage_class || entry->var_type_qualifier ||
+            entry->var_offset_within_stack_frame ||
+            entry->fnc_is_inline || entry->fnc_is_defined || 
+            entry->fnc_return_type || entry->fnc_args_type || 
+            entry->su_tag_is_defined ||
+            entry->enum_tag_is_defined || entry->enum_parent_tag || 
+            entry->enum_const_val || entry->stmt_IR_assembly_label ||
+            entry->typedef_type)
+        return 0;
+        */
     return 1;
 }
 
@@ -407,24 +404,35 @@ _Bool isTmpSTableEntryValid(TmpSymbolTableEntry *entry) {
  * 
  * Note that this function is called after any error checking and assumes
  * the input to be valid.
+ * 
+ * Input:
+ *      - specifier: A TmpSymbolTableEntry struct that contains the declaration
+ * specifiers of the declaration(storage class, type specifiers & qualifiers, etc).
+ *      - decl_list: A astnode_list struct whose list member is made up of symbol
+ * table entries that contain a name (ident field) and a node pointer if needed
+ * (will be needed if it is a pointer or an array or a function, but not otherwise).
+ * 
+ * Output:
+ *      - An astnode_list whose list members are astnodes containing Symbol
+ * Table Entries that are ready to be inputted into the relevant scope. 
  */
 astnode_list *combineSpecifierDeclarator(TmpSymbolTableEntry *specifier, 
                                          struct astnode_list *decl_list) {
     
-    astnode_list *new_entry = newASTnodeList(decl_list->len, NULL);
+    astnode_list *new_entries = newASTnodeList(decl_list->len, NULL);
     
     for (int i = 0; i < decl_list->len; ++i) {
-        astnode *cur_node = newNode_sTableEntry(specifier);
-        
+        new_entries->list[i] = newNode_sTableEntry(specifier);
+
         // Todo: Implement how to cary the actual ident into the symbol table entry
-        // cur_node->stable_entry.ident = decl_list->list[i]->stable_entry.ident;
+        new_entries->list[i]->stable_entry.ident = decl_list->list[i]->stable_entry.ident;
         
-        /* for specific declarator types, we alter the declaration type: */
+        /* for some declarator types, we alter the declaration type: */
         astnode *get_pointee;
         switch(decl_list->list[i]->nodetype) {
             case PTR_TYPE:
                 decl_list->list[i]->ptr.pointee = specifier->node;
-                cur_node->stable_entry.node = decl_list->list[i];  
+                new_entries->list[i]->stable_entry.node = decl_list->list[i];  
                 break;
             case ARRAY_TYPE:
                 get_pointee = decl_list->list[i]->arr.ptr->ptr.pointee;
@@ -432,15 +440,16 @@ astnode_list *combineSpecifierDeclarator(TmpSymbolTableEntry *specifier,
                     get_pointee = get_pointee->arr.ptr->ptr.pointee;
 
                 get_pointee = specifier->node;
-                cur_node->stable_entry.node = decl_list->list[i];  
+                new_entries->list[i]->stable_entry.node = decl_list->list[i];  
                 break;
             case FNC_TYPE:  /* not sure what to do with this yet */
                 break;
-        }
-        
+        }        
         free(decl_list->list[i]);
     }
     free(specifier);
+
+    return new_entries;
 }
 
 
@@ -490,6 +499,8 @@ ScopeStackLayer *createNewScope(enum ScopeType type) {
 
     new_scope->child = NULL;
     new_scope->scope_type = type;
+    new_scope->begin_line_num = cur_line_num;
+    new_scope->beginning_file = cur_file_name;
     return new_scope;
 }
 
