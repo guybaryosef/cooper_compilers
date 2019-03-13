@@ -9,8 +9,15 @@ Building a compiler for the C programming language.
 * Build functionality to print out the symbol table entires as they appear in similar format to AST nodes being printed.
 * Build grammar for C declarations and finish up SIZEOF and casting expressions.
 
-#### Next on the agenda:
-* Decide how to get the ident in the decl-init-list - maybe look at how you implemented structs?
-* Build grammar for declarators in general (start with simply-declarator, move on to pointers and arrays and functions).
-* Begin testing.
+#### Status and next on the agenda:
+* Got most of the required functionality to work (scalars, arrays, functions, pointers). Next steps:
+* Build intermediate symbol table insert function & implement both regular insert as well as resize insert using this new function. Afterwards check that duplicates do not get added to the symbol table.
+* Implement the large type checking function to make sure crazyness isn't happening (not sure if it is needed though).
+* Implement structs & unions.
+* Implement scope.
+* Implement abstract types & use them in sizeof expressions and cast expressions.
+
+##### Stretch goals:
+* Implement function prototypes.
+* Implement enums.
 

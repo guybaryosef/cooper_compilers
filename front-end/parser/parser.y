@@ -70,7 +70,7 @@
 
 /************************** TYPES GRAMMAR-TYPES (hehe) **************************/
 %type <storage_class> storage-class-specifier 
-%type <possible_type_qualifier> type-qualifier
+%type <possible_type_qualifier> type-qualifier type-qualifier-list
 %type <astnode_p> enum-type-specifier float-type-specifier int-type-specifier struct-type-specifier typedef-type-specifier union-type-specifier void-type-specifier
 
 
@@ -91,7 +91,7 @@
 
 %type <astnode_p> pointer-declarator pointer direct-declarator fnc-declarator array-declarator
 %type <astnode_p> init-decl declarator /* initializer- technically here, but not integrated for now */
-%type <tmp_stable_entry> type-qualifier-list decl-specifiers /* pretty sure about this one */
+%type <tmp_stable_entry> decl-specifiers /* pretty sure about this one */
 
 %type <astnode_pp> decl-init-list 
 %type <astnode_pp> declaration
@@ -453,9 +453,18 @@ type-name:   { $$ = NULL; }
 
 
 declaration: decl-specifiers ';'    { 
-                    /* valid but does NOTHING */ 
+                    if ($1->node->stable_entry.type == SU_Tag_Type &&
+                                            $1->su_tag_is_defined == 0) {
+       
+                        $$ = newASTnodeList(1, NULL);
+                        $$->list[0] = $1->node;
+
+                        if(sTableInsert(scope_stack.innermost_scope->tables[2], $$->list[0], 0) < 0)
+                            yyerror("Unable to insert variable into symbol table");
+                    }
                 }
            | decl-specifiers decl-init-list ';' {
+
                     if (!($1->node)) {
                         $1->node = newNode_scalarType(Int, 1);
                         $1->type = Variable_Type;
@@ -489,8 +498,10 @@ declaration: decl-specifiers ';'    {
                                     $$->list[i]->stable_entry.type == Variable_Type)
                                 $$->list[i]->stable_entry.var.storage_class = Extern;
 
-                            if(sTableInsert(scope_stack.innermost_scope->tables[ns_ind], $$->list[i], 1) < 0)
-                                yyerror("Unable to insert variable into symbol table");
+                            if(sTableInsert(scope_stack.innermost_scope->tables[ns_ind], $$->list[i], 0) < 0) {
+                                free($$->list[i]);
+                                $$->list[i] = NULL;
+                            }
                         }
                     }
                 }
@@ -555,7 +566,7 @@ type-specifier: enum-type-specifier {
               | struct-type-specifier  {                         
                         $$ = createTmpSTableEntry();
                         $$->node = $1; 
-                        $$->type =  SU_Tag_Type;
+                        $$->type =  Variable_Type;
                     }
               | typedef-type-specifier  {                         
                         $$ = createTmpSTableEntry();
@@ -677,29 +688,60 @@ struct-type-specifier: struct-type-definition   { $$ = $1; }
                      ;
 
 struct-type-definition: STRUCT '{' field-list '}' {   
-                                $$ = newNode_sTableEntry(NULL);
-                                $$->nodetype = STABLE_SU_TAG;
-                                $$->stable_entry.node = newNode_strctType();
+                                TmpSymbolTableEntry *new_struct = createTmpSTableEntry();
+                                new_struct->type = SU_Tag_Type;
+                                new_struct->su_tag_is_defined = 1;
+
+                                $$ = newNode_sTableEntry(new_struct);
 
                                 for (int i = 0; i < $3->len; ++i)
-                                    if (!sTableInsert($$->stable_entry.node->strct.stable, 
-                                                      $3->list[i], 1) ) 
-                                        yyerror("Inserting members into struct symbol table.");
+                                    if (!sTableInsert($$->stable_entry.sutag.su_table, $3->list[i], 0)) 
+                                        yyerror("Unable to insert members into struct symbol table.");
                             }
-                      | STRUCT struct-tag '{' field-list '}' { 
-                                $$ = newNode_sTableEntry(NULL);
-                                $$->nodetype = STABLE_SU_TAG;
-                                $$->stable_entry.node = newNode_strctType();
-                                $$->stable_entry.ident = $2.str;
+                      | STRUCT struct-tag '{' field-list '}' {
 
-                                for (int i = 0; i < $4->len; ++i)
-                                    if (!sTableInsert($$->stable_entry.node->strct.stable, 
-                                                      $4->list[i], 1) ) 
-                                        yyerror("Inserting members into struct symbol table.");
+                                /* first check that there isn't a naming conflict */
+                                if (sTableLookUp(scope_stack.innermost_scope->tables[1], $2.str))
+                                    yyerror("This struct was was already initialized");
+                                else {
+                                    TmpSymbolTableEntry *new_struct = createTmpSTableEntry(); 
+
+                                    new_struct->type = SU_Tag_Type;
+                                    new_struct->su_tag_is_defined = 1;
+                                    
+                                    $$ = newNode_sTableEntry(new_struct);
+                                    $$->stable_entry.ident = $2.str;
+                                    for (int i = 0; i < $4->len; ++i) {
+                                        /* if field-list member is a reference to the incomplete
+                                        type that is struct-tag, make pointer point to it and
+                                        change the status to a completed struct. */
+                                        if ($4->list[i]->stable_entry.node->stable_entry.ident == $2.str &&
+                                                $4->list[i]->stable_entry.node->nodetype == STABLE_SU_TAG &&
+                                                !$4->list[i]->stable_entry.node->stable_entry.sutag.is_defined) {
+                                            $4->list[i]->stable_entry.node->stable_entry.sutag.is_defined = 1;
+                                            $4->list[i]->stable_entry.node->stable_entry.sutag.is_defined = 1;                                                
+                                        }
+                                        
+                                        if (sTableInsert($$->stable_entry.sutag.su_table, $4->list[i], 0) < 0) 
+                                            yyerror("Inserting members into struct symbol table.");
+                                    }
+                                    if (sTableInsert(scope_stack.innermost_scope->tables[2], $$, 1) < 0)
+                                        yyerror("Error inserting struct into innermost scope");
+                                }
                             }
                       ;
 
-struct-type-reference: STRUCT struct-tag   { $$ = searchStackScope(3, $2.str); }
+struct-type-reference: STRUCT struct-tag   { 
+                            $$ = searchStackScope(2, $2.str);
+                            if (!$$) {  /* create a forward, incomplete declaration */
+                                TmpSymbolTableEntry *new_struct = createTmpSTableEntry();
+                                new_struct->type = SU_Tag_Type;
+                                new_struct->su_tag_is_defined = 0;
+
+                                $$ = newNode_sTableEntry(new_struct);
+                                $$->stable_entry.ident = $2.str;
+                            }
+                        }
                      ;
 
 struct-tag: IDENT   { $$ = $1; }
@@ -733,9 +775,7 @@ member-declarator-list: member-declarator {
                             }
                       ;
 
-member-declarator: declarator   { 
-                        $$ = $1;
-                    }
+member-declarator: declarator   { $$ = $1; }
                  /* we will not be implementing bit-fields in struct definitions */
                  ;
 
@@ -777,25 +817,26 @@ declarator: pointer-declarator  { $$ = $1; }
           ;
 
 
-pointer-declarator: pointer direct-declarator
+pointer-declarator: pointer direct-declarator   { 
+                            $$ = $1; 
+                            astnode *handle1 = $1;
+                            astnode *handle2 = handle1;
+                            while (handle1)  {
+                                handle2 = handle1;
+                                handle1 = handle1->ptr.pointee;
+                            }
+                            handle2->ptr.pointee = $2; 
+                        }
                   ;
 
-pointer: '*'                        { /* what do we do? */ }
-       | '*' type-qualifier-list    { /* what do we do? */ }
-       | '*' pointer                        { /* what do we do? */ }
-       | '*' type-qualifier-list pointer    { 
-                                                /* what do we do? */
-                                            }
+pointer: '*'                        { $$ = newNode_ptr(None); }
+       | '*' type-qualifier-list    { $$ = newNode_ptr($2); }
+       | '*' pointer                        { $$ = newNode_ptr(None); $$->ptr.pointee = $2; }
+       | '*' type-qualifier-list pointer    { $$ = newNode_ptr($2);   $$->ptr.pointee = $3; }
        ;
 
-type-qualifier-list: type-qualifier                     {   
-                                                            $$ = createTmpSTableEntry();
-                                                            typeQualifierSTableEntry($$, $1);         
-                                                        }
-                   | type-qualifier-list type-qualifier {   
-                                                            $$ = $1;
-                                                            typeQualifierSTableEntry($$, $2);         
-                                                        }
+type-qualifier-list: type-qualifier                     { $$ = $1; }
+                   | type-qualifier-list type-qualifier { $$ = helperTypeQualifierAddition($1,$2);}
                    ;
 
 direct-declarator: simple-declarator    { $$ = $1; }
@@ -811,16 +852,25 @@ simple-declarator: IDENT {
                     }
                  ;
 
-array-declarator: direct-declarator '[' ']'         {
-                                                        $$ = newNode_arr(-1);
-                                                    }
-                | direct-declarator '[' NUMBER ']'
+array-declarator: direct-declarator '[' ']'         {   
+                        $$ = newNode_arr(-1); 
+                        $$->arr.ptr->ptr.pointee = $1;
+                    }
+                | direct-declarator '[' NUMBER ']'  {
+                        $$ = newNode_arr($3.val);
+                        $$->arr.ptr->ptr.pointee = $1;                    
+                    }
                 /* for now only allow these type of array declarations. We will 
                    also simplify by not implementing variable-length arrays. */
                 ;
 
-fnc-declarator: direct-declarator '(' ')'
-              /* simpilify function parameters to only include (). */
+fnc-declarator: direct-declarator '(' ')' {
+                    $$ = $1;
+                    $$->nodetype = STABLE_FNC;
+                    $$->stable_entry.type = Function_Type;
+                    $$->stable_entry.node = newNode_fncType(-1);
+                }
+              /* simpilify function declarations to only include (). */
               ;
 
 
@@ -831,8 +881,9 @@ fnc-declarator: direct-declarator '(' ')'
 
 
 decl-or-stmt: declaration { 
-                    for (int i = 0; i < $1->len; ++i) 
-                        printAST($1->list[i], NULL);  
+                    for (int i = 0; i < $1->len; ++i)
+                        if ($1->list[i])
+                            printAST($1->list[i], NULL);  
                 }
             | stmt          { printAST($1, NULL);  }
             ;

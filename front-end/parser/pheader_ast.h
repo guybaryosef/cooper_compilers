@@ -111,8 +111,10 @@ struct astnode_assignment {
 };
 
 #define PTR_TYPE 18  /* a pointer */
+enum SymbolTableTypeQualifiers { None = 0, C, V, R, CV, CR, VR, CVR};
 struct astnode_ptr {
     struct astnode *pointee;
+    enum SymbolTableTypeQualifiers type_qualifier;
 };
 
 #define ARRAY_TYPE 19   /* an array */
@@ -138,7 +140,7 @@ struct astnode_scalar_type {
 #define FNC_TYPE 21  /* a function type */
 struct astnode_fnc_type {
     struct astnode **args_types;  /* the types of the arguments         */
-    int arg_count;                /* number of arguments in the function*/
+    int arg_count; /* number of arguments in the function. (-1) means unknown*/
     struct astnode *return_type;  /* the return type of the function    */
 };
 
@@ -172,7 +174,7 @@ struct astnode_struct {
  */
 enum SymbolTableStorageClass { Auto = 0, Register, Extern, Static, Typedef};
 enum possibleTypeQualifiers { No_Qualifier = 0, Const, Volatile, Restrict};
-enum SymbolTableTypeQualifiers { None = 0, C, V, R, CV, CR, VR, CVR};
+
 
 enum STEntry_Type { Void_Type = 0, Variable_Type, Function_Type, 
                     SU_Tag_Type, Enum_Tag, Statement_Label, 
@@ -197,7 +199,7 @@ struct stable_fnc {
 #define STABLE_SU_TAG 25  /* s_table entry for a struct/union tag */
 struct stable_sutag {
     _Bool is_defined;
-    struct SymbolTable *s_u_table;
+    struct SymbolTable *su_table;
 };
 
 #define STABLE_ENUM_TAG 26  /* s_table entry for an enum tag */
@@ -248,11 +250,6 @@ struct astnode_stable_entry {
         struct stable_sumemb sumemb;
     };
 };
-
-
-
-
-
 
 
 
@@ -317,11 +314,11 @@ astnode *newNode_arg(int num);
 astnode *newNode_slct();         /* Component selection */
 astnode *newNode_ternary();      /* ternary operator         */
 astnode *newNode_assment();      /* assignment expressions   */
-astnode *newNode_ptr();          /* pointer type */
 astnode *newNode_arr(int size);  /* array type   */
-astnode *newNode_scalarType(enum ScalarTypes, _Bool is_signed); /* scalar type  */
-astnode *newNode_fncType(int arg_len);  /* function type*/
 astnode *newNode_strctType();    /* struct type  */
+astnode *newNode_fncType(int arg_len);  /* function type*/
+astnode *newNode_ptr(enum SymbolTableTypeQualifiers qual);      /* pointer type */
+astnode *newNode_scalarType(enum ScalarTypes, _Bool is_signed); /* scalar type  */
 
 /* forward declaration, will be defined in symbol_table.h */
 struct TmpSymbolTableEntry; 

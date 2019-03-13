@@ -77,6 +77,7 @@ astnode *newNode_str(int token_name, struct YYstr str) {
     return node;
 }
 
+
 /*
  * newNode_unop - Creates a new AST node for type unop 
  * (unary operation).
@@ -106,6 +107,7 @@ astnode *newNode_unop(int token_name) {
     node->unop.expr = NULL;
     return node;
 }
+
 
 /*
  * newNode_binop - Creates a new AST node for type binop 
@@ -142,9 +144,13 @@ astnode *newNode_binop(int token_name) {
     return node;
 }
 
+
 /*
  * newNode_func - Creates a new AST node
  * of type function.
+ * 
+ * An arg_count of -1 indicates that the amount
+ * of arguments is unknown.
  */
 astnode *newNode_fnc() {
     astnode *node;
@@ -159,6 +165,7 @@ astnode *newNode_fnc() {
     node->fnc.ident = NULL;
     return node;
 }
+
 
 /*
  * newNode_arglist - creates a new AST node
@@ -266,10 +273,11 @@ astnode *newNode_assment(int op) {
     return node;    
 }
 
+
 /*
  * newNode_ptr - Creates an AST node for a pointer.
  */
-astnode *newNode_ptr() {
+astnode *newNode_ptr(enum SymbolTableTypeQualifiers qual) {
     astnode *node;
     if ((node = malloc(sizeof(astnode))) == NULL) {
         fprintf(stderr, "Error allocating memory for AST node: %s\n", 
@@ -278,6 +286,7 @@ astnode *newNode_ptr() {
     }
     node->nodetype = PTR_TYPE;
     node->ptr.pointee = NULL;
+    node->ptr.type_qualifier = qual;
     return node;
 }
 
@@ -296,7 +305,7 @@ astnode *newNode_arr(int size) {
     }
     node->nodetype = ARRAY_TYPE;
     node->arr.size = size;
-    node->arr.ptr = newNode_ptr();
+    node->arr.ptr = newNode_ptr(None);
     return node;
 }
 
@@ -330,7 +339,10 @@ astnode *newNode_fncType(int arg_len) {
     }
     node->nodetype = FNC_TYPE;
     node->fnc_type.arg_count = arg_len;
-    node->fnc_type.args_types = calloc(arg_len, sizeof(astnode *));
+    if (arg_len > 0)
+        node->fnc_type.args_types = calloc(arg_len, sizeof(astnode *));
+    else
+        node->fnc_type.args_types = NULL;
     node->fnc_type.return_type = NULL;
     return node;
 }
@@ -381,6 +393,7 @@ astnode *newNode_sTableEntry(TmpSymbolTableEntry *tmp_entry) {
     new_entry->stable_entry.type = tmp_entry->type;
     new_entry->stable_entry.node = tmp_entry->node;
 
+    astnode *tmp = tmp_entry->node;
     switch(tmp_entry->type) {
         case Variable_Type:
             new_entry->nodetype = STABLE_VAR;
@@ -399,6 +412,7 @@ astnode *newNode_sTableEntry(TmpSymbolTableEntry *tmp_entry) {
         case SU_Tag_Type:
             new_entry->nodetype = STABLE_SU_TAG;
             new_entry->stable_entry.sutag.is_defined = tmp_entry->su_tag_is_defined;
+            new_entry->stable_entry.sutag.su_table = sTableCreate();
             break;
         case Enum_Tag:
             new_entry->nodetype = STABLE_ENUM_TAG;
@@ -530,7 +544,6 @@ char *token2op(int token_name) {
  * If the output_file input is NULL, then the AST is printed
  * to standard out.
  */
-
 void printAST(astnode *root, FILE *output_file) {
 
     FILE *output = (output_file) ? output_file : stdout;
@@ -642,7 +655,7 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
             break;
         /********* NEEDS WORK *****/
         case PTR_TYPE:
-            fprintf(output, "pointer to:\n");
+            fprintf(output, "%s pointer to:\n ", translateTypeQualifier(cur->ptr.type_qualifier));
             preorderTraversal(cur->ptr.pointee, output, depth+1);
             break;
         case ARRAY_TYPE:
@@ -677,6 +690,7 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
         /* symbol table entries */
         case STABLE_VAR:
         case STABLE_ENUM_TAG:
+        case STABLE_SU_MEMB:
             fprintf( output, 
                 "%s is defined at %s:%d [in %s scope starting at %s:%d] "
                 "as a \nvariable with stgclass %s of type:\n", 
@@ -686,7 +700,8 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
                 translateScopeType(scope_stack.innermost_scope->scope_type),
                 scope_stack.innermost_scope->beginning_file, 
                 scope_stack.innermost_scope->begin_line_num,
-                translateStgClass(cur->stable_entry.var.storage_class)); 
+                translateStgClass(cur->stable_entry.var.storage_class)
+            ); 
             
             /* pad accordingly */
             for (int i = 0; i < depth+1; ++i)
@@ -697,8 +712,38 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
             preorderTraversal(cur->stable_entry.node, output, depth);
             break;
         case STABLE_FNC:
+            fprintf( output, 
+                "%s is defined at %s:%d [in %s scope starting at %s:%d] "
+                "as a \n%s function returning:\n", 
+                cur->stable_entry.ident, 
+                cur_file_name, 
+                cur_line_num, 
+                translateScopeType(scope_stack.innermost_scope->scope_type),
+                scope_stack.innermost_scope->beginning_file, 
+                scope_stack.innermost_scope->begin_line_num,
+                translateStgClass(cur->stable_entry.var.storage_class)
+            );
+            preorderTraversal(cur->stable_entry.node->fnc_type.return_type, output, depth+1);
+
+            for (int i = 0 ; i < depth + 1; ++i)
+                fprintf(output, "   ");
+
+            fprintf(output, "and taking the following arguments:");
+
+            for (int i = 0 ; i < cur->stable_entry.node->fnc_type.arg_count; ++i)
+                preorderTraversal(cur->stable_entry.node->fnc_type.args_types[i], output, depth+2);
             break;
         case STABLE_SU_TAG:
+            if (!cur->stable_entry.sutag.is_defined)
+                break;
+            printf("struct %s definition at %s:%d{\n", 
+                                cur->stable_entry.ident, 
+                                cur->stable_entry.file_name, 
+                                cur->stable_entry.line_num);
+            for (int i = 0 ; i < cur->stable_entry.sutag.su_table->size; ++i) {
+                if (cur->stable_entry.sutag.su_table->data[i])
+                    preorderTraversal(cur->stable_entry.sutag.su_table->data[i], output, depth);
+            }
             break;
         case STABLE_STMT_LABEL:
             break;
@@ -706,8 +751,7 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
             break;
         case STABLE_TYPEDEF:
             break;
-        case STABLE_SU_MEMB:
-            break;
+
     }
 }
 

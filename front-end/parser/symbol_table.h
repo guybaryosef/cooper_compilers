@@ -38,10 +38,10 @@ typedef struct SymbolTable {
 /* Each scope has 4 distinct symbol tables, corresponding to the
    4 possible namespaces. The namespaces are, in the order inside
    the array:
-    1. Labels.
-    2. Tags - The identifiers of a struct, union or enum.
-    3. Struct/union members.
-    4. All other identifier classes.
+    0. Labels.
+    1. Tags - The identifiers of a struct, union or enum.
+    2. Struct/union members.
+    3. All other identifier classes.
  */
 enum ScopeType { File = 1, Function, Block, Proto };
 
@@ -131,7 +131,7 @@ void sTableDestroy(SymbolTable *table);
 
 
 /*
- * sTableInsert - Given a symbol table and a symbol table,
+ * sTableInsert - Given a symbol table and a symbol table entry,
  * this function inserts the entry into the table and returns a 1
  * on sucess and a -1 on error.
  *
@@ -180,7 +180,17 @@ TmpSymbolTableEntry *createTmpSTableEntry();
  * type qualifier of the temporary symbol table entry.
  */
 void typeQualifierSTableEntry(TmpSymbolTableEntry *entry,
-                                                enum possibleTypeQualifiers qualifier);
+                              enum possibleTypeQualifiers qualifier);
+
+
+/*
+ * helperTypeQualifierAddition - A funciton to add two type qualifiers 
+ * together.
+ */
+enum possibleTypeQualifiers helperTypeQualifierAddition(
+                                    enum possibleTypeQualifiers one,
+                                    enum possibleTypeQualifiers two);
+
 
 
 /*

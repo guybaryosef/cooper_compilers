@@ -7,6 +7,7 @@
 
 #include "symbol_table.h"
 #include "../front_end_header.h"
+#include "../lexer/lheader2.h"
 
 #include <stdio.h>
 #include <errno.h>
@@ -74,13 +75,15 @@ int sTableInsert(SymbolTable *table, astnode *entry, int dup_toggle) {
         # of elements so that our lookups stay fast */
     if (table->filled >= table->size/2)
         sTableResize(table);
-
     int data_ind = sTableHash(entry->stable_entry.ident, table->size);
     // linear probing
     while (table->data[data_ind] && 
                 table->data[data_ind]->stable_entry.ident != 
-                entry->stable_entry.ident)
+                entry->stable_entry.ident) {
+
         data_ind = (data_ind+1) % table->size;
+        printf("---%s---%s---%d\n", table->data[data_ind]->stable_entry.ident, entry->stable_entry.ident, data_ind);
+    }
 
     if (table->data[data_ind]) { /* identifier already appears in scope & namespace */
         if (dup_toggle) {
@@ -88,8 +91,7 @@ int sTableInsert(SymbolTable *table, astnode *entry, int dup_toggle) {
             table->data[data_ind] = entry;
         }
         else {
-            fprintf(stderr, "Attempted duplicate definition for identifier %s: %s\n",
-                                                        entry->stable_entry.ident, strerror(errno));
+            yyerror("Attempted duplicate definition for identifier");
             return -1;
         }
     }
@@ -120,7 +122,9 @@ astnode *sTableLookUp(SymbolTable *table, char *entry_name) {
            table->data[data_ind]->stable_entry.ident != entry_name)
         data_ind = (data_ind+1) % table->size;
 
-    if (table->data[data_ind]->stable_entry.ident == entry_name)
+    if (!table->data[data_ind])
+        return NULL;
+    else if (table->data[data_ind]->stable_entry.ident == entry_name)
         return table->data[data_ind];
     else
         return NULL;
@@ -160,7 +164,7 @@ int sTableResize(SymbolTable *table) {
     // Iterate through old data, updating new data array
     for (int i = 0 ; i < primes[prime_ind-1] ; ++i) {
         if (table->data[i]) {
-            new_data[sTableHash(table->data[i]->stable_entry.ident, new_size)] = table->data[i];
+            sTableInsert(new_data, table->data[i], 0);
         }
     }
 
@@ -207,7 +211,70 @@ TmpSymbolTableEntry *createTmpSTableEntry() {
         fprintf(stderr, "Unable to allocate memory for a new"
                 "temporary Symbol Table Entry: %s\n", strerror(errno));
     }
+
+    new_entry->line_num = cur_line_num;
+    new_entry->file_name = cur_file_name;
     return new_entry;
+}
+
+
+
+/*
+ * helperTypeQualifierAddition - A funciton to add two type qualifiers 
+ * together.
+ */
+enum possibleTypeQualifiers helperTypeQualifierAddition(enum possibleTypeQualifiers one,
+                                                        enum possibleTypeQualifiers two) {
+    switch(one) {
+        case None:
+            switch(two) {
+                case Const:     return C;   break;
+                case Restrict:  return R;   break;
+                case Volatile:  return V;   break;
+            }
+            break;
+        case C:
+            switch(two) {
+                case R: return CR;  break;
+                case V: return CV;  break;
+                default:return one;
+            }                                                                        break;
+            break;
+        case V:
+            switch(two) {
+                case C: return CV;  break;
+                case R: return VR;  break;
+                default:return one;
+            }                                                                        break;
+            break;
+        case R:
+            switch(two) {
+                case C: return CR;  break;
+                case V: return VR;  break;
+                default:return one;
+            }                                                                        break;
+            break;
+        case CV:
+            switch(two) {
+                case R:     return CVR;     break;
+                default:    return one;
+            }                                                                        break;
+            break;
+        case CR:
+            switch(two) {
+                case V:     return CVR;  break;
+                default:    return one;
+            }                                                                        break;
+            break;
+        case VR:
+            switch(two) {
+                case Const: return CVR; break;
+                default:    return one;
+            }
+            break;
+        default:
+            return one;                                                                                break;
+    }   
 }
 
 
@@ -217,70 +284,9 @@ TmpSymbolTableEntry *createTmpSTableEntry() {
  */
 void typeQualifierSTableEntry(TmpSymbolTableEntry *entry,
                               enum possibleTypeQualifiers qualifier) {
-    switch(entry->var_type_qualifier) {
-        case None:
-            switch(qualifier) {
-                case Const:
-                    entry->var_type_qualifier = C;
-                    break;
-                case Restrict:
-                    entry->var_type_qualifier = R;
-                    break;
-                case Volatile:
-                    entry->var_type_qualifier = V;
-                    break;
-            }
-            break;
-        case C:
-            switch(qualifier) {
-                case Restrict:
-                    entry->var_type_qualifier = CR;
-                    break;
-                case Volatile:
-                    entry->var_type_qualifier = CV;
-                    break;
-            }                                                                        break;
-        case V:
-            switch(qualifier) {
-                case Const:
-                    entry->var_type_qualifier = CV;
-                    break;
-                case Restrict:
-                    entry->var_type_qualifier = VR;
-                    break;
-            }                                                                        break;
-        case R:
-            switch(qualifier) {
-                case Const:
-                    entry->var_type_qualifier = CR;
-                    break;
-                case Volatile:
-                    entry->var_type_qualifier = VR;
-                    break;
-            }                                                                        break;
-        case CV:
-            switch(qualifier) {
-                case Restrict:
-                    entry->var_type_qualifier = CVR;
-                    break;
-            }                                                                        break;
-        case CR:
-            switch(qualifier) {
-                case Volatile:
-                    entry->var_type_qualifier = CVR;
-                    break;
-                break;
-            }                                                                        break;
-        case VR:
-            switch(qualifier) {
-                case Const:
-                    entry->var_type_qualifier = CVR;
-                    break;
-            }                                                                                 break;
-    }                                                               
+    entry->var_type_qualifier = helperTypeQualifierAddition(qualifier,
+                                entry->var_fnc_storage_class);                             
 }
-
-
 
 
 /*
@@ -424,28 +430,42 @@ astnode_list *combineSpecifierDeclarator(TmpSymbolTableEntry *specifier,
     for (int i = 0; i < decl_list->len; ++i) {
         new_entries->list[i] = newNode_sTableEntry(specifier);
 
-        // Todo: Implement how to cary the actual ident into the symbol table entry
-        new_entries->list[i]->stable_entry.ident = decl_list->list[i]->stable_entry.ident;
+        /* get cur_handle to be the actual declarator node and second_handle
+           to be the last node pointing to this declarator (if the path 
+           included a pointer or array).     */
+        astnode *cur_handle = decl_list->list[i];
+        astnode *second_handle = cur_handle;
+        while ( cur_handle->nodetype == PTR_TYPE ||
+                cur_handle->nodetype == ARRAY_TYPE) {
+            second_handle = cur_handle;
+            if (cur_handle->nodetype == PTR_TYPE)
+                cur_handle = cur_handle->ptr.pointee;
+            else 
+                cur_handle = cur_handle->arr.ptr;
+        }
+
+        new_entries->list[i]->stable_entry.ident = cur_handle->stable_entry.ident;
         
         /* for some declarator types, we alter the declaration type: */
         astnode *get_pointee;
         switch(decl_list->list[i]->nodetype) {
             case PTR_TYPE:
-                decl_list->list[i]->ptr.pointee = specifier->node;
+                second_handle->ptr.pointee = specifier->node;
                 new_entries->list[i]->stable_entry.node = decl_list->list[i];  
                 break;
             case ARRAY_TYPE:
-                get_pointee = decl_list->list[i]->arr.ptr->ptr.pointee;
-                while (get_pointee)
-                    get_pointee = get_pointee->arr.ptr->ptr.pointee;
-
-                get_pointee = specifier->node;
+                second_handle->ptr.pointee = specifier->node;
                 new_entries->list[i]->stable_entry.node = decl_list->list[i];  
                 break;
-            case FNC_TYPE:  /* not sure what to do with this yet */
+            case STABLE_FNC:  
+                decl_list->list[i]->stable_entry.node->fnc_type.return_type = specifier->node;
+                new_entries->list[i]->stable_entry.node = decl_list->list[i]->stable_entry.node;
+                free(decl_list->list[i]);
+                new_entries->list[i]->nodetype = STABLE_FNC;
                 break;
+            default:
+                free(decl_list->list[i]);
         }        
-        free(decl_list->list[i]);
     }
     free(specifier);
 
@@ -467,7 +487,11 @@ astnode_list *combineSpecifierDeclarator(TmpSymbolTableEntry *specifier,
  * If no such identifier it found, a NULL pointer is returned.
  */
 astnode *searchStackScope(enum ScopeType namespace, char *ident) {
-    
+    if (namespace < 0 || namespace > 3) {
+        fprintf(stderr, "Error while searching through scope stack: Invalid namespace\n");
+        return NULL;
+    }
+
     ScopeStackLayer *cur_scope = scope_stack.innermost_scope;
     while(cur_scope){
         astnode *res = sTableLookUp(cur_scope->tables[namespace], ident);
