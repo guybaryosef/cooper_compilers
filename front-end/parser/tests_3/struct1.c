@@ -34,8 +34,3 @@ struct str6 {
 	unsigned d;
 	unsigned e:16;
 } s6;
-union u1 {
-	struct str4 str4;
-	struct str3 str3;
-} u1;
-

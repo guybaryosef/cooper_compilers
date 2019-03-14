@@ -1,3 +1,8 @@
 int a;
-int a;
-char a;
+
+int c;
+
+{
+    char c;
+    int a;
+}

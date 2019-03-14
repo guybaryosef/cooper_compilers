@@ -76,14 +76,18 @@ int sTableInsert(SymbolTable *table, astnode *entry, int dup_toggle) {
     if (table->filled >= table->size/2)
         sTableResize(table);
     int data_ind = sTableHash(entry->stable_entry.ident, table->size);
+
     // linear probing
     while (table->data[data_ind] && 
                 table->data[data_ind]->stable_entry.ident != 
                 entry->stable_entry.ident) {
 
         data_ind = (data_ind+1) % table->size;
-        printf("---%s---%s---%d\n", table->data[data_ind]->stable_entry.ident, entry->stable_entry.ident, data_ind);
     }
+    if (data_ind == 0)
+        data_ind = table->size-1;
+    else
+        data_ind = (data_ind - 1) % table->size;
 
     if (table->data[data_ind]) { /* identifier already appears in scope & namespace */
         if (dup_toggle) {
@@ -108,7 +112,7 @@ int sTableInsert(SymbolTable *table, astnode *entry, int dup_toggle) {
 /*
  * sTableLookUp - Given a symbol table and a symbol table entry, this
  * function returns a pointer to the symbol table entry that represents this
- * identifier. If no such entry is found in any scope, NULL is returned.
+ * identifier. If no such entry is found, NULL is returned.
  * 
  * Initially, the symbol table will use linear probing to address
  * hash collisions.
@@ -119,15 +123,20 @@ astnode *sTableLookUp(SymbolTable *table, char *entry_name) {
 
     // linear probing
     while (table->data[data_ind] && 
-           table->data[data_ind]->stable_entry.ident != entry_name)
+           table->data[data_ind]->stable_entry.ident != entry_name) {
         data_ind = (data_ind+1) % table->size;
+    }    
 
+    if (data_ind == 0)
+        data_ind = table->size-1;
+    else
+        data_ind = (data_ind - 1) % table->size;
+    
     if (!table->data[data_ind])
         return NULL;
-    else if (table->data[data_ind]->stable_entry.ident == entry_name)
+    else    /* we found our symbol table entry */
         return table->data[data_ind];
-    else
-        return NULL;
+
 }
 
 
@@ -151,10 +160,15 @@ int sTableResize(SymbolTable *table) {
             break;
         }
     }
+    // save pointer to old hash table 
+    astnode **old_data = table->data;
+
+    // update new table size
+    table->size = new_size;
 
     // Allocate space for the new array
-    astnode **new_data = calloc(new_size, sizeof(astnode *));
-    if (!new_data) {
+    table->data = calloc(new_size, sizeof(astnode *));
+    if (!table->data) {
         fprintf(stderr, "Error expanding a symbol table: %s\n", strerror(errno));
         return -1;
     } 
@@ -164,14 +178,12 @@ int sTableResize(SymbolTable *table) {
     // Iterate through old data, updating new data array
     for (int i = 0 ; i < primes[prime_ind-1] ; ++i) {
         if (table->data[i]) {
-            sTableInsert(new_data, table->data[i], 0);
+            sTableInsert(table, table->data[i], 0);
         }
     }
 
     // Free old data array and update table with the new data array
-    free(table->data);
-    table->data = new_data;
-    table->size = new_size;
+    free (old_data);
     return 1;
 }
 
@@ -486,15 +498,11 @@ astnode_list *combineSpecifierDeclarator(TmpSymbolTableEntry *specifier,
  * 
  * If no such identifier it found, a NULL pointer is returned.
  */
-astnode *searchStackScope(enum ScopeType namespace, char *ident) {
-    if (namespace < 0 || namespace > 3) {
-        fprintf(stderr, "Error while searching through scope stack: Invalid namespace\n");
-        return NULL;
-    }
+astnode *searchStackScope(enum Namespace ns, char *ident) {
 
     ScopeStackLayer *cur_scope = scope_stack.innermost_scope;
     while(cur_scope){
-        astnode *res = sTableLookUp(cur_scope->tables[namespace], ident);
+        astnode *res = sTableLookUp(cur_scope->tables[ns], ident);
         if (res)
             return res;
         
@@ -511,21 +519,19 @@ astnode *searchStackScope(enum ScopeType namespace, char *ident) {
  * Implementation-wise, this function acts as a constructor for the
  * ScopeStackLayer struct.
  */
-ScopeStackLayer *createNewScope(enum ScopeType type) {
+void createNewScope(enum ScopeType type) {
     ScopeStackLayer *new_scope = malloc(sizeof(ScopeStackLayer));
-    if (!new_scope) {
-        fprintf(stderr, "Unable to allocate memory for a new"
-                "temporary Symbol Table Entry: %s\n", strerror(errno));
-    }
+    if (!new_scope)
+        yyerror("Unable to allocate memory for a new scope");
 
     for (int i = 0 ; i < 4 ; ++i)
         new_scope->tables[i] = sTableCreate();
 
-    new_scope->child = NULL;
+    new_scope->child = scope_stack.innermost_scope;
     new_scope->scope_type = type;
     new_scope->begin_line_num = cur_line_num;
     new_scope->beginning_file = cur_file_name;
-    return new_scope;
+    scope_stack.innermost_scope = new_scope;
 }
 
 

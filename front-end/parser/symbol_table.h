@@ -44,10 +44,10 @@ typedef struct SymbolTable {
     3. All other identifier classes.
  */
 enum ScopeType { File = 1, Function, Block, Proto };
-
+enum Namespace { LABEL_NAMESPACE = 0, SU_TAG_NAMESPACE, GENERAL_NAMESPACE };
 typedef struct ScopeStackLayer {
     enum ScopeType scope_type;  /* one of the 4 types of scopes             */
-    SymbolTable *tables[4];     /* diff table for each namespace            */
+    SymbolTable *tables[3];     /* diff table for each namespace            */
     struct ScopeStackLayer *child;  /* next link in linked list of scopes   */
     char *beginning_file;       /* name of the file the scope began at      */
     int begin_line_num;         /* the line number that the scope begain at */ 
@@ -231,7 +231,7 @@ struct astnode_list *combineSpecifierDeclarator(TmpSymbolTableEntry *specifier, 
  * 
  * If no such identifier it found, a NULL pointer is returned.
  */
-astnode *searchStackScope(enum ScopeType namespace, char *ident);
+astnode *searchStackScope(enum Namespace ns, char *ident);
 
 
 /*
@@ -240,7 +240,7 @@ astnode *searchStackScope(enum ScopeType namespace, char *ident);
  * Implementation-wise, this function acts as a constructor for the
  * ScopeStackLayer struct.
  */
-ScopeStackLayer *createNewScope(enum ScopeType type);
+void createNewScope(enum ScopeType type);
 
 
 /*

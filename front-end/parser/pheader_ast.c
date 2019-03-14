@@ -344,6 +344,7 @@ astnode *newNode_fncType(int arg_len) {
     else
         node->fnc_type.args_types = NULL;
     node->fnc_type.return_type = NULL;
+    node->fnc_type.stable = NULL;
     return node;
 }
 
@@ -409,7 +410,12 @@ astnode *newNode_sTableEntry(TmpSymbolTableEntry *tmp_entry) {
             new_entry->stable_entry.fnc.return_type = tmp_entry->fnc_return_type;
             new_entry->stable_entry.fnc.args_types = tmp_entry->fnc_args_type;
             break;
-        case SU_Tag_Type:
+        case S_Tag_Type:
+            new_entry->nodetype = STABLE_SU_TAG;
+            new_entry->stable_entry.sutag.is_defined = tmp_entry->su_tag_is_defined;
+            new_entry->stable_entry.sutag.su_table = sTableCreate();
+            break;
+        case U_Tag_Type:
             new_entry->nodetype = STABLE_SU_TAG;
             new_entry->stable_entry.sutag.is_defined = tmp_entry->su_tag_is_defined;
             new_entry->stable_entry.sutag.su_table = sTableCreate();
@@ -666,22 +672,22 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
             if (!cur->scalar_type.sign)
                 fprintf(output, "unsigned ");
             switch(cur->scalar_type.type) {
-                case Int: fprintf(output, "int");                   break;
-                case Void: fprintf(output, "void");                 break;
-                case Char: fprintf(output, "char");                 break;
-                case Short: fprintf(output, "short");           break;
-                case Long: fprintf(output, "long");             break;
-                case LongLong: fprintf(output, "long long");    break;
-                case Bool: fprintf(output, "bool");                 break;
-                case Float: fprintf(output, "float");               break;
-                case Double: fprintf(output, "double");             break;
-                case LongDouble: fprintf(output, "long double");    break;
-                case FloatComplex: fprintf(output, "float complex");            break;
-                case DoubleComplex: fprintf(output, "double complex");          break;
-                case LongDoubleComplex: fprintf(output, "long double complex"); break;
-                case FloatImag: fprintf(output, "float imaginary");             break;
-                case DoubleImag: fprintf(output, "double imaginary");           break;
-                case LongDoubleImag: fprintf(output, "long double imaginary");  break;
+                case Int: fprintf(output, "int\n");                break;
+                case Void: fprintf(output, "void\n");              break;
+                case Char: fprintf(output, "char\n");              break;
+                case Short: fprintf(output, "short\n");            break;
+                case Long: fprintf(output, "long\n");              break;
+                case LongLong: fprintf(output, "long long\n");     break;
+                case Bool: fprintf(output, "bool\n");              break;
+                case Float: fprintf(output, "float\n");            break;
+                case Double: fprintf(output, "double\n");          break;
+                case LongDouble: fprintf(output, "long double\n"); break;
+                case FloatComplex: fprintf(output, "float complex\n");            break;
+                case DoubleComplex: fprintf(output, "double complex\n");          break;
+                case LongDoubleComplex: fprintf(output, "long double complex\n"); break;
+                case FloatImag: fprintf(output, "float imaginary\n");             break;
+                case DoubleImag: fprintf(output, "double imaginary\n");           break;
+                case LongDoubleImag: fprintf(output, "long double imaginary\n");  break;
             }
             break;
         case FNC_TYPE:
@@ -736,14 +742,27 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
         case STABLE_SU_TAG:
             if (!cur->stable_entry.sutag.is_defined)
                 break;
-            printf("struct %s definition at %s:%d{\n", 
-                                cur->stable_entry.ident, 
-                                cur->stable_entry.file_name, 
-                                cur->stable_entry.line_num);
+
+            if (cur->stable_entry.type == S_Tag_Type) { /* struct type */
+                printf("struct %s definition at %s:%d{\n", 
+                                    cur->stable_entry.ident, 
+                                    cur->stable_entry.file_name, 
+                                    cur->stable_entry.line_num);
+            }
+            else {                                      /* union type */
+                printf("union %s definition at %s:%d{\n", 
+                                    cur->stable_entry.ident, 
+                                    cur->stable_entry.file_name, 
+                                    cur->stable_entry.line_num);
+
+            }
             for (int i = 0 ; i < cur->stable_entry.sutag.su_table->size; ++i) {
                 if (cur->stable_entry.sutag.su_table->data[i])
                     preorderTraversal(cur->stable_entry.sutag.su_table->data[i], output, depth);
             }
+            for (int i = 0; i < depth; ++i)
+                fprintf(output, "  ");
+            fprintf(output, "}\n");
             break;
         case STABLE_STMT_LABEL:
             break;

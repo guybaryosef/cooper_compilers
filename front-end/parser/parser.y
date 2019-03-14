@@ -31,6 +31,7 @@
     enum SymbolTableStorageClass storage_class;
     enum STEntry_Type ident_type;
     TmpSymbolTableEntry *tmp_stable_entry;
+    struct SymbolTable *scope_layer;
 }
 
 /* getting some quality error handling up in here */
@@ -78,8 +79,8 @@
 %type <astnode_p> short-signed-type reg-signed-type long-signed-type longlong-signed-type short-unsigned-type int-unsigned-type long-unsigned-type longlong-unsigned-type
 %type <astnode_p> complex-type-specifier imag-type-specifier
 
-%type <astnode_p> struct-type-definition struct-type-reference
-%type <str> struct-tag
+%type <astnode_p> struct-type-def struct-type-ref union-type-ref union-type-def
+%type <str> struct-tag union-tag
 %type <astnode_pp> field-list member-declaration member-declarator-list
 %type <astnode_p> member-declarator
 
@@ -90,7 +91,7 @@
 
 
 %type <astnode_p> pointer-declarator pointer direct-declarator fnc-declarator array-declarator
-%type <astnode_p> init-decl declarator /* initializer- technically here, but not integrated for now */
+%type <astnode_p> init-decl declarator  /* initializer- technically here, but not integrated for now */
 %type <tmp_stable_entry> decl-specifiers /* pretty sure about this one */
 
 %type <astnode_pp> decl-init-list 
@@ -98,8 +99,10 @@
 
 
 /*************************** TOP-LEVEL GRAMMAR-TYPES ****************************/
+%type <scope_layer> function-body
+%type <astnode_pp>  function-def 
 %type <astnode_p> compound-stmt stmt decl-or-stmt decl-or-stmt-list  
-%start decl-or-stmt-list    /* last but most significant :) */
+%start top-level    /* last but most significant :) */
 
 
 %%
@@ -453,13 +456,15 @@ type-name:   { $$ = NULL; }
 
 
 declaration: decl-specifiers ';'    { 
-                    if ($1->node->stable_entry.type == SU_Tag_Type &&
+                    if ( ($1->node->stable_entry.type == S_Tag_Type ||
+                          $1->node->stable_entry.type == U_Tag_Type ) &&
                                             $1->su_tag_is_defined == 0) {
+
        
                         $$ = newASTnodeList(1, NULL);
                         $$->list[0] = $1->node;
 
-                        if(sTableInsert(scope_stack.innermost_scope->tables[2], $$->list[0], 0) < 0)
+                        if(sTableInsert(scope_stack.innermost_scope->tables[SU_TAG_NAMESPACE], $$->list[0], 0) < 0)
                             yyerror("Unable to insert variable into symbol table");
                     }
                 }
@@ -482,14 +487,13 @@ declaration: decl-specifiers ';'    {
                         for (int i = 0 ; i < $$->len; ++i) {
                             
                             if ($$->list[i]->stable_entry.type == Statement_Label)
-                                ns_ind = 0;  /* statment labels        */
+                                ns_ind = LABEL_NAMESPACE;  /* statment labels        */
                             else if ($$->list[i]->stable_entry.type == Enum_Tag ||
-                                     $$->list[i]->stable_entry.type == SU_Tag_Type)
-                                ns_ind = 1;  /* tags (idents of struct/union/enum) */
-                            else if ($$->list[i]->stable_entry.type == SU_Member_Type)
-                                ns_ind = 2;  /* struct/union members */
+                                     $$->list[i]->stable_entry.type == S_Tag_Type ||
+                                     $$->list[i]->stable_entry.type == U_Tag_Type)
+                                ns_ind = SU_TAG_NAMESPACE;  /* tags (idents of struct/union/enum) */
                             else
-                                ns_ind = 3;  /* all other identifier classes */
+                                ns_ind = GENERAL_NAMESPACE;  /* all other identifier classes */
 
 
                             /* check if we are in global scope, as this will make
@@ -576,7 +580,7 @@ type-specifier: enum-type-specifier {
               | union-type-specifier  {                         
                         $$ = createTmpSTableEntry();
                         $$->node = $1; 
-                        $$->type =  SU_Tag_Type;
+                        $$->type =  Variable_Type;
                     }
               | void-type-specifier  {                         
                         $$ = createTmpSTableEntry();
@@ -676,73 +680,63 @@ enum-type-specifier: ENUM        { $$ = newNode_scalarType(Int, 1); }
 typedef-type-specifier: TYPEDEF  { $$ = newNode_scalarType(Int, 1); } 
                       ;
 
-union-type-specifier: UNION      { $$ = newNode_scalarType(Int, 1); }
-                    ;
-
 void-type-specifier: VOID        { $$ = newNode_scalarType(Int, 1); }
                    ;
 
 /* struct-type-specifier is a symbol table entry, not just a astnode type */
-struct-type-specifier: struct-type-definition   { $$ = $1; }
-                     | struct-type-reference    { $$ = $1; }
+struct-type-specifier: struct-type-def  { $$ = $1; }
+                     | struct-type-ref  { $$ = $1; }
                      ;
 
-struct-type-definition: STRUCT '{' field-list '}' {   
-                                TmpSymbolTableEntry *new_struct = createTmpSTableEntry();
-                                new_struct->type = SU_Tag_Type;
-                                new_struct->su_tag_is_defined = 1;
-
-                                $$ = newNode_sTableEntry(new_struct);
-
-                                for (int i = 0; i < $3->len; ++i)
-                                    if (!sTableInsert($$->stable_entry.sutag.su_table, $3->list[i], 0)) 
-                                        yyerror("Unable to insert members into struct symbol table.");
-                            }
-                      | STRUCT struct-tag '{' field-list '}' {
-
-                                /* first check that there isn't a naming conflict */
-                                if (sTableLookUp(scope_stack.innermost_scope->tables[1], $2.str))
-                                    yyerror("This struct was was already initialized");
-                                else {
-                                    TmpSymbolTableEntry *new_struct = createTmpSTableEntry(); 
-
-                                    new_struct->type = SU_Tag_Type;
-                                    new_struct->su_tag_is_defined = 1;
-                                    
-                                    $$ = newNode_sTableEntry(new_struct);
-                                    $$->stable_entry.ident = $2.str;
-                                    for (int i = 0; i < $4->len; ++i) {
-                                        /* if field-list member is a reference to the incomplete
-                                        type that is struct-tag, make pointer point to it and
-                                        change the status to a completed struct. */
-                                        if ($4->list[i]->stable_entry.node->stable_entry.ident == $2.str &&
-                                                $4->list[i]->stable_entry.node->nodetype == STABLE_SU_TAG &&
-                                                !$4->list[i]->stable_entry.node->stable_entry.sutag.is_defined) {
-                                            $4->list[i]->stable_entry.node->stable_entry.sutag.is_defined = 1;
-                                            $4->list[i]->stable_entry.node->stable_entry.sutag.is_defined = 1;                                                
-                                        }
-                                        
-                                        if (sTableInsert($$->stable_entry.sutag.su_table, $4->list[i], 0) < 0) 
-                                            yyerror("Inserting members into struct symbol table.");
-                                    }
-                                    if (sTableInsert(scope_stack.innermost_scope->tables[2], $$, 1) < 0)
-                                        yyerror("Error inserting struct into innermost scope");
+struct-type-def: STRUCT '{' field-list '}' {   
+                        TmpSymbolTableEntry *new_struct = createTmpSTableEntry();
+                        new_struct->type = S_Tag_Type;
+                        new_struct->su_tag_is_defined = 1;
+                        $$ = newNode_sTableEntry(new_struct);
+                        for (int i = 0; i < $3->len; ++i)
+                            if (!sTableInsert($$->stable_entry.sutag.su_table, $3->list[i], 0)) 
+                                yyerror("Unable to insert members into struct symbol table.");
+                    }
+               | STRUCT struct-tag '{' field-list '}' {
+                        /* first check that there isn't a naming conflict */
+                        if (sTableLookUp(scope_stack.innermost_scope->tables[SU_TAG_NAMESPACE], $2.str))
+                            yyerror("This struct was was already initialized");
+                        else {
+                            TmpSymbolTableEntry *new_struct = createTmpSTableEntry(); 
+                            new_struct->type = S_Tag_Type;
+                            new_struct->su_tag_is_defined = 1;
+                            
+                            $$ = newNode_sTableEntry(new_struct);
+                            $$->stable_entry.ident = $2.str;
+                            for (int i = 0; i < $4->len; ++i) {
+                                /* if field-list member is a reference to the incomplete
+                                type that is struct-tag, make pointer point to it and
+                                change the status to a completed struct. */
+                                if (    $4->list[i]->stable_entry.node->stable_entry.ident == $2.str &&
+                                        $4->list[i]->stable_entry.node->nodetype == STABLE_SU_TAG    &&
+                                        !$4->list[i]->stable_entry.node->stable_entry.sutag.is_defined ) {
+                                    $4->list[i]->stable_entry.node->stable_entry.sutag.is_defined = 1;
+                                    $4->list[i]->stable_entry.node->stable_entry.node = $$;                                                
                                 }
-                            }
-                      ;
-
-struct-type-reference: STRUCT struct-tag   { 
-                            $$ = searchStackScope(2, $2.str);
-                            if (!$$) {  /* create a forward, incomplete declaration */
-                                TmpSymbolTableEntry *new_struct = createTmpSTableEntry();
-                                new_struct->type = SU_Tag_Type;
-                                new_struct->su_tag_is_defined = 0;
-
-                                $$ = newNode_sTableEntry(new_struct);
-                                $$->stable_entry.ident = $2.str;
+                                
+                                if (sTableInsert($$->stable_entry.sutag.su_table, $4->list[i], 0) < 0) 
+                                    yyerror("Inserting members into struct symbol table.");
                             }
                         }
-                     ;
+                    }
+               ;
+
+struct-type-ref: STRUCT struct-tag   { 
+                    $$ = searchStackScope(SU_TAG_NAMESPACE, $2.str);
+                    if (!$$) {  /* create a forward, incomplete declaration */
+                        TmpSymbolTableEntry *new_struct = createTmpSTableEntry();
+                        new_struct->type = S_Tag_Type;
+                        new_struct->su_tag_is_defined = 0;
+                        $$ = newNode_sTableEntry(new_struct);
+                        $$->stable_entry.ident = $2.str;
+                    }
+                }
+               ;
 
 struct-tag: IDENT   { $$ = $1; }
           ;
@@ -778,6 +772,65 @@ member-declarator-list: member-declarator {
 member-declarator: declarator   { $$ = $1; }
                  /* we will not be implementing bit-fields in struct definitions */
                  ;
+
+union-type-specifier: union-type-def { $$ = $1; }
+                    | union-type-ref { $$ = $1; }
+                    ;
+
+union-type-def: UNION '{' field-list '}' {   
+                    TmpSymbolTableEntry *new_struct = createTmpSTableEntry();
+                    new_struct->type = U_Tag_Type;
+                    new_struct->su_tag_is_defined = 1;
+                    $$ = newNode_sTableEntry(new_struct);
+                    for (int i = 0; i < $3->len; ++i)
+                        if (!sTableInsert($$->stable_entry.sutag.su_table, $3->list[i], 0)) 
+                            yyerror("Unable to insert members into struct symbol table.");
+                }
+              | UNION union-tag '{' field-list '}' {
+                    /* first check that there isn't a naming conflict */
+                    if (sTableLookUp(scope_stack.innermost_scope->tables[SU_TAG_NAMESPACE], $2.str))
+                        yyerror("This struct was was already initialized");
+                    else {
+                        TmpSymbolTableEntry *new_struct = createTmpSTableEntry(); 
+                        new_struct->type = U_Tag_Type;
+                        new_struct->su_tag_is_defined = 1;
+                        
+                        $$ = newNode_sTableEntry(new_struct);
+                        $$->stable_entry.ident = $2.str;
+                        for (int i = 0; i < $4->len; ++i) {
+                            /* if field-list member is a reference to the incomplete
+                            type that is struct-tag, make pointer point to it and
+                            change the status to a completed struct. */
+                            if (    $4->list[i]->stable_entry.node->stable_entry.ident == $2.str &&
+                                    $4->list[i]->stable_entry.node->nodetype == STABLE_SU_TAG    &&
+                                    !$4->list[i]->stable_entry.node->stable_entry.sutag.is_defined ) {
+                                
+                                $4->list[i]->stable_entry.node->stable_entry.sutag.is_defined = 1;
+                                $4->list[i]->stable_entry.node->stable_entry.node = $$;                                                
+                            }
+                            
+                            if (sTableInsert($$->stable_entry.sutag.su_table, $4->list[i], 0) < 0) 
+                                yyerror("Inserting members into struct symbol table.");
+                        }
+                    }
+                }
+              ;
+
+union-type-ref: UNION union-tag { 
+                    $$ = searchStackScope(SU_TAG_NAMESPACE, $2.str);
+                    if (!$$) {  /* create a forward, incomplete declaration */
+                        TmpSymbolTableEntry *new_struct = createTmpSTableEntry();
+                        new_struct->type = U_Tag_Type;
+                        new_struct->su_tag_is_defined = 0;
+                        $$ = newNode_sTableEntry(new_struct);
+                        $$->stable_entry.ident = $2.str;
+                    }
+                }
+              ;
+
+union-tag: IDENT    { $$ = $1; }
+         ;
+
 
 
 decl-init-list: init-decl { 
@@ -879,6 +932,24 @@ fnc-declarator: direct-declarator '(' ')' {
 ************************** TOP-LEVEL GRAMMAR **************************
 **********************************************************************/
 
+function-def: decl-specifiers declarator function-body {
+            struct astnode_list *tmp_list = newASTnodeList(1, NULL); 
+            tmp_list->list[0] = $2;
+
+            $$ = combineSpecifierDeclarator($1, tmp_list); 
+            
+            /* check if we are in global scope, as this will make
+            variables extern by default instead of auto. */
+            $$->list[0]->fnc_type.stable = $3;
+        }
+       ;
+
+function-body: '{' { createNewScope(Function); } decl-or-stmt-list '}' {
+                $$ = scope_stack.innermost_scope;
+                scope_stack.innermost_scope = scope_stack.innermost_scope->child;
+            }
+         ;
+
 
 decl-or-stmt: declaration { 
                     for (int i = 0; i < $1->len; ++i)
@@ -894,8 +965,12 @@ decl-or-stmt-list: /* empty */                      { /* NOTHING */ }
                  ;
 
 
-compound-stmt: '{' decl-or-stmt-list '}'    { /* NOTHING */ }
+compound-stmt: '{' {createNewScope(Block); } decl-or-stmt-list '}' { deleteInnermostScope(); }
              ;
+
+top-level: decl-or-stmt-list { /* NOTHING */ }
+         | function-def      { /* NOTHING */ }
+         ;
 
 
 

@@ -130,8 +130,9 @@ union YYSTYPE
     enum SymbolTableStorageClass storage_class;
     enum STEntry_Type ident_type;
     TmpSymbolTableEntry *tmp_stable_entry;
+    struct ScopeStackLayer *scope_layer;
 
-#line 135 "../lexer/lheader.h" /* yacc.c:1909  */
+#line 136 "../lexer/lheader.h" /* yacc.c:1909  */
 };
 
 typedef union YYSTYPE YYSTYPE;

@@ -15,12 +15,12 @@ official-test-parser2: flex-bison frontEndHeaders.o parser_tester.o pheaders.o p
 # tests for assignment 3
 official-test-parser3: flex-bison frontEndHeaders.o parser_tester.o pheaders.o pheader_ast.o symbol_table.o
 	gcc -o parser frontEndHeaders.o parser_tester.o pheaders.o  pheader_ast.o symbol_table.o
-	$(CPP) tests_3/base.c | ./parser >./tests_3/MYRESULTS_base.out 2>./tests_2/MYRESULTS_base.out
-	$(CPP) tests_3/fn1.c | ./parser >./tests_3/MYRESULTS_fn1.out 2>./tests_2/MYRESULTS_fn1.out
-	$(CPP) tests_3/scope1.c | ./parser >./tests_3/MYRESULTS_scope1.out 2>./tests_2/MYRESULTS_scope1.out
-	$(CPP) tests_3/struct1.c | ./parser >./tests_3/MYRESULTS_struct1.out 2>./tests_2/MYRESULTS_struct1.out
-	$(CPP) tests_3/struct2.c | ./parser >./tests_3/MYRESULTS_struct2.out 2>./tests_2/MYRESULTS_struct2.out
-	$(CPP) tests_3/td1.c | ./parser >./tests_3/MYRESULTS_td1.out 2>./tests_2/MYRESULTS_td1.out
+	$(CPP) tests_3/base.c    | ./parser >./tests_3/MYRESULTS_base.out 		2>./tests_2/MYRESULTS_base.out
+	$(CPP) tests_3/fn1.c     | ./parser >./tests_3/MYRESULTS_fn1.out 		2>./tests_2/MYRESULTS_fn1.out
+	$(CPP) tests_3/scope1.c  | ./parser >./tests_3/MYRESULTS_scope1.out 	2>./tests_2/MYRESULTS_scope1.out
+	$(CPP) tests_3/struct1.c | ./parser >./tests_3/MYRESULTS_struct1.out 	2>./tests_2/MYRESULTS_struct1.out
+	$(CPP) tests_3/struct2.c | ./parser >./tests_3/MYRESULTS_struct2.out	2>./tests_2/MYRESULTS_struct2.out
+	$(CPP) tests_3/td1.c 	 | ./parser >./tests_3/MYRESULTS_td1.out 		2>./tests_2/MYRESULTS_td1.out
 
 # partial builds
 create-parser:

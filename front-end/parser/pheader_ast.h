@@ -139,9 +139,10 @@ struct astnode_scalar_type {
 
 #define FNC_TYPE 21  /* a function type */
 struct astnode_fnc_type {
-    struct astnode **args_types;  /* the types of the arguments         */
+    struct astnode **args_types; /* the types of the arguments         */
     int arg_count; /* number of arguments in the function. (-1) means unknown*/
-    struct astnode *return_type;  /* the return type of the function    */
+    struct astnode *return_type; /* the return type of the function    */
+    struct SymbolTable *stable;   /* symbol table of function- defines function scope */
 };
 
 #define STRUCT_TYPE 22 /* struct for a struct type */
@@ -177,7 +178,7 @@ enum possibleTypeQualifiers { No_Qualifier = 0, Const, Volatile, Restrict};
 
 
 enum STEntry_Type { Void_Type = 0, Variable_Type, Function_Type, 
-                    SU_Tag_Type, Enum_Tag, Statement_Label, 
+                    S_Tag_Type, U_Tag_Type, Enum_Tag, Statement_Label, 
                     Enum_Const_Type, Typedef_Name, SU_Member_Type};
 
 #define STABLE_VAR 23  /* s_table entry for a variable */
@@ -202,28 +203,28 @@ struct stable_sutag {
     struct SymbolTable *su_table;
 };
 
-#define STABLE_ENUM_TAG 26  /* s_table entry for an enum tag */
+#define STABLE_ENUM_TAG 27  /* s_table entry for an enum tag */
 struct stable_enumtag {
     _Bool is_defined;
 };
 
-#define STABLE_STMT_LABEL 27  /* s_table entry for a statement label */
+#define STABLE_STMT_LABEL 28  /* s_table entry for a statement label */
 struct stable_stmtlabel {
     int IR_assembly_label;
 };
 
-#define STABLE_ENUM_CONST 28  /* s_table entry for an enum constant */
+#define STABLE_ENUM_CONST 29  /* s_table entry for an enum constant */
 struct stable_enumconst {
     struct SymbolTableEntry *tag;
     int val;
 };
 
-#define STABLE_TYPEDEF 29  /* s_table entry for a typedef name */
+#define STABLE_TYPEDEF 30  /* s_table entry for a typedef name */
 struct stable_typedef {
     struct astnode *equivalent_type;
 };
 
-#define STABLE_SU_MEMB 30  /* s_table entry for a struct/union member */
+#define STABLE_SU_MEMB 31  /* s_table entry for a struct/union member */
 struct stable_sumemb {
     struct astnode *type;
     int offset_within_s_u;
