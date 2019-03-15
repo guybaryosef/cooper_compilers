@@ -31,7 +31,7 @@
     enum SymbolTableStorageClass storage_class;
     enum STEntry_Type ident_type;
     TmpSymbolTableEntry *tmp_stable_entry;
-    struct SymbolTable *scope_layer;
+    struct ScopeStackLayer *scope_layer;
 }
 
 /* getting some quality error handling up in here */
@@ -62,7 +62,7 @@
 %type <astnode_p> mult-expr add-expr shift-expr relational-expr equality-expr bitwise-and-expr bitwise-xor-expr bitwise-or-expr
 %type <astnode_p> sizeof-expr unary-minus-expr unary-plus-expr logical-neg-expr bitwise-neg-expr address-expr indirection-expr preinc-expr predec-expr
 %type <astnode_p> unary-expr
-%type <astnode_p> cast-expr type-name   /* need to get rid of this type-name after actually implemented */
+%type <astnode_p> cast-expr   /* need to get rid of this type-name after actually implemented */
 %type <astnode_p> expr-list assignment-expr
 %type <astnode_p> direct-comp-sel indirect-comp-sel
 %type <astnode_p> postfix-expr subscript-expr component-sel-expr function-call postinc-expr postdec-expr
@@ -97,12 +97,14 @@
 %type <astnode_pp> decl-init-list 
 %type <astnode_pp> declaration
 
+%type <astnode_p> type-name abstract-declarator direct-abstract-declarator
+
 
 /*************************** TOP-LEVEL GRAMMAR-TYPES ****************************/
 %type <scope_layer> function-body
 %type <astnode_pp>  function-def 
-%type <astnode_p> compound-stmt stmt decl-or-stmt decl-or-stmt-list  
-%start top-level    /* last but most significant :) */
+%type <astnode_p> compound-stmt stmt decl-or-stmt decl-or-stmt-list declaration_or_fndef 
+%start declaration_or_fndef
 
 
 %%
@@ -451,8 +453,102 @@ stmt: expr ';'              { $$ = $1; }
 **************************** DECLARATIONS *****************************
 **********************************************************************/
 
-type-name:   { $$ = NULL; }
+type-name: decl-specifiers {
+                if ($1->var_fnc_storage_class)
+                    yyerror("Specifying storage class for abstract type");
+                else {
+                    astnode *tmp = newNode_sTableEntry($1);
+                    $$ = tmp->stable_entry.node;
+                    free(tmp);
+                }
+            }
+         | decl-specifiers abstract-declarator {
+                if ($1->var_fnc_storage_class)
+                    yyerror("Specifying storage class for abstract type");
+                else {
+                    astnode *tmp  = $2;
+                    astnode *tmp2;
+                    // get to the end of the pointer/array/func path
+                    while ( tmp && (
+                            tmp->nodetype == PTR_TYPE ||
+                            tmp->nodetype == ARRAY_TYPE ||
+                            tmp->nodetype == FNC_TYPE
+                            ) ) {
+                        tmp2 = tmp;
+                        switch(tmp->nodetype) {
+                            case PTR_TYPE:   tmp = tmp->ptr.pointee;            break;
+                            case ARRAY_TYPE: tmp = tmp->arr.ptr->ptr.pointee;   break;
+                            case FNC_TYPE:   tmp = tmp->fnc_type.return_type;   break;
+                        }
+                    }
+
+                    // incorporate the decl-specifier into the declarator
+                    astnode *tmp3 = newNode_sTableEntry($1);
+                    switch(tmp2->nodetype) {
+                        case PTR_TYPE: tmp2->ptr.pointee = tmp3->stable_entry.node;           break;
+                        case ARRAY_TYPE: tmp2->arr.ptr->ptr.pointee = tmp3->stable_entry.node;  break;
+                        case FNC_TYPE: tmp2->fnc_type.return_type = tmp3->stable_entry.node;  break;
+                    }
+                    printf("aa\n");
+
+                    $$ = $2;
+                    free(tmp3);
+                }
+            }
          ;
+
+abstract-declarator: pointer                            { $$ = $1; }
+                   | direct-abstract-declarator         { $$ = $1; }
+                   | pointer direct-abstract-declarator {
+                        /* get to the end of the pointer nodes */
+                        astnode *tmp  = $2;
+                        astnode *tmp2;
+                        // get to the end of the pointer/array/func path
+                        while ( tmp && (
+                                tmp->nodetype == PTR_TYPE ||
+                                tmp->nodetype == ARRAY_TYPE ||
+                                tmp->nodetype == FNC_TYPE
+                                ) ) {
+                            tmp2 = tmp;
+                            switch(tmp->nodetype) {
+                                case PTR_TYPE:   tmp = tmp->ptr.pointee;            break;
+                                case ARRAY_TYPE: tmp = tmp->arr.ptr->ptr.pointee;   break;
+                                case FNC_TYPE:   tmp = tmp->fnc_type.return_type;   break;
+                            }
+                        }
+
+                        // add a pointer node to the sequence at the end
+                        switch(tmp2->nodetype) {
+                            case PTR_TYPE:   tmp2->ptr.pointee = newNode_ptr(None);          break;
+                            case ARRAY_TYPE: tmp2->arr.ptr->ptr.pointee = newNode_ptr(None); break;
+                            case FNC_TYPE:   tmp2->fnc_type.return_type = newNode_ptr(None); break;
+                        }   
+                        $$ = $2;
+                    }
+                   ;
+
+direct-abstract-declarator: '(' abstract-declarator ')'               { $$ = $2; }
+                          | direct-abstract-declarator '[' NUMBER ']' {
+                                $$ = newNode_arr($3.val);
+                                $$->arr.ptr->ptr.pointee = $1;
+                            }
+                          | direct-abstract-declarator '[' ']' {
+                                $$ = newNode_arr(-1);
+                                $$->arr.ptr->ptr.pointee = $1;
+                            }
+                          | '[' NUMBER ']'  { $$ = newNode_arr($2.val); }
+                          | '[' ']'         { $$ = newNode_arr(-1);     }
+                          | direct-abstract-declarator '(' ')'  {
+                                $$ = newNode_fncType(-1);
+                                $$->fnc_type.return_type = $1;
+                            }
+                          | '(' ')' { 
+                                $$ = newNode_fncType(-1);
+                            }
+                          ;
+
+
+
 
 
 declaration: decl-specifiers ';'    { 
@@ -469,11 +565,11 @@ declaration: decl-specifiers ';'    {
                     }
                 }
            | decl-specifiers decl-init-list ';' {
-
                     if (!($1->node)) {
                         $1->node = newNode_scalarType(Int, 1);
                         $1->type = Variable_Type;
                     }
+
                     if (!isTmpSTableEntryValid($1)) {
                         yyerror("Error in declaration specifiers.");
                     }
@@ -884,8 +980,29 @@ pointer-declarator: pointer direct-declarator   {
 
 pointer: '*'                        { $$ = newNode_ptr(None); }
        | '*' type-qualifier-list    { $$ = newNode_ptr($2); }
-       | '*' pointer                        { $$ = newNode_ptr(None); $$->ptr.pointee = $2; }
-       | '*' type-qualifier-list pointer    { $$ = newNode_ptr($2);   $$->ptr.pointee = $3; }
+       | '*' pointer                        { 
+            astnode *tmp = $2;
+            astnode *tmp2;
+            while (tmp) {
+                tmp2 = tmp;
+                tmp = tmp->ptr.pointee;
+            }
+            tmp2 = newNode_ptr(None);
+            
+            $$ = $2; 
+        }
+       | '*' type-qualifier-list pointer    { 
+            
+            astnode *tmp = $3;
+            astnode *tmp2;
+            while (tmp) {
+                tmp2 = tmp;
+                tmp = tmp->ptr.pointee;
+            }
+            tmp2 = newNode_ptr($2);
+            
+            $$ = $3;
+        }
        ;
 
 type-qualifier-list: type-qualifier                     { $$ = $1; }
@@ -929,7 +1046,7 @@ fnc-declarator: direct-declarator '(' ')' {
 
 
 /**********************************************************************
-************************** TOP-LEVEL GRAMMAR **************************
+************************ FUNCTION DECLARATIONS ************************
 **********************************************************************/
 
 function-def: decl-specifiers declarator function-body {
@@ -937,10 +1054,13 @@ function-def: decl-specifiers declarator function-body {
             tmp_list->list[0] = $2;
 
             $$ = combineSpecifierDeclarator($1, tmp_list); 
-            
-            /* check if we are in global scope, as this will make
-            variables extern by default instead of auto. */
-            $$->list[0]->fnc_type.stable = $3;
+            $$->list[0]->stable_entry.type = Function_Type;
+            $$->list[0]->nodetype = STABLE_FNC;
+            $$->list[0]->stable_entry.node->fnc_type.scope = $3;
+
+            sTableInsert(scope_stack.innermost_scope->tables[GENERAL_NAMESPACE], $$->list[0], 0);
+
+            printAST($$->list[0], NULL);
         }
        ;
 
@@ -951,7 +1071,12 @@ function-body: '{' { createNewScope(Function); } decl-or-stmt-list '}' {
          ;
 
 
-decl-or-stmt: declaration { 
+/**********************************************************************
+************************** TOP-LEVEL GRAMMAR **************************
+**********************************************************************/
+
+
+decl-or-stmt: declaration   { 
                     for (int i = 0; i < $1->len; ++i)
                         if ($1->list[i])
                             printAST($1->list[i], NULL);  
@@ -965,12 +1090,17 @@ decl-or-stmt-list: /* empty */                      { /* NOTHING */ }
                  ;
 
 
-compound-stmt: '{' {createNewScope(Block); } decl-or-stmt-list '}' { deleteInnermostScope(); }
+compound-stmt: '{' { createNewScope(Block); } decl-or-stmt-list '}' { deleteInnermostScope(); }
              ;
 
-top-level: decl-or-stmt-list { /* NOTHING */ }
-         | function-def      { /* NOTHING */ }
-         ;
+declaration_or_fndef: /* empty */                           { /* NOTHING */ } 
+                    | declaration_or_fndef declaration      {   
+                            for (int i = 0; i < $2->len; ++i)
+                                if ($2->list[i])
+                                    printAST($2->list[i], NULL);
+                        }
+                    | declaration_or_fndef function-def     { /* NOTHING */ }
+                    ;
 
 
 

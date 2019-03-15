@@ -11,9 +11,9 @@ Building a compiler for the C programming language.
 
 #### Status and next on the agenda:
 * Got most of the required functionality to work (scalars, arrays, functions, pointers, structs, unions, and scopes). Next steps:
-* Implement the large type checking function to make sure craziness isn't happening (not sure if it is needed though).
-* Implement function declarations
-* Implement abstract types & use them in sizeof expressions and cast expressions.
+* Finish mplementing abstract types & use them in sizeof expressions and cast expressions.
+* Fix pointer type calling (I had the order mixed up).
+* Stretch goals.
 
 
 ##### Stretch goals:

@@ -40,8 +40,7 @@ typedef struct SymbolTable {
    the array:
     0. Labels.
     1. Tags - The identifiers of a struct, union or enum.
-    2. Struct/union members.
-    3. All other identifier classes.
+    2. All other identifier classes.
  */
 enum ScopeType { File = 1, Function, Block, Proto };
 enum Namespace { LABEL_NAMESPACE = 0, SU_TAG_NAMESPACE, GENERAL_NAMESPACE };
@@ -83,7 +82,6 @@ typedef struct TmpSymbolTableEntry {
 
     /* function */
     _Bool fnc_is_inline;
-    _Bool fnc_is_defined;
     struct astnode *fnc_return_type;
     struct astnode **fnc_args_type;
 

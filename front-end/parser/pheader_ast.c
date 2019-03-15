@@ -344,7 +344,7 @@ astnode *newNode_fncType(int arg_len) {
     else
         node->fnc_type.args_types = NULL;
     node->fnc_type.return_type = NULL;
-    node->fnc_type.stable = NULL;
+    node->fnc_type.scope = NULL;
     return node;
 }
 
@@ -406,15 +406,10 @@ astnode *newNode_sTableEntry(TmpSymbolTableEntry *tmp_entry) {
             new_entry->nodetype = STABLE_FNC;
             new_entry->stable_entry.fnc.storage_class = tmp_entry->var_fnc_storage_class;
             new_entry->stable_entry.fnc.is_inline = tmp_entry->fnc_is_inline;
-            new_entry->stable_entry.fnc.is_defined = tmp_entry->fnc_is_defined;
             new_entry->stable_entry.fnc.return_type = tmp_entry->fnc_return_type;
             new_entry->stable_entry.fnc.args_types = tmp_entry->fnc_args_type;
             break;
         case S_Tag_Type:
-            new_entry->nodetype = STABLE_SU_TAG;
-            new_entry->stable_entry.sutag.is_defined = tmp_entry->su_tag_is_defined;
-            new_entry->stable_entry.sutag.su_table = sTableCreate();
-            break;
         case U_Tag_Type:
             new_entry->nodetype = STABLE_SU_TAG;
             new_entry->stable_entry.sutag.is_defined = tmp_entry->su_tag_is_defined;
@@ -659,14 +654,13 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
             preorderTraversal(cur->assignment.left, output, depth+1);
             preorderTraversal(cur->assignment.right, output, depth+1);
             break;
-        /********* NEEDS WORK *****/
         case PTR_TYPE:
             fprintf(output, "%s pointer to:\n ", translateTypeQualifier(cur->ptr.type_qualifier));
             preorderTraversal(cur->ptr.pointee, output, depth+1);
             break;
         case ARRAY_TYPE:
             fprintf(output, "array of %d elements of type\n", cur->arr.size);
-            preorderTraversal(cur->arr.ptr, output, depth+1);
+            preorderTraversal(cur->arr.ptr->ptr.pointee, output, depth+1);
             break;
         case SCALAR_TYPE:
             if (!cur->scalar_type.sign)
@@ -731,13 +725,18 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
             );
             preorderTraversal(cur->stable_entry.node->fnc_type.return_type, output, depth+1);
 
-            for (int i = 0 ; i < depth + 1; ++i)
-                fprintf(output, "   ");
+            for (int i = 0 ; i < depth; ++i)
+                fprintf(output, "  ");
 
-            fprintf(output, "and taking the following arguments:");
+            if (cur->stable_entry.node->fnc_type.arg_count > 0) {
+                fprintf(output, "and taking the following arguments:");
 
-            for (int i = 0 ; i < cur->stable_entry.node->fnc_type.arg_count; ++i)
-                preorderTraversal(cur->stable_entry.node->fnc_type.args_types[i], output, depth+2);
+                for (int i = 0 ; i < cur->stable_entry.node->fnc_type.arg_count; ++i)
+                    preorderTraversal(cur->stable_entry.node->fnc_type.args_types[i], output, depth+2);
+            }
+            else {
+                fprintf(output, "and taking an unspecified number of arguments.\n");
+            }
             break;
         case STABLE_SU_TAG:
             if (!cur->stable_entry.sutag.is_defined)

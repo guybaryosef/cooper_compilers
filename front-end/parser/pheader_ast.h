@@ -142,7 +142,7 @@ struct astnode_fnc_type {
     struct astnode **args_types; /* the types of the arguments         */
     int arg_count; /* number of arguments in the function. (-1) means unknown*/
     struct astnode *return_type; /* the return type of the function    */
-    struct SymbolTable *stable;   /* symbol table of function- defines function scope */
+    struct ScopeStackLayer *scope;   /* symbol table of function- defines function scope */
 };
 
 #define STRUCT_TYPE 22 /* struct for a struct type */
@@ -177,7 +177,7 @@ enum SymbolTableStorageClass { Auto = 0, Register, Extern, Static, Typedef};
 enum possibleTypeQualifiers { No_Qualifier = 0, Const, Volatile, Restrict};
 
 
-enum STEntry_Type { Void_Type = 0, Variable_Type, Function_Type, 
+enum STEntry_Type { Void_Type = 1, Variable_Type, Function_Type, 
                     S_Tag_Type, U_Tag_Type, Enum_Tag, Statement_Label, 
                     Enum_Const_Type, Typedef_Name, SU_Member_Type};
 

@@ -26,5 +26,5 @@ void initializeFrontEnd() {
     yycolumn = 1;
 
     /* scope stack initialization */
-    scope_stack.innermost_scope = createNewScope(File);
+    createNewScope(File);
 }

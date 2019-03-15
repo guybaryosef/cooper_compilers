@@ -1,8 +1,1 @@
-int a;
-
-int c;
-
-{
-    char c;
-    int a;
-}
+int * const *a;

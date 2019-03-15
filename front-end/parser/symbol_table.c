@@ -310,103 +310,105 @@ void typeQualifierSTableEntry(TmpSymbolTableEntry *entry,
  */
 _Bool isTmpSTableEntryValid(TmpSymbolTableEntry *entry) {
     /*
-    printf("fncinline %d\n", entry->fnc_is_inline);
-    printf("fncisdefined %d\n", entry->fnc_is_defined);
-    printf("fncreturntype %d\n", entry->fnc_return_type);
-    printf("fncargstype %d\n", entry->fnc_args_type);
-    printf("sutagdefined %d\n", entry->su_tag_is_defined);
-    printf("enumtagdefined %d\n", entry->enum_tag_is_defined);
-    printf("enumparenttag %d\n", entry->enum_parent_tag);
-    printf("enumconstval %d\n", entry->enum_const_val);
-    printf("stmtIRassemblylabel %d\n", entry->stmt_IR_assembly_label);
-    printf("typedeftype %d\n", entry->typedef_type);
-    printf("sumemboffset %d\n", entry->su_memb_offset);
-    printf("sumembtype %d\n", entry->su_memb_type);
-    printf("sumembbitfield %d\n", entry->su_memb_bit_field_width);
-    printf("sumembbitoffset %d\n", entry->su_memb_bit_offset);
-    
-    /* This function checks whether all specifier 
+    printf("%d\n",  (int)entry->fnc_is_inline);
+    printf("%ld\n",  (long)entry->fnc_args_type);
+    printf("%ld\n",  (long)entry->su_tag_is_defined );
+    printf("%ld\n",  (long)entry->enum_tag_is_defined);
+    printf("%ld\n",  (long)entry->enum_parent_tag);
+    printf("%ld\n",  (long)entry->enum_const_val);
+    printf("%ld\n",  (long)entry->stmt_IR_assembly_label);
+    printf("%ld\n",  (long)entry->typedef_type);
+    printf("%ld\n",  (long)entry->su_memb_offset);
+    printf("%ld\n",  (long)entry->su_memb_type);
+    printf("%ld\n",  (long)entry->su_memb_bit_field_width);
+    printf("%ld\n",  (long)entry->su_memb_bit_offset);
+    */
+    /* This function checks whether all declaration specifiers 
        incompatible with this type are NULL or 0,
-       (which are the values they are initialized with).   
-    if (entry->fnc_is_inline || entry->fnc_is_defined || 
-            entry->fnc_return_type || entry->fnc_args_type || 
-            entry->su_tag_is_defined  ||
-            entry->enum_tag_is_defined || entry->enum_parent_tag || 
-            entry->enum_const_val || entry->stmt_IR_assembly_label ||
-            entry->typedef_type || entry->su_memb_offset ||
-            entry->su_memb_type ||
-            entry->su_memb_bit_field_width || entry->su_memb_bit_offset)
-        return 0;
-    if (entry->var_type_qualifier ||
+       (which are the values they are initialized with). */ 
+    if ( (entry->type == Variable_Type && (
+            entry->fnc_is_inline || entry->fnc_args_type || 
+            entry->su_tag_is_defined  || entry->enum_tag_is_defined || 
+            entry->enum_parent_tag || entry->enum_const_val || 
+            entry->stmt_IR_assembly_label || entry->typedef_type || 
+            entry->su_memb_offset || entry->su_memb_type ||
+            entry->su_memb_bit_field_width || entry->su_memb_bit_offset
+        ) ) || 
+        ( entry->type == Function_Type && (
+            entry->var_type_qualifier ||
             entry->var_offset_within_stack_frame ||
             entry->su_tag_is_defined  ||
             entry->enum_tag_is_defined || entry->enum_parent_tag || 
             entry->enum_const_val || entry->stmt_IR_assembly_label ||
             entry->typedef_type || entry->su_memb_offset ||
             entry->su_memb_type || 
-            entry->su_memb_bit_field_width || entry->su_memb_bit_offset)
-        return 0;
-    if (entry->var_fnc_storage_class || entry->var_type_qualifier ||
+            entry->su_memb_bit_field_width || entry->su_memb_bit_offset
+        ) ) ||
+        ((entry->type == S_Tag_Type || entry->type == U_Tag_Type) && (
+            entry->var_fnc_storage_class || entry->var_type_qualifier ||
             entry->var_offset_within_stack_frame ||
-            entry->fnc_is_inline || entry->fnc_is_defined || 
+            entry->fnc_is_inline || 
             entry->fnc_return_type || entry->fnc_args_type ||
             entry->enum_tag_is_defined || entry->enum_parent_tag || 
             entry->enum_const_val || entry->stmt_IR_assembly_label ||
             entry->typedef_type || entry->su_memb_offset || 
             entry->su_memb_type ||
-            entry->su_memb_bit_field_width || entry->su_memb_bit_offset)
-        return 0;
-    if (entry->var_fnc_storage_class || entry->var_type_qualifier ||
+            entry->su_memb_bit_field_width || entry->su_memb_bit_offset
+        ) ) ||
+        (entry->type == Enum_Tag && (
+            entry->var_fnc_storage_class || entry->var_type_qualifier ||
             entry->var_offset_within_stack_frame ||
-            entry->fnc_is_inline || entry->fnc_is_defined || 
-            entry->fnc_return_type || entry->fnc_args_type || 
-            entry->su_tag_is_defined  ||
-            entry->enum_parent_tag || 
-            entry->enum_const_val || entry->stmt_IR_assembly_label ||
-            entry->su_memb_type ||
+            entry->fnc_is_inline || entry->fnc_return_type || 
+            entry->fnc_args_type || entry->su_tag_is_defined  ||
+            entry->enum_parent_tag || entry->enum_const_val || 
+            entry->stmt_IR_assembly_label || entry->su_memb_type ||
             entry->typedef_type || entry->su_memb_offset || 
-            entry->su_memb_bit_field_width || entry->su_memb_bit_offset)
-        return 0;
-    if (entry->var_fnc_storage_class || entry->var_type_qualifier ||
+            entry->su_memb_bit_field_width || entry->su_memb_bit_offset
+        ) ) ||
+        (entry->type == Statement_Label && (
+            entry->var_fnc_storage_class || entry->var_type_qualifier ||
             entry->var_offset_within_stack_frame ||
-            entry->fnc_is_inline || entry->fnc_is_defined || 
-            entry->fnc_return_type || entry->fnc_args_type || 
-            entry->su_tag_is_defined  ||
+            entry->fnc_is_inline || entry->fnc_return_type || 
+            entry->fnc_args_type || entry->su_tag_is_defined  ||
             entry->enum_tag_is_defined || entry->enum_parent_tag || 
             entry->enum_const_val || entry->su_memb_type ||
             entry->typedef_type || entry->su_memb_offset || 
-            entry->su_memb_bit_field_width || entry->su_memb_bit_offset)
-        return 0;
-    if (entry->var_fnc_storage_class || entry->var_type_qualifier ||
+            entry->su_memb_bit_field_width || entry->su_memb_bit_offset
+        ) ) ||
+        (entry->type == Enum_Const_Type && (
+            entry->var_fnc_storage_class || entry->var_type_qualifier ||
             entry->var_offset_within_stack_frame ||
-            entry->fnc_is_inline || entry->fnc_is_defined || 
-            entry->fnc_return_type || entry->fnc_args_type || 
-            entry->su_tag_is_defined  ||
+            entry->fnc_is_inline || entry->fnc_return_type || 
+            entry->fnc_args_type || entry->su_tag_is_defined  ||
             entry->enum_tag_is_defined || entry->stmt_IR_assembly_label ||
             entry->typedef_type || entry->su_memb_offset || 
             entry->su_memb_type ||
-            entry->su_memb_bit_field_width || entry->su_memb_bit_offset)
-        return 0;
-    if (entry->var_fnc_storage_class || entry->var_type_qualifier ||
+            entry->su_memb_bit_field_width || entry->su_memb_bit_offset
+        ) ) ||
+        (entry->type == Typedef_Name && (
+            entry->var_fnc_storage_class || entry->var_type_qualifier ||
             entry->var_offset_within_stack_frame ||
-            entry->fnc_is_inline || entry->fnc_is_defined || 
-            entry->fnc_return_type || entry->fnc_args_type || 
-            entry->su_tag_is_defined  ||
+            entry->fnc_is_inline || entry->fnc_return_type || 
+            entry->fnc_args_type || entry->su_tag_is_defined  ||
             entry->enum_tag_is_defined || entry->enum_parent_tag || 
             entry->enum_const_val || entry->stmt_IR_assembly_label ||
             entry->su_memb_offset || entry->su_memb_type ||
-            entry->su_memb_bit_field_width || entry->su_memb_bit_offset)
-        return 0;
-    if (entry->var_fnc_storage_class || entry->var_type_qualifier ||
+            entry->su_memb_bit_field_width || entry->su_memb_bit_offset
+        ) ) ||
+        (entry->type == SU_Member_Type && (
+            entry->var_fnc_storage_class || entry->var_type_qualifier ||
             entry->var_offset_within_stack_frame ||
-            entry->fnc_is_inline || entry->fnc_is_defined || 
-            entry->fnc_return_type || entry->fnc_args_type || 
-            entry->su_tag_is_defined ||
+            entry->fnc_is_inline || entry->fnc_return_type || 
+            entry->fnc_args_type || entry->su_tag_is_defined ||
             entry->enum_tag_is_defined || entry->enum_parent_tag || 
             entry->enum_const_val || entry->stmt_IR_assembly_label ||
-            entry->typedef_type)
+            entry->typedef_type
+        ) ) ) {
         return 0;
-        */
+
+        }
+        
+    // else all is good, return 1
     return 1;
 }
 
@@ -438,10 +440,9 @@ astnode_list *combineSpecifierDeclarator(TmpSymbolTableEntry *specifier,
                                          struct astnode_list *decl_list) {
     
     astnode_list *new_entries = newASTnodeList(decl_list->len, NULL);
-    
+
     for (int i = 0; i < decl_list->len; ++i) {
         new_entries->list[i] = newNode_sTableEntry(specifier);
-
         /* get cur_handle to be the actual declarator node and second_handle
            to be the last node pointing to this declarator (if the path 
            included a pointer or array).     */
@@ -543,11 +544,11 @@ void createNewScope(enum ScopeType type) {
 void deleteInnermostScope() {
     ScopeStackLayer *new_innermost = scope_stack.innermost_scope->child;
     if (!new_innermost) {   /* the scope stack consists of only file scope */
-        fprintf(stderr, "Unable to delete file (global) scope of a translation unit.\n");
+        yyerror("Unable to delete file (global) scope of a translation unit.");
         exit(-1);
     }
 
-    for (int i = 0 ; i < 4 ; ++i)
+    for (int i = 0 ; i < 3 ; ++i)
         free(scope_stack.innermost_scope->tables[i]);
     free(scope_stack.innermost_scope);
     scope_stack.innermost_scope = new_innermost;
