@@ -489,7 +489,6 @@ type-name: decl-specifiers {
                         case ARRAY_TYPE: tmp2->arr.ptr->ptr.pointee = tmp3->stable_entry.node;  break;
                         case FNC_TYPE: tmp2->fnc_type.return_type = tmp3->stable_entry.node;  break;
                     }
-                    printf("aa\n");
 
                     $$ = $2;
                     free(tmp3);
@@ -539,8 +538,32 @@ direct-abstract-declarator: '(' abstract-declarator ')'               { $$ = $2;
                           | '[' NUMBER ']'  { $$ = newNode_arr($2.val); }
                           | '[' ']'         { $$ = newNode_arr(-1);     }
                           | direct-abstract-declarator '(' ')'  {
-                                $$ = newNode_fncType(-1);
-                                $$->fnc_type.return_type = $1;
+                                if ($1->nodetype == FNC_TYPE)
+                                    yyerror("Invalid type: function returning function");
+                                else {
+                                    /* get to the end of the pointer nodes */
+                                    astnode *tmp  = $1;
+                                    astnode *tmp2;
+                                    // get to the end of the pointer/array/func path
+                                    while ( tmp && (
+                                            tmp->nodetype == PTR_TYPE ||
+                                            tmp->nodetype == ARRAY_TYPE
+                                            ) ) {
+                                        tmp2 = tmp;
+                                        switch(tmp->nodetype) {
+                                            case PTR_TYPE:   tmp = tmp->ptr.pointee;            break;
+                                            case ARRAY_TYPE: tmp = tmp->arr.ptr->ptr.pointee;   break;
+                                        }
+                                    }
+
+                                    // add a pointer node to the sequence at the end
+                                    switch(tmp2->nodetype) {
+                                        case PTR_TYPE:   tmp2->ptr.pointee = newNode_fncType(-1);          break;
+                                        case ARRAY_TYPE: tmp2->arr.ptr->ptr.pointee = newNode_fncType(-1); break;
+                                        case FNC_TYPE:   tmp2->fnc_type.return_type = newNode_fncType(-1); break;
+                                    }
+                                    $$ = $1;
+                                }
                             }
                           | '(' ')' { 
                                 $$ = newNode_fncType(-1);
@@ -987,7 +1010,7 @@ pointer: '*'                        { $$ = newNode_ptr(None); }
                 tmp2 = tmp;
                 tmp = tmp->ptr.pointee;
             }
-            tmp2 = newNode_ptr(None);
+            tmp2->ptr.pointee = newNode_ptr(None);
             
             $$ = $2; 
         }
@@ -999,7 +1022,7 @@ pointer: '*'                        { $$ = newNode_ptr(None); }
                 tmp2 = tmp;
                 tmp = tmp->ptr.pointee;
             }
-            tmp2 = newNode_ptr($2);
+            tmp2->ptr.pointee = newNode_ptr($2);
             
             $$ = $3;
         }

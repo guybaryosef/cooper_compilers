@@ -685,6 +685,21 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
             }
             break;
         case FNC_TYPE:
+            fprintf(output, "function returning:\n");
+            preorderTraversal(cur->fnc_type.return_type, output, depth+1);
+
+            for (int i = 0 ; i < depth; ++i)
+                fprintf(output, "  ");
+
+            if (cur->fnc_type.arg_count > 0) {
+                fprintf(output, "and taking the following arguments:");
+
+                for (int i = 0 ; i < cur->stable_entry.node->fnc_type.arg_count; ++i)
+                    preorderTraversal(cur->stable_entry.node->fnc_type.args_types[i], output, depth+2);
+            }
+            else {
+                fprintf(output, "and taking an unspecified number of arguments.\n");
+            }
             break;
 
         /* symbol table entries */
