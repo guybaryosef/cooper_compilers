@@ -352,6 +352,14 @@ void printAST(struct astnode *root, FILE *output_file);
 
 
 /*
+ * printStructAST - A quick way to specify (print out) the
+ * members of a struct or union. This is only called when
+ * a struct or union are first defined.
+ */
+void printStructAST(astnode *root, FILE *output_file);
+
+
+/*
  * preorderTraversal - A helper function for printAST. This
  * function implements preorder traversal for the AST printing.
  */

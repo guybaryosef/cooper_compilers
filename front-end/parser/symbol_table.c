@@ -70,24 +70,18 @@ void sTableDestroy(SymbolTable *table) {
  * hash collisions.
  */
 int sTableInsert(SymbolTable *table, astnode *entry, int dup_toggle) {
-    
     /*  keep the symbol table at least twice the size of the 
         # of elements so that our lookups stay fast */
     if (table->filled >= table->size/2)
         sTableResize(table);
+
     int data_ind = sTableHash(entry->stable_entry.ident, table->size);
 
     // linear probing
-    while (table->data[data_ind] && 
-                table->data[data_ind]->stable_entry.ident != 
-                entry->stable_entry.ident) {
-
+    while ( table->data[data_ind] && 
+            strcmp(table->data[data_ind]->stable_entry.ident, entry->stable_entry.ident)) {
         data_ind = (data_ind+1) % table->size;
     }
-    if (data_ind == 0)
-        data_ind = table->size-1;
-    else
-        data_ind = (data_ind - 1) % table->size;
 
     if (table->data[data_ind]) { /* identifier already appears in scope & namespace */
         if (dup_toggle) {
@@ -99,8 +93,7 @@ int sTableInsert(SymbolTable *table, astnode *entry, int dup_toggle) {
             return -1;
         }
     }
-    else {
-        // Insert entry into correct place in table
+    else {        // Insert entry into correct place in table
         table->data[data_ind] = entry;
         table->filled++;
     }
@@ -118,23 +111,15 @@ int sTableInsert(SymbolTable *table, astnode *entry, int dup_toggle) {
  * hash collisions.
  * */
 astnode *sTableLookUp(SymbolTable *table, char *entry_name) {
-    
     int data_ind = sTableHash(entry_name, table->size);
 
     // linear probing
-    while (table->data[data_ind] && 
-           table->data[data_ind]->stable_entry.ident != entry_name) {
+    while (table->data[data_ind] && strcmp(table->data[data_ind]->stable_entry.ident, entry_name) )
         data_ind = (data_ind+1) % table->size;
-    }    
 
-    if (data_ind == 0)
-        data_ind = table->size-1;
-    else
-        data_ind = (data_ind - 1) % table->size;
-    
     if (!table->data[data_ind])
         return NULL;
-    else    /* we found our symbol table entry */
+    else  /* we found our symbol table entry */
         return table->data[data_ind];
 
 }
@@ -149,7 +134,8 @@ astnode *sTableLookUp(SymbolTable *table, char *entry_name) {
 int sTableResize(SymbolTable *table) {
 
     // Determine new table size
-    /* hash table size options. Lets be honest, wont be larger than 3569 */
+    /* hash table size options. 
+       Lets be honest, wont be larger than 3569 */
     const int primes[] = {0, 5, 11, 23, 37, 97, 199, 409, 823, 1741, 3569};
     
     int new_size = 0;
@@ -174,11 +160,10 @@ int sTableResize(SymbolTable *table) {
     } 
 
 
-
     // Iterate through old data, updating new data array
     for (int i = 0 ; i < primes[prime_ind-1] ; ++i) {
-        if (table->data[i]) {
-            sTableInsert(table, table->data[i], 0);
+        if (old_data[i]) {
+            sTableInsert(table, old_data[i], 0);
         }
     }
 

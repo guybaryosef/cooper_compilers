@@ -1,25 +1,36 @@
-/* This is a torture-test of struct tag scoping rules */
 
-struct s1 {
+static struct str1 {
 	int a;
-};
+	/*const*/ int i;	/*What happens when you uncomment this?*/
+	struct str2 {
+		short d,e;
+		char c;
+	} str2;
+	char c;
+} s1;
 
-void f()
-{
-	struct s1;		/* Hides prev s1 with incomplete */
-	struct s2 {
-		struct s1 *p1;	/* Should report as ptr to (incomplete) */
-	} s2;
-	struct s3 {
-		struct s2 *p2;	/* Should be complete */
-		struct s1 {
-			double d;
-		} *p1;			/* p1 should be ptr->complete */
-	} s3;
-	{
-		struct s1 {
-			float f;
-		} s1;
-	}
-		
-	struct s1 s1;		/* Not a dup defn! */
+struct str2 s2;
+
+struct str3 {
+	struct str4 *p4;
+} s3;
+
+struct str4 {
+	struct str1 str1[10];
+	int i;
+	struct str3 *p3;
+} s4;
+
+struct {
+	int y;
+} s5;
+
+
+struct str6 {
+	int a;
+	unsigned b:2;
+	unsigned c:5;
+	int :7;
+	unsigned d;
+	unsigned e:16;
+} s6;

@@ -4,7 +4,7 @@ struct s1 {
 	int a;
 };
 
-void f(void)
+void f()
 {
 	struct s1;		/* Hides prev s1 with incomplete */
 	struct s2 {

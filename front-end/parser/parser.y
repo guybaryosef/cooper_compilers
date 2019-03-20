@@ -575,17 +575,8 @@ direct-abstract-declarator: '(' abstract-declarator ')'               { $$ = $2;
 
 
 declaration: decl-specifiers ';'    { 
-                    if ( ($1->node->stable_entry.type == S_Tag_Type ||
-                          $1->node->stable_entry.type == U_Tag_Type ) &&
-                                            $1->su_tag_is_defined == 0) {
-
-       
-                        $$ = newASTnodeList(1, NULL);
-                        $$->list[0] = $1->node;
-
-                        if(sTableInsert(scope_stack.innermost_scope->tables[SU_TAG_NAMESPACE], $$->list[0], 0) < 0)
-                            yyerror("Unable to insert variable into symbol table");
-                    }
+                    $$ = newASTnodeList(1, NULL); 
+                    $$->list[0] = $1->node;
                 }
            | decl-specifiers decl-init-list ';' {
                     if (!($1->node)) {
@@ -599,12 +590,13 @@ declaration: decl-specifiers ';'    {
                     else {
                         /* create the new symbol table entries */
                         $$ = combineSpecifierDeclarator($1, $2); 
-                        
+
                         /* add the new entries to the symbol table */
                         int ns_ind;
 
                         for (int i = 0 ; i < $$->len; ++i) {
-                            
+                    //        printf("inserting ident: %s with type: %d\n", $$->list[i]->stable_entry.ident, $$->list[i]->stable_entry.type);
+
                             if ($$->list[i]->stable_entry.type == Statement_Label)
                                 ns_ind = LABEL_NAMESPACE;  /* statment labels        */
                             else if ($$->list[i]->stable_entry.type == Enum_Tag ||
@@ -689,7 +681,7 @@ type-specifier: enum-type-specifier {
               | struct-type-specifier  {                         
                         $$ = createTmpSTableEntry();
                         $$->node = $1; 
-                        $$->type =  Variable_Type;
+                        $$->type = Variable_Type;
                     }
               | typedef-type-specifier  {                         
                         $$ = createTmpSTableEntry();
@@ -808,6 +800,7 @@ struct-type-specifier: struct-type-def  { $$ = $1; }
                      ;
 
 struct-type-def: STRUCT '{' field-list '}' {   
+
                         TmpSymbolTableEntry *new_struct = createTmpSTableEntry();
                         new_struct->type = S_Tag_Type;
                         new_struct->su_tag_is_defined = 1;
@@ -817,22 +810,21 @@ struct-type-def: STRUCT '{' field-list '}' {
                                 yyerror("Unable to insert members into struct symbol table.");
                     }
                | STRUCT struct-tag '{' field-list '}' {
-                        /* first check that there isn't a naming conflict */
-                        if (sTableLookUp(scope_stack.innermost_scope->tables[SU_TAG_NAMESPACE], $2.str))
-                            yyerror("This struct was was already initialized");
-                        else {
-                            TmpSymbolTableEntry *new_struct = createTmpSTableEntry(); 
-                            new_struct->type = S_Tag_Type;
-                            new_struct->su_tag_is_defined = 1;
-                            
-                            $$ = newNode_sTableEntry(new_struct);
-                            $$->stable_entry.ident = $2.str;
+                        $$ = sTableLookUp(scope_stack.innermost_scope->tables[SU_TAG_NAMESPACE], $2.str);
+                        // todo: make the following for-loop logic not repetetive.
+
+                        if ($$ && $$->stable_entry.type == S_Tag_Type && !$$->stable_entry.sutag.is_defined) {
+
+                            $$->stable_entry.sutag.is_defined = 1;
+                            $$->stable_entry.file_name = cur_file_name;
+                            $$->stable_entry.line_num = cur_line_num;
+
                             for (int i = 0; i < $4->len; ++i) {
                                 /* if field-list member is a reference to the incomplete
                                 type that is struct-tag, make pointer point to it and
                                 change the status to a completed struct. */
-                                if (    $4->list[i]->stable_entry.node->stable_entry.ident == $2.str &&
-                                        $4->list[i]->stable_entry.node->nodetype == STABLE_SU_TAG    &&
+                                if (    $4->list[i]->stable_entry.node->nodetype == STABLE_SU_TAG &&
+                                        !strcmp($4->list[i]->stable_entry.node->stable_entry.ident, $2.str) &&
                                         !$4->list[i]->stable_entry.node->stable_entry.sutag.is_defined ) {
                                     $4->list[i]->stable_entry.node->stable_entry.sutag.is_defined = 1;
                                     $4->list[i]->stable_entry.node->stable_entry.node = $$;                                                
@@ -841,18 +833,53 @@ struct-type-def: STRUCT '{' field-list '}' {
                                 if (sTableInsert($$->stable_entry.sutag.su_table, $4->list[i], 0) < 0) 
                                     yyerror("Inserting members into struct symbol table.");
                             }
+                            printStructAST($$, NULL);
                         }
+                        else if (!$$) {
+
+                            TmpSymbolTableEntry *new_struct = createTmpSTableEntry(); 
+                            new_struct->type = S_Tag_Type;
+                            new_struct->su_tag_is_defined = 1;
+                            
+                            $$ = newNode_sTableEntry(new_struct);
+                            $$->stable_entry.ident = $2.str;
+
+                            for (int i = 0; i < $4->len; ++i) {
+                                /* if field-list member is a reference to the incomplete
+                                type that is struct-tag, make pointer point to it and
+                                change the status to a completed struct. */
+                                if (    $4->list[i]->stable_entry.node->nodetype == STABLE_SU_TAG &&
+                                        !strcmp($4->list[i]->stable_entry.node->stable_entry.ident, $2.str) &&
+                                        !$4->list[i]->stable_entry.node->stable_entry.sutag.is_defined ) {
+                                    $4->list[i]->stable_entry.node->stable_entry.sutag.is_defined = 1;
+                                    $4->list[i]->stable_entry.node->stable_entry.node = $$;                                                
+                                }
+                            
+                                if (sTableInsert($$->stable_entry.sutag.su_table, $4->list[i], 0) < 0) 
+                                    yyerror("Inserting members into struct symbol table.");
+                            
+                            }
+                            // inserting defined struct into the innermost scope & printing it out.
+                            if(sTableInsert(scope_stack.innermost_scope->tables[SU_TAG_NAMESPACE], $$, 0) < 0)
+                                yyerror("Unable to insert variable into symbol table");
+                            printStructAST($$, NULL);
+                        }
+                        else
+                            yyerror("This struct was already defined");
                     }
                ;
 
 struct-type-ref: STRUCT struct-tag   { 
-                    $$ = searchStackScope(SU_TAG_NAMESPACE, $2.str);
+
+                    $$ = sTableLookUp(scope_stack.innermost_scope->tables[SU_TAG_NAMESPACE], $2.str);
                     if (!$$) {  /* create a forward, incomplete declaration */
                         TmpSymbolTableEntry *new_struct = createTmpSTableEntry();
                         new_struct->type = S_Tag_Type;
                         new_struct->su_tag_is_defined = 0;
                         $$ = newNode_sTableEntry(new_struct);
                         $$->stable_entry.ident = $2.str;
+                        if(sTableInsert(scope_stack.innermost_scope->tables[SU_TAG_NAMESPACE], $$, 0) < 0)
+                            yyerror("Unable to insert incomplete struct into symbol table");
                     }
                 }
                ;
@@ -898,51 +925,84 @@ union-type-specifier: union-type-def { $$ = $1; }
 
 union-type-def: UNION '{' field-list '}' {   
                     TmpSymbolTableEntry *new_struct = createTmpSTableEntry();
-                    new_struct->type = U_Tag_Type;
-                    new_struct->su_tag_is_defined = 1;
-                    $$ = newNode_sTableEntry(new_struct);
-                    for (int i = 0; i < $3->len; ++i)
-                        if (!sTableInsert($$->stable_entry.sutag.su_table, $3->list[i], 0)) 
-                            yyerror("Unable to insert members into struct symbol table.");
-                }
-              | UNION union-tag '{' field-list '}' {
-                    /* first check that there isn't a naming conflict */
-                    if (sTableLookUp(scope_stack.innermost_scope->tables[SU_TAG_NAMESPACE], $2.str))
-                        yyerror("This struct was was already initialized");
-                    else {
-                        TmpSymbolTableEntry *new_struct = createTmpSTableEntry(); 
                         new_struct->type = U_Tag_Type;
                         new_struct->su_tag_is_defined = 1;
-                        
                         $$ = newNode_sTableEntry(new_struct);
-                        $$->stable_entry.ident = $2.str;
+                        for (int i = 0; i < $3->len; ++i)
+                            if (!sTableInsert($$->stable_entry.sutag.su_table, $3->list[i], 0)) 
+                                yyerror("Unable to insert members into union symbol table.");
+                }
+              | UNION union-tag '{' field-list '}' {
+                    $$ = sTableLookUp(scope_stack.innermost_scope->tables[SU_TAG_NAMESPACE], $2.str);
+                    // todo: make the following for-loop logic not repetetive.
+
+                    if ($$ && $$->stable_entry.type == U_Tag_Type && !$$->stable_entry.sutag.is_defined) {
+
+                        $$->stable_entry.sutag.is_defined = 1;
+                        $$->stable_entry.file_name = cur_file_name;
+                        $$->stable_entry.line_num = cur_line_num;
+                        
                         for (int i = 0; i < $4->len; ++i) {
                             /* if field-list member is a reference to the incomplete
-                            type that is struct-tag, make pointer point to it and
-                            change the status to a completed struct. */
-                            if (    $4->list[i]->stable_entry.node->stable_entry.ident == $2.str &&
-                                    $4->list[i]->stable_entry.node->nodetype == STABLE_SU_TAG    &&
+                            type that is a su-tag, make pointer point to it and
+                            change the status to a completed union. */
+                            if (    $4->list[i]->stable_entry.node->nodetype == STABLE_SU_TAG &&
+                                    !strcmp($4->list[i]->stable_entry.node->stable_entry.ident, $2.str) &&
                                     !$4->list[i]->stable_entry.node->stable_entry.sutag.is_defined ) {
-                                
                                 $4->list[i]->stable_entry.node->stable_entry.sutag.is_defined = 1;
                                 $4->list[i]->stable_entry.node->stable_entry.node = $$;                                                
                             }
                             
                             if (sTableInsert($$->stable_entry.sutag.su_table, $4->list[i], 0) < 0) 
-                                yyerror("Inserting members into struct symbol table.");
+                                yyerror("Inserting members into union symbol table.");
                         }
+                        printStructAST($$, NULL);
                     }
+                    else if (!$$) {
+
+                        TmpSymbolTableEntry *new_union = createTmpSTableEntry(); 
+                        new_union->type = U_Tag_Type;
+                        new_union->su_tag_is_defined = 1;
+                        
+                        $$ = newNode_sTableEntry(new_union);
+                        $$->stable_entry.ident = $2.str;
+
+                        for (int i = 0; i < $4->len; ++i) {
+                            /* if field-list member is a reference to the incomplete
+                            type that is su-tag, make pointer point to it and
+                            change the status to a completed union. */
+                            if (    $4->list[i]->stable_entry.node->nodetype == STABLE_SU_TAG &&
+                                    !strcmp($4->list[i]->stable_entry.node->stable_entry.ident, $2.str) &&
+                                    !$4->list[i]->stable_entry.node->stable_entry.sutag.is_defined ) {
+                                $4->list[i]->stable_entry.node->stable_entry.sutag.is_defined = 1;
+                                $4->list[i]->stable_entry.node->stable_entry.node = $$;                                                
+                            }
+                        
+                            if (sTableInsert($$->stable_entry.sutag.su_table, $4->list[i], 0) < 0) 
+                                yyerror("Inserting members into union symbol table.");
+                        
+                        }
+                        // inserting defined union into the innermost scope & printing it out.
+                        if(sTableInsert(scope_stack.innermost_scope->tables[SU_TAG_NAMESPACE], $$, 0) < 0)
+                            yyerror("Unable to insert variable into symbol table");
+                        printStructAST($$, NULL);
+                    }
+                    else
+                        yyerror("This union was already defined");
                 }
               ;
 
 union-type-ref: UNION union-tag { 
-                    $$ = searchStackScope(SU_TAG_NAMESPACE, $2.str);
+
+                    $$ = sTableLookUp(scope_stack.innermost_scope->tables[SU_TAG_NAMESPACE], $2.str);
                     if (!$$) {  /* create a forward, incomplete declaration */
-                        TmpSymbolTableEntry *new_struct = createTmpSTableEntry();
-                        new_struct->type = U_Tag_Type;
-                        new_struct->su_tag_is_defined = 0;
-                        $$ = newNode_sTableEntry(new_struct);
+                        TmpSymbolTableEntry *new_union = createTmpSTableEntry();
+                        new_union->type = U_Tag_Type;
+                        new_union->su_tag_is_defined = 0;
+                        $$ = newNode_sTableEntry(new_union);
                         $$->stable_entry.ident = $2.str;
+                        if(sTableInsert(scope_stack.innermost_scope->tables[SU_TAG_NAMESPACE], $$, 0) < 0)
+                            yyerror("Unable to insert incomplete union into symbol table");
                     }
                 }
               ;
@@ -1118,9 +1178,11 @@ compound-stmt: '{' { createNewScope(Block); } decl-or-stmt-list '}' { deleteInne
 
 declaration_or_fndef: /* empty */                           { /* NOTHING */ } 
                     | declaration_or_fndef declaration      {   
-                            for (int i = 0; i < $2->len; ++i)
-                                if ($2->list[i])
-                                    printAST($2->list[i], NULL);
+                            if ($2) {
+                                for (int i = 0; i < $2->len; ++i)
+                                    if ($2->list[i])
+                                        printAST($2->list[i], NULL);
+                            }
                         }
                     | declaration_or_fndef function-def     { /* NOTHING */ }
                     ;

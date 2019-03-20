@@ -554,6 +554,37 @@ void printAST(astnode *root, FILE *output_file) {
 
 
 /*
+ * printStructAST - A quick way to specify (print out) the
+ * members of a struct or union. This is only called when
+ * a struct or union are first defined.
+ */
+void printStructAST(astnode *root, FILE *output_file) {
+    FILE *output = (output_file) ? output_file : stdout;
+
+    if (root->stable_entry.type == S_Tag_Type) { /* struct type */
+        fprintf(output, "struct %s definition at %s:%d{\n", 
+                            root->stable_entry.ident, 
+                            root->stable_entry.file_name, 
+                            root->stable_entry.line_num);
+    }
+    else {                                      /* union type */
+        fprintf(output, "union %s definition at %s:%d {\n", 
+                            root->stable_entry.ident, 
+                            root->stable_entry.file_name, 
+                            root->stable_entry.line_num);
+    }
+    for (int i = 0 ; i < root->stable_entry.sutag.su_table->size; ++i) {
+        if (root->stable_entry.sutag.su_table->data[i])
+            preorderTraversal(root->stable_entry.sutag.su_table->data[i], output, 1);
+    }
+    
+    fprintf(output, "}\n");
+
+    fprintf(output, "\n");  /* keeping consistent with Hakner's format */
+}
+
+
+/*
  * preorderTraversal - A helper function for printAST. This
  * function implements preorder traversal for the AST printing.
  */
@@ -754,29 +785,35 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
             }
             break;
         case STABLE_SU_TAG:
-            if (!cur->stable_entry.sutag.is_defined)
+            if (!cur->stable_entry.ident) {
+                printStructAST(cur, output);
                 break;
+            }
+            if (!cur->stable_entry.sutag.is_defined) {
+                fprintf( output, 
+                    "incomplete struct %s is defined at %s:%d [in %s scope starting at %s:%d].\n", 
+                    cur->stable_entry.ident, 
+                    cur_file_name, 
+                    cur_line_num, 
+                    translateScopeType(scope_stack.innermost_scope->scope_type),
+                    scope_stack.innermost_scope->beginning_file, 
+                    scope_stack.innermost_scope->begin_line_num
+                );               
+                break;
+            }
 
             if (cur->stable_entry.type == S_Tag_Type) { /* struct type */
-                printf("struct %s definition at %s:%d{\n", 
+                fprintf(output, "struct %s, defined at %s:%d.\n", 
                                     cur->stable_entry.ident, 
                                     cur->stable_entry.file_name, 
                                     cur->stable_entry.line_num);
             }
             else {                                      /* union type */
-                printf("union %s definition at %s:%d{\n", 
+                fprintf(output, "union %s, defined at %s:%d.\n", 
                                     cur->stable_entry.ident, 
                                     cur->stable_entry.file_name, 
                                     cur->stable_entry.line_num);
-
             }
-            for (int i = 0 ; i < cur->stable_entry.sutag.su_table->size; ++i) {
-                if (cur->stable_entry.sutag.su_table->data[i])
-                    preorderTraversal(cur->stable_entry.sutag.su_table->data[i], output, depth);
-            }
-            for (int i = 0; i < depth; ++i)
-                fprintf(output, "  ");
-            fprintf(output, "}\n");
             break;
         case STABLE_STMT_LABEL:
             break;

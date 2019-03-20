@@ -10,11 +10,11 @@ Building a compiler for the C programming language.
 * Build grammar for C declarations and finish up SIZEOF and casting expressions.
 
 #### Status and next on the agenda:
-* Debug so as to get 'struct2.c' working.
 * Stretch goals.
 
 
 ##### Stretch goals:
-* Implement function prototypes.
+* Implement function prototypes & function arguments.
 * Implement enums.
+* Implement struct bit fields.
 
