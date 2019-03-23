@@ -364,6 +364,83 @@ astnode *newNode_strctType() {
     return node;
 }
 
+/*
+ * newNode_conditionalStmt - Creates a new AST node that holds
+ * an if-else conditional statment.
+ */
+astnode *newNode_conditionalStmt
+        (astnode *expr, astnode *if_stmt, astnode *else_stmt) {
+    
+    astnode *node;
+    if ((node = malloc(sizeof(astnode))) == NULL) {
+        fprintf(stderr, "Error allocating memory for AST node: %s\n", 
+                                                    strerror(errno));
+        exit(-1);
+    }
+    
+    node->nodetype = CONDITIONAL_TYPE;
+    node->conditional_stmt.expr = expr;
+    node->conditional_stmt.if_node = if_stmt;
+    node->conditional_stmt.else_node = else_stmt;
+
+    return node;
+}; 
+
+/*
+ * newNode_whileStmt - Creates a new AST node that holds
+ * a while loop statement.
+ */
+astnode *newNode_whileStmt(astnode *expr, astnode *stmt) {
+    astnode *node;
+    if ((node = malloc(sizeof(astnode))) == NULL) {
+        fprintf(stderr, "Error allocating memory for AST node: %s\n", 
+                                                    strerror(errno));
+        exit(-1);
+    }
+
+    node->nodetype = WHILE_STMT_TYPE;
+    node->while_stmt->expr = expr;
+    node->while_stmt->stmt = stmt;
+
+    return node;
+}
+
+
+/*
+ * newNode_doWhileStmt - Creates a new AST node that holds
+ * a do-while loop statment.
+ */
+astnode *newNode_doWhileStmt(astnode *expr, astnode *stmt) {
+    astnode *node;
+    if ((node = malloc(sizeof(astnode))) == NULL) {
+        fprintf(stderr, "Error allocating memory for AST node: %s\n", 
+                                                    strerror(errno));
+        exit(-1);
+    }
+
+    node->nodetype = DO_WHILE_STMT_TYPE;
+    node->while_stmt->expr = expr;
+    node->while_stmt->stmt = stmt;
+
+    return node;
+}
+
+/*
+ * newNode_forLoop - Creates a new AST node that holds
+ * a for loop statment.
+ */
+astnode *newNode_forLoop() {
+    astnode *node;
+    if ((node = calloc(1, sizeof(astnode))) == NULL) {
+        fprintf(stderr, "Error allocating memory for AST node: %s\n", 
+                                                    strerror(errno));
+        exit(-1);
+    }
+
+    node->nodetype = FOR_STMT_TYPE;
+
+    return node;
+}   
 
 
 

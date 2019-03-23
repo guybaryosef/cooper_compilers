@@ -123,6 +123,34 @@ struct astnode_arr {
     struct astnode *ptr;
 };
 
+#define CONDITIONAL_TYPE 50 /* conditional statement */
+struct astnode_conditional {
+    struct astnode *expr;
+    struct astnode *if_node;
+    struct astnode *else_node;
+};
+
+#define WHILE_STMT_TYPE 51 /* while loop statement */
+struct astnode_while {
+    struct astnode *expr;
+    struct astnode *stmt;
+};
+
+#define DO_WHILE_STMT_TYPE 52 /* do-while loop statement */
+struct astnode_do_while {
+    struct astnode *stmt;
+    struct astnode *expr;
+};
+
+#define FOR_STMT_TYPE 53 /* for loop statement */
+struct astnode_for_loop {
+    struct astnode *initial_clause;
+    struct astnode *check_expr;
+    struct astnode *iteration_expr;
+    struct astnode *stmt;
+};
+
+
 /* There are 10 different scalar types. They can be
    either signed or unsigned, and so will all share
    the same struct in the AST, differentiated with
@@ -131,13 +159,13 @@ enum ScalarTypes {Void, Char, Short, Int, Long, LongLong,
             Bool, Float, Double, LongDouble, FloatComplex,
             DoubleComplex, LongDoubleComplex, FloatImag, 
             DoubleImag, LongDoubleImag};
-#define SCALAR_TYPE 20  /* struct for a scalar type */
+#define SCALAR_TYPE 90  /* struct for a scalar type */
 struct astnode_scalar_type {
     _Bool sign;         /* 0- unsigned, 1-signed */
     enum ScalarTypes type;
 };
 
-#define FNC_TYPE 21  /* a function type */
+#define FNC_TYPE 91  /* a function type */
 struct astnode_fnc_type {
     struct astnode **args_types; /* the types of the arguments         */
     int arg_count; /* number of arguments in the function. (-1) means unknown*/
@@ -145,7 +173,7 @@ struct astnode_fnc_type {
     struct ScopeStackLayer *scope;   /* symbol table of function- defines function scope */
 };
 
-#define STRUCT_TYPE 22 /* struct for a struct type */
+#define STRUCT_TYPE 92 /* struct for a struct type */
 struct astnode_struct {
     struct SymbolTable *stable;
 };
@@ -181,14 +209,14 @@ enum STEntry_Type { Void_Type = 1, Variable_Type, Function_Type,
                     S_Tag_Type, U_Tag_Type, Enum_Tag, Statement_Label, 
                     Enum_Const_Type, Typedef_Name, SU_Member_Type};
 
-#define STABLE_VAR 23  /* s_table entry for a variable */
+#define STABLE_VAR 100  /* s_table entry for a variable */
 struct stable_var {
     enum SymbolTableStorageClass storage_class;
     enum SymbolTableTypeQualifiers type_qualifier;
     int offset_within_stack_frame;
 };
 
-#define STABLE_FNC 24  /* s_table entry for a function */
+#define STABLE_FNC 101  /* s_table entry for a function */
 struct stable_fnc {
     enum SymbolTableStorageClass storage_class;
     _Bool is_inline;
@@ -197,34 +225,34 @@ struct stable_fnc {
     struct astnode **args_types;
 };
 
-#define STABLE_SU_TAG 25  /* s_table entry for a struct/union tag */
+#define STABLE_SU_TAG 102  /* s_table entry for a struct/union tag */
 struct stable_sutag {
     _Bool is_defined;
     struct SymbolTable *su_table;
 };
 
-#define STABLE_ENUM_TAG 27  /* s_table entry for an enum tag */
+#define STABLE_ENUM_TAG 103  /* s_table entry for an enum tag */
 struct stable_enumtag {
     _Bool is_defined;
 };
 
-#define STABLE_STMT_LABEL 28  /* s_table entry for a statement label */
+#define STABLE_STMT_LABEL 104  /* s_table entry for a statement label */
 struct stable_stmtlabel {
     int IR_assembly_label;
 };
 
-#define STABLE_ENUM_CONST 29  /* s_table entry for an enum constant */
+#define STABLE_ENUM_CONST 105  /* s_table entry for an enum constant */
 struct stable_enumconst {
     struct SymbolTableEntry *tag;
     int val;
 };
 
-#define STABLE_TYPEDEF 30  /* s_table entry for a typedef name */
+#define STABLE_TYPEDEF 106  /* s_table entry for a typedef name */
 struct stable_typedef {
     struct astnode *equivalent_type;
 };
 
-#define STABLE_SU_MEMB 31  /* s_table entry for a struct/union member */
+#define STABLE_SU_MEMB 107  /* s_table entry for a struct/union member */
 struct stable_sumemb {
     struct astnode *type;
     int offset_within_s_u;
@@ -278,6 +306,10 @@ typedef struct astnode {
         struct astnode_fnc_type fnc_type;
         struct astnode_struct strct;
         struct astnode_stable_entry stable_entry;
+        struct astnode_conditional conditional_stmt;
+        struct astnode_while while_stmt;
+        struct astnode_do_while do_while_stmt;
+        struct astnode_for_loop for_stmt;
     };
 } astnode;
 
@@ -320,6 +352,14 @@ astnode *newNode_strctType();    /* struct type  */
 astnode *newNode_fncType(int arg_len);  /* function type*/
 astnode *newNode_ptr(enum SymbolTableTypeQualifiers qual);      /* pointer type */
 astnode *newNode_scalarType(enum ScalarTypes, _Bool is_signed); /* scalar type  */
+astnode *newNode_conditionalStmt(astnode *expr, astnode *if_stmt, astnode *else_stmt); /* conditional type */
+astnode *newNode_whileStmt(astnode *expr, astnode *stmt);       /* while loop statement */
+astnode *newNode_doWhileStmt(astnode *expr, astnode *stmt);     /* do-while loop stmt   */
+astnode *newNode_forLoop();                                     /* for loop statement   */
+
+        struct astnode_while while_stmt;
+        struct astnode_do_while do_while_stmt;
+        struct astnode_for_loop for_stmt;
 
 /* forward declaration, will be defined in symbol_table.h */
 struct TmpSymbolTableEntry; 
@@ -381,7 +421,7 @@ char *translateTypeQualifier(enum SymbolTableTypeQualifiers qualifier);
 
 
 /*
- * translateScopeType - A helper function for gettint the correct
+ * translateScopeType - A helper function for getting the correct
  * printing format for variable storage classes.s
  */
 enum ScopeType;

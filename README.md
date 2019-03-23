@@ -4,17 +4,18 @@ ECE466: Compilers
 Building a compiler for the C programming language.
 
 
-## Assignment 3 Todo:
-* Incorporate symbol table into parser.
-* Build functionality to print out the symbol table entires as they appear in similar format to AST nodes being printed.
-* Build grammar for C declarations and finish up SIZEOF and casting expressions.
+## Assignment 4 Todo:
+* Build grammar and AST nodes for rest of statement functionality.
+* Construct data storage of list of statements (compound statements). This will be used to group functions together and such).
+* Update expression ASTs to resolve identifiers through the symbol table, and update their printing format to reflect this.
+
 
 #### Status and next on the agenda:
-* Stretch goals.
-
+* building grammar for C statements.
+* with test cases as comparison, design print format for label statements, while, do-while, and for loops,
 
 ##### Stretch goals:
 * Implement function prototypes & function arguments.
 * Implement enums.
 * Implement struct bit fields.
-
+* Implement initialized declarators.

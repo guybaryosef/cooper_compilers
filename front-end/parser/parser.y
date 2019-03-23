@@ -69,7 +69,16 @@
 %type <astnode_p> primary-expr
 
 
-/************************** TYPES GRAMMAR-TYPES (hehe) **************************/
+/**************************** STATEMENT GRAMMAR-TYPES ****************************/
+%type <astnode_p> expr-stmt labeled-stmt conditional-stmt iterative-stmt
+
+%type <astnode_p> label 
+%type <astnode_p> 1compound-stmt stmt decl-or-stmt decl-or-stmt-list
+%type <astnode_p> if-stmt if-else-stmt 
+%type <astnode_p> while-stmt do-stmt for-stmt for-expr inital-clause
+
+
+/************************** TYPE GRAMMAR-TYPES (hehe) **************************/
 %type <storage_class> storage-class-specifier 
 %type <possible_type_qualifier> type-qualifier type-qualifier-list
 %type <astnode_p> enum-type-specifier float-type-specifier int-type-specifier struct-type-specifier typedef-type-specifier union-type-specifier void-type-specifier
@@ -89,7 +98,6 @@
 %type <simple_int> fnc-specifier
 %type <astnode_p> simple-declarator
 
-
 %type <astnode_p> pointer-declarator pointer direct-declarator fnc-declarator array-declarator
 %type <astnode_p> init-decl declarator  /* initializer- technically here, but not integrated for now */
 %type <tmp_stable_entry> decl-specifiers /* pretty sure about this one */
@@ -103,7 +111,7 @@
 /*************************** TOP-LEVEL GRAMMAR-TYPES ****************************/
 %type <scope_layer> function-body
 %type <astnode_pp>  function-def 
-%type <astnode_p> compound-stmt stmt decl-or-stmt decl-or-stmt-list declaration_or_fndef 
+%type <astnode_p> declaration_or_fndef 
 %start declaration_or_fndef
 
 
@@ -442,11 +450,127 @@ comma-expr: assignment-expr                     { $$ = $1; }
 expr: comma-expr { $$ = $1; }
     ;
 
-
-stmt: expr ';'              { $$ = $1; }
-    | compound-stmt         { $$ = $1; }
-    | error ';'             { if (error_count > 10) exit(-1); }
+/**********************************************************************
+***************************** STATEMENTS ******************************
+**********************************************************************/
+stmt: expr-stmt         { $$ = $1; }
+    | labeled-stmt      { $$ = $1; }
+    | compound-stmt     { $$ = $1; }
+    | conditional-stmt  { $$ = $1; }
+    | iterative-stmt    { $$ = $1; }
     ;
+
+expr-stmt: expr ';'     { $$ = $1; }
+         | error ';'    { if (error_count > 10) exit(-1); }
+         ;
+
+labeled-stmt: label ':' stmt    {
+                    $1->type = Statement_Label;
+
+                    $$ = newNode_sTableEntry($1);
+                    $$->stable_entry.node = $3;
+
+                    // insert label into the current scope
+                    sTableInsert(scope_stack.innermost_scope->tables[LABEL_NAMESPACE], $$, 0)
+                }
+            ;
+
+label: named-label      { $$ = $1; }
+     | case-label       { $$ = $1; }
+     | default-label    { $$ = $1; }
+     ;
+
+compound-stmt: '{' { createNewScope(Block); } decl-or-stmt-list '}' { deleteInnermostScope(); }
+             ;
+
+decl-or-stmt-list: /* empty */                      { /* NOTHING */ }
+                 | decl-or-stmt-list decl-or-stmt   { /* NOTHING */ }
+                 ;
+
+decl-or-stmt: declaration   { 
+                    for (int i = 0; i < $1->len; ++i)
+                        if ($1->list[i])
+                            printAST($1->list[i], NULL);  
+                }
+            | stmt          { printAST($1, NULL);  }
+            ;
+
+conditional-stmt: if-stmt       { $$ = $1; }
+                | if-else-stmt  { $$ = $1; }
+                ;
+
+if-stmt: IF '(' expr ')' stmt {
+            $$ = newNode_conditionalStmt($3, $5, NULL);
+        }
+       ;
+
+if-else-stmt: IF '(' expr ')' stmt ELSE stmt {
+            $$ = newNode_conditionalStmt($3, $5, $7);
+                }
+            ;
+
+iterative-stmt: while-stmt  { $$ = $1; }
+              | do-stmt     { $$ = $1; }
+              | for-stmt    { $$ = $1; }
+              ;
+
+while-stmt: WHILE '(' expr ')' stmt {
+                $$ = newNode_whileStmt($3, $5);
+            }
+          ;
+
+do-stmt: DO stmt WHILE '(' expr ')' ';' {
+            $$ = newNode_doWhileStmt($5, $2);
+        }
+       ;
+
+for-stmt: FOR for-expr stmt { 
+                $$ = $2;
+                $$->for_loop.stmt = $3;
+            }
+        ;
+
+for-expr: '(' initial-clause ';' expr   ';' expr    ')' {
+                $$ = newNode_forLoop();
+                $$->for_loop.initial_clause = $2;
+                $$->for_loop.check_expr = $4;
+                $$->for_loop.iteration_expr = $6;
+            }
+        | '(' initial-clause ';' expr   ';'         ')' {
+                $$ = newNode_forLoop();
+                $$->for_loop.initial_clause = $2;
+                $$->for_loop.check_expr = $4;
+            }
+        | '(' initial-clause ';'        ';' expr    ')' {
+                $$ = newNode_forLoop();
+                $$->for_loop.initial_clause = $2;
+                $$->for_loop.iteration_expr = $6;
+            }
+        | '(' initial-clause ';'        ';'         ')' {
+                $$ = newNode_forLoop();
+                $$->for_loop.initial_clause = $2;
+            }
+        | '('                ';' expr   ';' expr    ')' {
+                $$ = newNode_forLoop();
+                $$->for_loop.check_expr = $4;
+                $$->for_loop.iteration_expr = $6;
+            }
+        | '('                ';' expr   ';'         ')' {
+                $$ = newNode_forLoop();
+                $$->for_loop.check_expr = $4;
+            }
+        | '('                ';'        ';' expr    ')' {
+                $$ = newNode_forLoop();
+                $$->for_loop.iteration_expr = $6;
+            }
+        | '('                ';'        ';'         ')' {
+                $$ = newNode_forLoop();
+            }
+        ;
+
+initial-clause: expr        { $$ = $1; }
+              | declaration { $$ = $1; }
+              ;
 
 
 /**********************************************************************
@@ -541,7 +665,7 @@ direct-abstract-declarator: '(' abstract-declarator ')'               { $$ = $2;
                                 if ($1->nodetype == FNC_TYPE)
                                     yyerror("Invalid type: function returning function");
                                 else {
-                                    /* get to the end of the pointer nodes */
+
                                     astnode *tmp  = $1;
                                     astnode *tmp2;
                                     // get to the end of the pointer/array/func path
@@ -595,11 +719,8 @@ declaration: decl-specifiers ';'    {
                         int ns_ind;
 
                         for (int i = 0 ; i < $$->len; ++i) {
-                    //        printf("inserting ident: %s with type: %d\n", $$->list[i]->stable_entry.ident, $$->list[i]->stable_entry.type);
 
-                            if ($$->list[i]->stable_entry.type == Statement_Label)
-                                ns_ind = LABEL_NAMESPACE;  /* statment labels        */
-                            else if ($$->list[i]->stable_entry.type == Enum_Tag ||
+                            if ($$->list[i]->stable_entry.type == Enum_Tag ||
                                      $$->list[i]->stable_entry.type == S_Tag_Type ||
                                      $$->list[i]->stable_entry.type == U_Tag_Type)
                                 ns_ind = SU_TAG_NAMESPACE;  /* tags (idents of struct/union/enum) */
@@ -1157,24 +1278,6 @@ function-body: '{' { createNewScope(Function); } decl-or-stmt-list '}' {
 /**********************************************************************
 ************************** TOP-LEVEL GRAMMAR **************************
 **********************************************************************/
-
-
-decl-or-stmt: declaration   { 
-                    for (int i = 0; i < $1->len; ++i)
-                        if ($1->list[i])
-                            printAST($1->list[i], NULL);  
-                }
-            | stmt          { printAST($1, NULL);  }
-            ;
-
-
-decl-or-stmt-list: /* empty */                      { /* NOTHING */ }
-                 | decl-or-stmt-list decl-or-stmt   { /* NOTHING */ }
-                 ;
-
-
-compound-stmt: '{' { createNewScope(Block); } decl-or-stmt-list '}' { deleteInnermostScope(); }
-             ;
 
 declaration_or_fndef: /* empty */                           { /* NOTHING */ } 
                     | declaration_or_fndef declaration      {   
