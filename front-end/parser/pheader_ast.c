@@ -378,7 +378,7 @@ astnode *newNode_conditionalStmt
         exit(-1);
     }
     
-    node->nodetype = CONDITIONAL_TYPE;
+    node->nodetype = CONDITIONAL_STMT;
     node->conditional_stmt.expr = expr;
     node->conditional_stmt.if_node = if_stmt;
     node->conditional_stmt.else_node = else_stmt;
@@ -398,9 +398,9 @@ astnode *newNode_whileStmt(astnode *expr, astnode *stmt) {
         exit(-1);
     }
 
-    node->nodetype = WHILE_STMT_TYPE;
-    node->while_stmt->expr = expr;
-    node->while_stmt->stmt = stmt;
+    node->nodetype = WHILE_STMT;
+    node->while_stmt.expr = expr;
+    node->while_stmt.stmt = stmt;
 
     return node;
 }
@@ -418,9 +418,9 @@ astnode *newNode_doWhileStmt(astnode *expr, astnode *stmt) {
         exit(-1);
     }
 
-    node->nodetype = DO_WHILE_STMT_TYPE;
-    node->while_stmt->expr = expr;
-    node->while_stmt->stmt = stmt;
+    node->nodetype = DO_WHILE_STMT;
+    node->while_stmt.expr = expr;
+    node->while_stmt.stmt = stmt;
 
     return node;
 }
@@ -437,11 +437,73 @@ astnode *newNode_forLoop() {
         exit(-1);
     }
 
-    node->nodetype = FOR_STMT_TYPE;
+    node->nodetype = FOR_STMT;
 
     return node;
 }   
 
+/*
+ * newNode_switch - Creates a new AST node that holds
+ * a switch statment.
+ */
+astnode *newNode_switch(astnode *expr, astnode *stmt) {
+    astnode *node;
+    if ((node = malloc(sizeof(astnode))) == NULL) {
+        fprintf(stderr, "Error allocating memory for AST node: %s\n", 
+                                                    strerror(errno));
+        exit(-1);
+    }
+
+    node->nodetype = SWITCH_STMT;
+    node->switch_stmt.expr = expr;
+    node->switch_stmt.stmt = stmt;
+
+    return node;
+}
+
+/*
+ * newNode_flowControl - Creates a new AST node that holds
+ * a flow control statment (break or continue statement).
+ */
+astnode *newNode_flowControl() {
+    astnode *node;
+    if ((node = calloc(1, sizeof(astnode))) == NULL) {
+        fprintf(stderr, "Error allocating memory for AST node: %s\n", 
+                                                    strerror(errno));
+        exit(-1);
+    }
+    return node;
+}
+
+/*
+ * newNode_returnStmt - Creates a new AST node that holds
+ * a return statement.
+ */
+astnode *newNode_returnStmt() {
+    astnode *node;
+    if ((node = calloc(1, sizeof(astnode))) == NULL) {
+        fprintf(stderr, "Error allocating memory for AST node: %s\n", 
+                                                    strerror(errno));
+        exit(-1);
+    }
+    node->nodetype = RETURN_STMT;
+    return node;
+}
+
+/*
+ * newNode_gotoStmt - Creates a new AST node that holds
+ * a goto statement.
+ */
+astnode *newNode_gotoStmt() {
+    astnode *node;
+    if ((node = calloc(1, sizeof(astnode))) == NULL) {
+        fprintf(stderr, "Error allocating memory for AST node: %s\n", 
+                                                    strerror(errno));
+        exit(-1);
+    }
+    node->nodetype = GOTO_STMT;
+    return node;
+}
 
 
 /*
@@ -499,6 +561,8 @@ astnode *newNode_sTableEntry(TmpSymbolTableEntry *tmp_entry) {
         case Statement_Label:
             new_entry->nodetype = STABLE_STMT_LABEL;
             new_entry->stable_entry.stmtlabel.IR_assembly_label = tmp_entry->stmt_IR_assembly_label;
+            new_entry->stable_entry.stmtlabel.label_type = tmp_entry->stmt_label_type;
+            new_entry->stable_entry.stmtlabel.case_label_value = tmp_entry->stmt_case_label_value;
             break;
         case Enum_Const_Type:
             new_entry->nodetype = STABLE_ENUM_CONST;
@@ -893,6 +957,125 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
             }
             break;
         case STABLE_STMT_LABEL:
+            switch(cur->stable_entry.stmtlabel.label_type) {
+                case NAMED_LABEL:
+                    fprintf(output, "LABEL(%s):\n", cur->stable_entry.ident);
+                    preorderTraversal(cur->stable_entry.node, output, depth+1);
+
+                    break;
+                case CASE_LABEL:
+                    fprintf(output, "CASE, EXPR:\n");
+                    for (int i = 0 ; i < depth+1; ++i)
+                        fprintf(output, "   ");
+                    fprintf(output, "CONSTANT: (type=int)%d\n", cur->stable_entry.stmtlabel.case_label_value);
+                    
+                    preorderTraversal(cur->stable_entry.node, output, depth+2);
+
+                    break;
+                case DEFAULT_LABEL:
+                    fprintf(output, "DEFAULT LABEL:\n");
+                    preorderTraversal(cur->stable_entry.node, output, depth+1);
+
+                    break;
+            }
+            break;
+        case CONDITIONAL_STMT:
+            fprintf(output, "IF:\n");
+            preorderTraversal(cur->conditional_stmt.expr, output, depth+1);
+                
+            for (int i = 0; i < depth; ++i)
+                fprintf(output, "  ");
+            fprintf(output, "THEN:\n");
+            preorderTraversal(cur->conditional_stmt.if_node, output, depth+1);
+            
+            if (cur->conditional_stmt.else_node)
+            for (int i = 0; i < depth; ++i)
+                fprintf(output, "  ");
+            fprintf(output, "ELSE:\n");
+            preorderTraversal(cur->conditional_stmt.else_node, output, depth+1);
+            break;
+        case WHILE_STMT:
+            fprintf(output, "WHILE\n");
+            for (int i = 0; i < depth; ++i)
+                fprintf(output, "  ");
+
+            fprintf(output, "COND:\n");
+            for (int i = 0; i < depth; ++i)
+                fprintf(output, "  ");
+            preorderTraversal(cur->while_stmt.expr, output, depth+1);
+
+            fprintf(output, "BODY:\n");
+            for (int i = 0; i < depth; ++i)
+                fprintf(output, "  ");
+            preorderTraversal(cur->while_stmt.stmt, output, depth+1);
+
+            break;
+        case DO_WHILE_STMT:
+            fprintf(output, "DO-WHILE\n");
+            for (int i = 0; i < depth; ++i)
+                fprintf(output, "  ");
+
+            fprintf(output, "BODY:\n");
+            for (int i = 0; i < depth; ++i)
+                fprintf(output, "  ");
+            preorderTraversal(cur->do_while_stmt.stmt, output, depth+1);
+            
+            fprintf(output, "COND:\n");
+            for (int i = 0; i < depth; ++i)
+                fprintf(output, "  ");
+            preorderTraversal(cur->do_while_stmt.expr, output, depth+1);
+
+            break;
+        case FOR_STMT:
+            fprintf(output, "FOR\n");
+            for (int i = 0; i < depth; ++i)
+                fprintf(output, "  ");
+
+            fprintf(output, "INIT:\n");
+            for (int i = 0; i < depth; ++i)
+                fprintf(output, "  ");
+
+            for (int i = 0 ; i < cur->for_stmt.initial_clause->len; ++i)
+                preorderTraversal(cur->for_stmt.initial_clause->list[i], output, depth+1);
+
+            fprintf(output, "COND:\n");
+            for (int i = 0; i < depth; ++i)
+                fprintf(output, "  ");
+            preorderTraversal(cur->for_stmt.check_expr, output, depth+1);
+
+            fprintf(output, "BODY:\n");
+            for (int i = 0; i < depth; ++i)
+                fprintf(output, "  ");
+            preorderTraversal(cur->for_stmt.stmt, output, depth+1);
+
+            fprintf(output, "INCR:\n");
+            for (int i = 0; i < depth; ++i)
+                fprintf(output, "  ");
+            preorderTraversal(cur->for_stmt.iteration_expr, output, depth+1);
+
+            break;
+        case SWITCH_STMT:
+            fprintf(output, "SWITCH, EXPR:\n");
+            preorderTraversal(cur->switch_stmt.expr, output, depth+1);
+
+            for (int i = 0 ; i < depth ; ++i)
+                fprintf(output, "   ");
+
+            break;
+        case BREAK_STMT:
+            fprintf(output, "BREAK\n");
+            break;
+        case CONTINUE_STMT:
+            fprintf(output, "CONTINUE\n");
+            break;
+        case NULL_STMT:
+            fprintf(output, "NULL STATEMENT\n");
+            break;
+        case RETURN_STMT:
+            fprintf(output, "RETURN\n");
+            break;
+        case GOTO_STMT:
+            fprintf(output, "GOTO %s\n", cur->goto_stmt.label_stmt->stable_entry.ident);
             break;
         case STABLE_ENUM_CONST:
             break;

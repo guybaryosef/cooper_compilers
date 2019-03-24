@@ -47,9 +47,11 @@
 %token <simple_int> INDSEL PLUSPLUS MINUSMINUS SHL 
 %token <simple_int> SHR LTEQ GTEQ EQEQ NOTEQ LOGAND LOGOR ELLIPSIS TIMESEQ 
 %token <simple_int> DIVEQ MODEQ PLUSEQ MINUSEQ SHLEQ SHREQ ANDEQ OREQ XOREQ
-%token <simple_int> AUTO BREAK CASE CHAR CONST CONTINUE DEFAULT DO DOUBLE ELSE
-%token <simple_int> ENUM EXTERN FLOAT FOR GOTO IF INLINE 
-%token <simple_int> INT 
+%token <simple_int> AUTO BREAK CASE CHAR CONST CONTINUE DEFAULT DO DOUBLE 
+%token <simple_int> ENUM EXTERN FLOAT FOR GOTO
+%left IF 
+%left ELSE  
+%token <simple_int> INLINE INT 
 %token <simple_int> LONG REGISTER
 %token <simple_int> RESTRICT RETURN SHORT SIGNED SIZEOF STATIC STRUCT SWITCH TYPEDEF
 %token <simple_int> UNION UNSIGNED VOID VOLATILE WHILE _BOOL _COMPLEX _IMAGINARY
@@ -70,13 +72,13 @@
 
 
 /**************************** STATEMENT GRAMMAR-TYPES ****************************/
-%type <astnode_p> expr-stmt labeled-stmt conditional-stmt iterative-stmt
+%type <astnode_p> expr-stmt labeled-stmt conditional-stmt iterative-stmt switch-stmt break-stmt continue-stmt return-stmt goto-stmt null-stmt
 
-%type <astnode_p> label 
-%type <astnode_p> 1compound-stmt stmt decl-or-stmt decl-or-stmt-list
+%type <tmp_stable_entry> label named-label case-label default-label
+%type <astnode_p> compound-stmt stmt decl-or-stmt decl-or-stmt-list
 %type <astnode_p> if-stmt if-else-stmt 
-%type <astnode_p> while-stmt do-stmt for-stmt for-expr inital-clause
-
+%type <astnode_p> while-stmt do-stmt for-stmt for-expr
+%type <astnode_pp>  initial-clause
 
 /************************** TYPE GRAMMAR-TYPES (hehe) **************************/
 %type <storage_class> storage-class-specifier 
@@ -453,11 +455,18 @@ expr: comma-expr { $$ = $1; }
 /**********************************************************************
 ***************************** STATEMENTS ******************************
 **********************************************************************/
+
 stmt: expr-stmt         { $$ = $1; }
     | labeled-stmt      { $$ = $1; }
     | compound-stmt     { $$ = $1; }
     | conditional-stmt  { $$ = $1; }
     | iterative-stmt    { $$ = $1; }
+    | switch-stmt       { $$ = $1; }
+    | break-stmt        { $$ = $1; }
+    | continue-stmt     { $$ = $1; }
+    | return-stmt       { $$ = $1; }
+    | goto-stmt         { $$ = $1; }
+    | null-stmt         { $$ = $1; }
     ;
 
 expr-stmt: expr ';'     { $$ = $1; }
@@ -469,9 +478,10 @@ labeled-stmt: label ':' stmt    {
 
                     $$ = newNode_sTableEntry($1);
                     $$->stable_entry.node = $3;
+                    $$->stable_entry.ident = $1->ident;
 
                     // insert label into the current scope
-                    sTableInsert(scope_stack.innermost_scope->tables[LABEL_NAMESPACE], $$, 0)
+                    sTableInsert(scope_stack.innermost_scope->tables[LABEL_NAMESPACE], $$, 0);
                 }
             ;
 
@@ -480,7 +490,7 @@ label: named-label      { $$ = $1; }
      | default-label    { $$ = $1; }
      ;
 
-compound-stmt: '{' { createNewScope(Block); } decl-or-stmt-list '}' { deleteInnermostScope(); }
+compound-stmt: '{' {createNewScope(Block);} decl-or-stmt-list '}' {deleteInnermostScope();}
              ;
 
 decl-or-stmt-list: /* empty */                      { /* NOTHING */ }
@@ -499,13 +509,13 @@ conditional-stmt: if-stmt       { $$ = $1; }
                 | if-else-stmt  { $$ = $1; }
                 ;
 
-if-stmt: IF '(' expr ')' stmt {
+if-stmt: IF '(' expr ')' stmt %prec IF {
             $$ = newNode_conditionalStmt($3, $5, NULL);
         }
        ;
 
-if-else-stmt: IF '(' expr ')' stmt ELSE stmt {
-            $$ = newNode_conditionalStmt($3, $5, $7);
+if-else-stmt: IF '(' expr ')' stmt ELSE stmt %prec ELSE {
+                    $$ = newNode_conditionalStmt($3, $5, $7);
                 }
             ;
 
@@ -526,52 +536,95 @@ do-stmt: DO stmt WHILE '(' expr ')' ';' {
 
 for-stmt: FOR for-expr stmt { 
                 $$ = $2;
-                $$->for_loop.stmt = $3;
+                $$->for_stmt.stmt = $3;
             }
         ;
 
 for-expr: '(' initial-clause ';' expr   ';' expr    ')' {
                 $$ = newNode_forLoop();
-                $$->for_loop.initial_clause = $2;
-                $$->for_loop.check_expr = $4;
-                $$->for_loop.iteration_expr = $6;
+                $$->for_stmt.initial_clause = $2;
+                $$->for_stmt.check_expr = $4;
+                $$->for_stmt.iteration_expr = $6;
             }
         | '(' initial-clause ';' expr   ';'         ')' {
                 $$ = newNode_forLoop();
-                $$->for_loop.initial_clause = $2;
-                $$->for_loop.check_expr = $4;
+                $$->for_stmt.initial_clause = $2;
+                $$->for_stmt.check_expr = $4;
             }
         | '(' initial-clause ';'        ';' expr    ')' {
                 $$ = newNode_forLoop();
-                $$->for_loop.initial_clause = $2;
-                $$->for_loop.iteration_expr = $6;
+                $$->for_stmt.initial_clause = $2;
+                $$->for_stmt.iteration_expr = $5;
             }
-        | '(' initial-clause ';'        ';'         ')' {
+        | '(' initial-clause ';' ';' ')' {
+            printf("aa\n"); 
                 $$ = newNode_forLoop();
-                $$->for_loop.initial_clause = $2;
+                $$->for_stmt.initial_clause = $2;
             }
         | '('                ';' expr   ';' expr    ')' {
                 $$ = newNode_forLoop();
-                $$->for_loop.check_expr = $4;
-                $$->for_loop.iteration_expr = $6;
+                $$->for_stmt.check_expr = $3;
+                $$->for_stmt.iteration_expr = $5;
             }
         | '('                ';' expr   ';'         ')' {
                 $$ = newNode_forLoop();
-                $$->for_loop.check_expr = $4;
+                $$->for_stmt.check_expr = $3;
             }
         | '('                ';'        ';' expr    ')' {
                 $$ = newNode_forLoop();
-                $$->for_loop.iteration_expr = $6;
+                $$->for_stmt.iteration_expr = $4;
             }
         | '('                ';'        ';'         ')' {
                 $$ = newNode_forLoop();
             }
         ;
 
-initial-clause: expr        { $$ = $1; }
+initial-clause: expr        { $$ = newASTnodeList(1, NULL); $$->list[0] = $1; }
               | declaration { $$ = $1; }
               ;
 
+switch-stmt: SWITCH '(' expr ')' stmt { $$ = newNode_switch($3, $5); }
+           ;
+
+case-label: CASE NUMBER {
+                $$ = createTmpSTableEntry();
+                $$->stmt_case_label_value = $2.val;
+                $$->stmt_label_type = CASE_LABEL;    
+            }
+          ;
+
+default-label: DEFAULT  {
+                    $$ = createTmpSTableEntry();
+                    $$->stmt_label_type = DEFAULT_LABEL;                
+                }
+             ;
+
+break-stmt: BREAK ';' { $$ = newNode_flowControl(); $$->nodetype = BREAK_STMT; }
+          ;
+
+continue-stmt: CONTINUE ';' { $$ = newNode_flowControl(); $$->nodetype = CONTINUE_STMT; }
+             ;
+
+return-stmt: RETURN ';'      { $$ = newNode_returnStmt(); }
+           | RETURN expr ';' { $$ = newNode_returnStmt(); $$->return_stmt.expr = $2; }
+           ;
+
+goto-stmt: GOTO named-label ';' {
+                $$ = newNode_gotoStmt();
+                
+                astnode *tmp;
+                if (!(tmp = searchStackScope(LABEL_NAMESPACE, $2->ident)))
+                    yyerror("No label with the specified name");
+                else
+                    $$->goto_stmt.label_stmt = tmp;
+            }
+         ;
+
+named-label: IDENT { $$ = createTmpSTableEntry(); $$->ident = $1.str; }
+           ;
+
+null-stmt: ';' { $$ = newNode_gotoStmt(); $$->nodetype = NULL_STMT; }
+         ;
 
 /**********************************************************************
 **************************** DECLARATIONS *****************************

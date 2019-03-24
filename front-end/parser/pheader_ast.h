@@ -123,33 +123,53 @@ struct astnode_arr {
     struct astnode *ptr;
 };
 
-#define CONDITIONAL_TYPE 50 /* conditional statement */
+#define CONDITIONAL_STMT 50 /* conditional statement */
 struct astnode_conditional {
     struct astnode *expr;
     struct astnode *if_node;
     struct astnode *else_node;
 };
 
-#define WHILE_STMT_TYPE 51 /* while loop statement */
+#define WHILE_STMT 51 /* while loop statement */
 struct astnode_while {
     struct astnode *expr;
     struct astnode *stmt;
 };
 
-#define DO_WHILE_STMT_TYPE 52 /* do-while loop statement */
+#define DO_WHILE_STMT 52 /* do-while loop statement */
 struct astnode_do_while {
     struct astnode *stmt;
     struct astnode *expr;
 };
 
-#define FOR_STMT_TYPE 53 /* for loop statement */
+#define FOR_STMT 53 /* for loop statement */
 struct astnode_for_loop {
-    struct astnode *initial_clause;
+    struct astnode_list *initial_clause;
     struct astnode *check_expr;
     struct astnode *iteration_expr;
     struct astnode *stmt;
 };
 
+#define SWITCH_STMT 54 /* switch statement */
+struct astnode_switch {
+    struct astnode *expr;
+    struct astnode *stmt;
+};
+
+#define BREAK_STMT 55       /* a break statement    */
+#define CONTINUE_STMT 56    /* a continue statement */
+#define NULL_STMT 57        /* a null statement     */
+struct astnode_flow_control {};
+
+#define RETURN_STMT 58      /* a return statement   */
+struct astnode_return {
+    struct astnode *expr;
+};
+
+#define GOTO_STMT 59        /* a goto statement     */
+struct astnode_goto {
+    struct astnode *label_stmt;
+};
 
 /* There are 10 different scalar types. They can be
    either signed or unsigned, and so will all share
@@ -178,6 +198,7 @@ struct astnode_struct {
     struct SymbolTable *stable;
 };
 
+
 ////////////////////////////////////////////////////////
 //////////////// Symbol Table Structs //////////////////
 ////////////////////////////////////////////////////////
@@ -204,10 +225,11 @@ struct astnode_struct {
 enum SymbolTableStorageClass { Auto = 0, Register, Extern, Static, Typedef};
 enum possibleTypeQualifiers { No_Qualifier = 0, Const, Volatile, Restrict};
 
-
 enum STEntry_Type { Void_Type = 1, Variable_Type, Function_Type, 
                     S_Tag_Type, U_Tag_Type, Enum_Tag, Statement_Label, 
                     Enum_Const_Type, Typedef_Name, SU_Member_Type};
+
+enum LabelType { NAMED_LABEL = 1, CASE_LABEL, DEFAULT_LABEL };
 
 #define STABLE_VAR 100  /* s_table entry for a variable */
 struct stable_var {
@@ -239,6 +261,8 @@ struct stable_enumtag {
 #define STABLE_STMT_LABEL 104  /* s_table entry for a statement label */
 struct stable_stmtlabel {
     int IR_assembly_label;
+    enum LabelType label_type;
+    int case_label_value;
 };
 
 #define STABLE_ENUM_CONST 105  /* s_table entry for an enum constant */
@@ -310,6 +334,10 @@ typedef struct astnode {
         struct astnode_while while_stmt;
         struct astnode_do_while do_while_stmt;
         struct astnode_for_loop for_stmt;
+        struct astnode_switch switch_stmt;
+        struct astnode_flow_control flow_control;
+        struct astnode_return return_stmt;
+        struct astnode_goto goto_stmt;
     };
 } astnode;
 
@@ -356,10 +384,10 @@ astnode *newNode_conditionalStmt(astnode *expr, astnode *if_stmt, astnode *else_
 astnode *newNode_whileStmt(astnode *expr, astnode *stmt);       /* while loop statement */
 astnode *newNode_doWhileStmt(astnode *expr, astnode *stmt);     /* do-while loop stmt   */
 astnode *newNode_forLoop();                                     /* for loop statement   */
-
-        struct astnode_while while_stmt;
-        struct astnode_do_while do_while_stmt;
-        struct astnode_for_loop for_stmt;
+astnode *newNode_switch(astnode *expr, astnode *stmt);          /* switch statement     */
+astnode *newNode_flowControl();                                 /* break/continue stmt  */
+astnode *newNode_returnStmt();
+astnode *newNode_gotoStmt();                                    /* goto statement       */
 
 /* forward declaration, will be defined in symbol_table.h */
 struct TmpSymbolTableEntry; 

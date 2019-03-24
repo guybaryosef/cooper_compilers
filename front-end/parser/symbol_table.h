@@ -97,6 +97,8 @@ typedef struct TmpSymbolTableEntry {
 
     /* stmt label */
     int stmt_IR_assembly_label;
+    enum LabelType stmt_label_type;
+    int stmt_case_label_value;
 
     /* typedef - needs only equivalent type */
     struct astnode *typedef_type;

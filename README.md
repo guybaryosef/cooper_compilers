@@ -11,8 +11,7 @@ Building a compiler for the C programming language.
 
 
 #### Status and next on the agenda:
-* building grammar for C statements.
-* with test cases as comparison, design print format for label statements, while, do-while, and for loops,
+* Construct data storage of list of statements (compound statements).
 
 ##### Stretch goals:
 * Implement function prototypes & function arguments.

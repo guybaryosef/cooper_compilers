@@ -5,3 +5,7 @@
 
 # parser files
 ./front-end/parser/tests/my_test.c
+./front-end/parser/tests_2/my_test.c
+./front-end/parser/tests_3/my_test.c
+./front-end/parser/tests_4/my_test.c
+
