@@ -154,6 +154,7 @@ struct astnode_for_loop {
 struct astnode_switch {
     struct astnode *expr;
     struct astnode *stmt;
+    struct astnode_list *labels;
 };
 
 #define BREAK_STMT 55       /* a break statement    */
@@ -190,12 +191,19 @@ struct astnode_fnc_type {
     struct astnode **args_types; /* the types of the arguments         */
     int arg_count; /* number of arguments in the function. (-1) means unknown*/
     struct astnode *return_type; /* the return type of the function    */
-    struct ScopeStackLayer *scope;   /* symbol table of function- defines function scope */
+    struct astnode *fnc_body;   /* symbol table of function- defines function scope */
 };
 
 #define STRUCT_TYPE 92 /* struct for a struct type */
 struct astnode_struct {
     struct SymbolTable *stable;
+};
+
+
+#define COMPOUND_STMT 93    /* a compound statment - includes a scope layer and astnode_list */
+struct astnode_scope_contents {
+    struct ScopeStackLayer *scope_layer;
+    struct AstnodeLinkedList *astnode_ll;
 };
 
 
@@ -238,45 +246,47 @@ struct stable_var {
     int offset_within_stack_frame;
 };
 
-#define STABLE_FNC 101  /* s_table entry for a function */
+#define STABLE_FNC_DECLARATOR 101  /* s_table entry for a function declarator */
+#define STABLE_FNC_DEFINITION 102  /* s_table entry for a function definition */
 struct stable_fnc {
     enum SymbolTableStorageClass storage_class;
     _Bool is_inline;
     _Bool is_defined;
     struct astnode *return_type;
     struct astnode **args_types;
+    struct astnode *function_body;
 };
 
-#define STABLE_SU_TAG 102  /* s_table entry for a struct/union tag */
+#define STABLE_SU_TAG 103  /* s_table entry for a struct/union tag */
 struct stable_sutag {
     _Bool is_defined;
     struct SymbolTable *su_table;
 };
 
-#define STABLE_ENUM_TAG 103  /* s_table entry for an enum tag */
+#define STABLE_ENUM_TAG 104  /* s_table entry for an enum tag */
 struct stable_enumtag {
     _Bool is_defined;
 };
 
-#define STABLE_STMT_LABEL 104  /* s_table entry for a statement label */
+#define STABLE_STMT_LABEL 105  /* s_table entry for a statement label */
 struct stable_stmtlabel {
     int IR_assembly_label;
     enum LabelType label_type;
     int case_label_value;
 };
 
-#define STABLE_ENUM_CONST 105  /* s_table entry for an enum constant */
+#define STABLE_ENUM_CONST 106  /* s_table entry for an enum constant */
 struct stable_enumconst {
     struct SymbolTableEntry *tag;
     int val;
 };
 
-#define STABLE_TYPEDEF 106  /* s_table entry for a typedef name */
+#define STABLE_TYPEDEF 107  /* s_table entry for a typedef name */
 struct stable_typedef {
     struct astnode *equivalent_type;
 };
 
-#define STABLE_SU_MEMB 107  /* s_table entry for a struct/union member */
+#define STABLE_SU_MEMB 108  /* s_table entry for a struct/union member */
 struct stable_sumemb {
     struct astnode *type;
     int offset_within_s_u;
@@ -303,6 +313,65 @@ struct astnode_stable_entry {
         struct stable_sumemb sumemb;
     };
 };
+
+
+
+/* A simple struct used in the parser that acts as an array of 
+   AST nodes. It is used when we have a declarator list. */
+typedef struct astnode_list {
+    struct astnode **list;
+    int len;
+} astnode_list;
+
+/* astnode_list's constructor */
+astnode_list *newASTnodeList(int len, astnode_list *cur_list);
+
+
+/* a node constructing a linked list of astnode_structs */
+typedef struct AstnodeLinkedListNode {
+    struct astnode *node;
+    struct AstnodeLinkedListNode *next;
+} AstnodeLinkedListNode;
+
+/* we save computational time by adding a pointer to the last
+   AstnodeLinkedListNode added (the varaible 'last' below). */
+typedef struct AstnodeLinkedList {
+    AstnodeLinkedListNode *first;
+    AstnodeLinkedListNode *last; 
+} AstnodeLinkedList;
+
+/* constructors for an AStnodeLinkedLists*/
+AstnodeLinkedListNode *newASTnodeLinkedListNode(struct astnode *node);
+AstnodeLinkedList *newASTnodeLinkedList();
+
+/*
+ * addASTnodeLinkedList - Adds an astnode containing a statement 
+ * into an ASTnodeLinkedList struct.
+ * 
+ * Note: no need to save declarations into astnode lists - their
+ * usefullness is in the symbol table, which was updated earlier.  
+ */
+void addASTnodeLinkedList(AstnodeLinkedList *ll, struct astnode *node);
+
+
+/*  a hack used to let a label stable_entry point to not
+    a statement (which would be an astnode) but rather to
+    the AstnodeLinkedListNode which contains this statement.
+    Corresponds to the label_deref_hack variables in 
+    the anonymous union of the astnode. */
+#define LABEL_DEREF_HACK 200
+struct labelDerefHack {
+    struct AstnodeLinkedListNode *ptr; 
+};
+
+/*
+ * newNode_labelHack - creates an astnode for the hackish solution
+ * of having the label statement point no to a stable_entry, but
+ * rather to a node in the linked list of astnodes, so that we could 
+ * continue the statement flow inside a compound statement from this label
+ * instead of only having access to a single statement.
+ */
+struct astnode *newNode_labelHack(struct AstnodeLinkedListNode *ll_node);
 
 
 
@@ -338,19 +407,12 @@ typedef struct astnode {
         struct astnode_flow_control flow_control;
         struct astnode_return return_stmt;
         struct astnode_goto goto_stmt;
+        struct astnode_scope_contents compound_stmt;
+        struct labelDerefHack label_deref_hack; 
     };
 } astnode;
 
 
-/* A simple struct used in the parser that acts as an array of 
-   AST nodes. It is used when we have a declarator list. */
-typedef struct astnode_list {
-    astnode **list;
-    int len;
-} astnode_list;
-
-/* astnode_list's constructor */
-astnode_list *newASTnodeList(int len, astnode_list *cur_list);
 
 
 //////////////////////////////////////////////////////////
@@ -385,9 +447,10 @@ astnode *newNode_whileStmt(astnode *expr, astnode *stmt);       /* while loop st
 astnode *newNode_doWhileStmt(astnode *expr, astnode *stmt);     /* do-while loop stmt   */
 astnode *newNode_forLoop();                                     /* for loop statement   */
 astnode *newNode_switch(astnode *expr, astnode *stmt);          /* switch statement     */
-astnode *newNode_flowControl();                                 /* break/continue stmt  */
-astnode *newNode_returnStmt();
-astnode *newNode_gotoStmt();                                    /* goto statement       */
+astnode *newNode_flowControl();     /* break/continue stmt  */
+astnode *newNode_returnStmt();      /* a return statement   */
+astnode *newNode_gotoStmt();        /* goto statement       */
+astnode *newNode_compoundStmt();    /* a compound statement */
 
 /* forward declaration, will be defined in symbol_table.h */
 struct TmpSymbolTableEntry; 

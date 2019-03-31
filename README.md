@@ -11,7 +11,8 @@ Building a compiler for the C programming language.
 
 
 #### Status and next on the agenda:
-* Construct data storage of list of statements (compound statements).
+* Update expression ASTs to resolve identifiers through the symbol table, and update their printing format to reflect this
+
 
 ##### Stretch goals:
 * Implement function prototypes & function arguments.

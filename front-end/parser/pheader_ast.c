@@ -344,7 +344,7 @@ astnode *newNode_fncType(int arg_len) {
     else
         node->fnc_type.args_types = NULL;
     node->fnc_type.return_type = NULL;
-    node->fnc_type.scope = NULL;
+    node->fnc_type.fnc_body = NULL;
     return node;
 }
 
@@ -457,6 +457,7 @@ astnode *newNode_switch(astnode *expr, astnode *stmt) {
     node->nodetype = SWITCH_STMT;
     node->switch_stmt.expr = expr;
     node->switch_stmt.stmt = stmt;
+    node->switch_stmt.labels = NULL;
 
     return node;
 }
@@ -507,6 +508,48 @@ astnode *newNode_gotoStmt() {
 
 
 /*
+ * newNode_compoundStmt - Creates a new AST node that holds
+ * a compound statnement.
+ */
+astnode *newNode_compoundStmt() {
+    astnode *node;
+    if ((node = calloc(1, sizeof(astnode))) == NULL) {
+        fprintf(stderr, "Error allocating memory for AST node: %s\n", 
+                                                    strerror(errno));
+        exit(-1);
+    }
+    
+    node->nodetype = COMPOUND_STMT;
+
+    node->compound_stmt.scope_layer = NULL;
+    node->compound_stmt.astnode_ll = NULL;
+    
+    return node;
+}
+
+
+/*
+ * newNode_labelHack - creates an astnode for the hackish solution
+ * of having the label statement point no to a stable_entry, but
+ * rather to a node in the linked list of astnodes, so that we could 
+ * continue the statement flow inside a compound statement from this label
+ * instead of only having access to a single statement.
+ */
+astnode *newNode_labelHack(struct AstnodeLinkedListNode *ll_node) {
+    astnode *node;
+    if ((node = calloc(1, sizeof(astnode))) == NULL) {
+        fprintf(stderr, "Error allocating memory for AST node: %s\n", 
+                                                    strerror(errno));
+        exit(-1);
+    }
+    
+    node->nodetype = LABEL_DEREF_HACK;
+    node->label_deref_hack.ptr = ll_node;
+    return node;   
+}
+
+
+/*
  * newNode_sTableEntry - creates a new AST node
  * as a symbol table entry. There are several different
  * versions of this AST node, and will be decided 
@@ -542,11 +585,12 @@ astnode *newNode_sTableEntry(TmpSymbolTableEntry *tmp_entry) {
             new_entry->stable_entry.var.offset_within_stack_frame = tmp_entry->var_offset_within_stack_frame;
             break;
         case Function_Type:
-            new_entry->nodetype = STABLE_FNC;
+            new_entry->nodetype = STABLE_FNC_DECLARATOR;
             new_entry->stable_entry.fnc.storage_class = tmp_entry->var_fnc_storage_class;
             new_entry->stable_entry.fnc.is_inline = tmp_entry->fnc_is_inline;
             new_entry->stable_entry.fnc.return_type = tmp_entry->fnc_return_type;
             new_entry->stable_entry.fnc.args_types = tmp_entry->fnc_args_type;
+            new_entry->stable_entry.fnc.function_body = NULL;
             break;
         case S_Tag_Type:
         case U_Tag_Type:
@@ -589,7 +633,7 @@ astnode *newNode_sTableEntry(TmpSymbolTableEntry *tmp_entry) {
 
 /* 
  * The constructor for the astnode_list struct.
- * This struct will be used for a declaration list. 
+ * This struct will be used for a declarator list. 
  */
 astnode_list *newASTnodeList(int len, astnode_list *cur_list) {
     astnode_list *new_list = malloc(sizeof(astnode_list));
@@ -610,6 +654,68 @@ astnode_list *newASTnodeList(int len, astnode_list *cur_list) {
 
     new_list->len = len;
     return new_list;
+}
+
+
+/* 
+ * The constructor for the AstnodeLinkedListNode struct.
+ * This struct will be used for a list of statements, ie
+ * a compound statement. 
+ */
+AstnodeLinkedListNode *newASTnodeLinkedListNode(astnode *node) {
+    AstnodeLinkedListNode *new_ll_node = malloc(sizeof(AstnodeLinkedListNode));
+    if (!new_ll_node) {
+        fprintf(stderr, "Error allocating memory for astnode list: %s\n", strerror(errno));
+        exit(-1);
+    }
+
+    new_ll_node->node = node;
+    new_ll_node->next = NULL;
+
+    return new_ll_node;
+}
+
+
+/*
+ * The constructor for the AstnodeLinkedList struct.
+ * This struct will be used for a list of statements, ie
+ * a compound statement. 
+ */
+AstnodeLinkedList *newASTnodeLinkedList(astnode *node) {
+    AstnodeLinkedList *new_ll = malloc(sizeof(AstnodeLinkedList));
+    if (!new_ll) {
+        fprintf(stderr, "Error allocating memory for astnode list: %s\n", strerror(errno));
+        exit(-1);
+    }
+
+    new_ll->first = newASTnodeLinkedListNode(node);
+    new_ll->last = new_ll->first;
+
+    return new_ll;
+};
+
+
+/*
+ * addASTnodeLinkedList - Adds an astnode containing a statement 
+ * into an ASTnodeLinkedList struct.
+ * 
+ * Note: no need to save declarations into astnode lists - their
+ * usefullness is in the symbol table, which was updated earlier.  
+ */
+void addASTnodeLinkedList(AstnodeLinkedList *ll, astnode *node) {
+    /* some basic error checking */
+    if(!node)
+        yyerror("Can't add NULL node to astnode linked list");
+    else if (!ll)
+        yyerror("Can't add node to a NULL astnode linked list");
+    else if (node->nodetype == STABLE_ENUM_CONST || node->nodetype == STABLE_ENUM_TAG ||
+                node->nodetype == STABLE_FNC_DECLARATOR ||
+                node->nodetype == STABLE_SU_MEMB || node->nodetype == STABLE_SU_TAG ||
+                node->nodetype == STABLE_TYPEDEF || node->nodetype == STABLE_VAR)
+        return;
+
+    ll->last->next = newASTnodeLinkedListNode(node);
+    ll->last = ll->last->next;
 }
 
 //////////////////////////////////////////////////////////
@@ -735,8 +841,10 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
 
     /* format the tab spacing correctly */
     for (int i = 0; i < depth; ++i)
-        fprintf(output, "  ");
+        fprintf(output, "   ");
 
+
+    AstnodeLinkedListNode *astnode_ll_iter; /* used in COMPOUND_STMT */
     switch(cur->nodetype) {
         case IDENT_TYPE:
             fprintf(output, "IDENT  %s\n", cur->ident.str);
@@ -898,7 +1006,7 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
                     translateTypeQualifier(cur->stable_entry.var.type_qualifier));
             preorderTraversal(cur->stable_entry.node, output, depth);
             break;
-        case STABLE_FNC:
+        case STABLE_FNC_DECLARATOR:
             fprintf( output, 
                 "%s is defined at %s:%d [in %s scope starting at %s:%d] "
                 "as a \n%s function returning:\n", 
@@ -960,22 +1068,15 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
             switch(cur->stable_entry.stmtlabel.label_type) {
                 case NAMED_LABEL:
                     fprintf(output, "LABEL(%s):\n", cur->stable_entry.ident);
-                    preorderTraversal(cur->stable_entry.node, output, depth+1);
-
                     break;
                 case CASE_LABEL:
                     fprintf(output, "CASE, EXPR:\n");
                     for (int i = 0 ; i < depth+1; ++i)
                         fprintf(output, "   ");
                     fprintf(output, "CONSTANT: (type=int)%d\n", cur->stable_entry.stmtlabel.case_label_value);
-                    
-                    preorderTraversal(cur->stable_entry.node, output, depth+2);
-
                     break;
                 case DEFAULT_LABEL:
                     fprintf(output, "DEFAULT LABEL:\n");
-                    preorderTraversal(cur->stable_entry.node, output, depth+1);
-
                     break;
             }
             break;
@@ -1058,8 +1159,11 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
             fprintf(output, "SWITCH, EXPR:\n");
             preorderTraversal(cur->switch_stmt.expr, output, depth+1);
 
-            for (int i = 0 ; i < depth ; ++i)
+            for (int i = 0 ; i < depth; ++i)
                 fprintf(output, "   ");
+            fprintf(output, "BODY:\n");
+            
+            preorderTraversal(cur->switch_stmt.stmt, output, depth+1);
 
             break;
         case BREAK_STMT:
@@ -1075,8 +1179,27 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
             fprintf(output, "RETURN\n");
             break;
         case GOTO_STMT:
-            fprintf(output, "GOTO %s\n", cur->goto_stmt.label_stmt->stable_entry.ident);
+            if (cur->goto_stmt.label_stmt->stable_entry.ident)
+                fprintf(output, "GOTO %s\n", cur->goto_stmt.label_stmt->stable_entry.ident);
+            else
+                fprintf(output, "GOTO: <undefined>\n");
             break;
+        case STABLE_FNC_DEFINITION:
+            fprintf(output, "AST Dump for function called %s:\n", cur->stable_entry.ident);
+            preorderTraversal(cur->stable_entry.node->fnc_type.fnc_body, output, depth+1);
+            break;
+        case COMPOUND_STMT:
+            fprintf(output, "LIST {\n");
+
+            astnode_ll_iter = cur->compound_stmt.astnode_ll->first;
+            do {
+                preorderTraversal(astnode_ll_iter->node, output, depth+1);            
+            } while ( (astnode_ll_iter = astnode_ll_iter->next));
+            for (int i = 0 ; i < depth ; ++i)
+                fprintf(output, "   ");
+            fprintf(output, "}\n");
+            break;
+        /* if I ever get to these: */
         case STABLE_ENUM_CONST:
             break;
         case STABLE_TYPEDEF:

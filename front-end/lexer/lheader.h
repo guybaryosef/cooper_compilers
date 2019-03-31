@@ -131,8 +131,10 @@ union YYSTYPE
     enum STEntry_Type ident_type;
     TmpSymbolTableEntry *tmp_stable_entry;
     struct ScopeStackLayer *scope_layer;
+    struct AstnodeLinkedList *astnode_ll;
+    struct astnode_scope_contents *cmpnd_stmt;
 
-#line 136 "../lexer/lheader.h" /* yacc.c:1909  */
+#line 138 "../lexer/lheader.h" /* yacc.c:1909  */
 };
 
 typedef union YYSTYPE YYSTYPE;

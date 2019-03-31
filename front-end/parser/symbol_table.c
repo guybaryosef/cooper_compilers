@@ -455,11 +455,11 @@ astnode_list *combineSpecifierDeclarator(TmpSymbolTableEntry *specifier,
                 second_handle->ptr.pointee = specifier->node;
                 new_entries->list[i]->stable_entry.node = decl_list->list[i];  
                 break;
-            case STABLE_FNC:  
+            case STABLE_FNC_DECLARATOR:  
                 decl_list->list[i]->stable_entry.node->fnc_type.return_type = specifier->node;
                 new_entries->list[i]->stable_entry.node = decl_list->list[i]->stable_entry.node;
                 free(decl_list->list[i]);
-                new_entries->list[i]->nodetype = STABLE_FNC;
+                new_entries->list[i]->nodetype = STABLE_FNC_DECLARATOR;
                 break;
             default:
                 free(decl_list->list[i]);

@@ -1,10 +1,11 @@
-
-int main() {
-	int a,b;
-	if (a > b)
-		a++;
-	else
-		++b;
-	
-
+int s()
+{
+	int i;
+	i++;
+	switch(i)
+	{
+	 case 1:printf("one\n");break;
+	 case 2:printf("two\n");
+	 default:printf("more\n");
+	}
 }

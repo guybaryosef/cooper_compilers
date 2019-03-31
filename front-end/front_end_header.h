@@ -47,7 +47,7 @@ EXTERN_VAR char *helper_end, *helper_begin;
 EXTERN_VAR int yycolumn;                        /* implements locations for the lexer */
 
 #include "./parser/symbol_table.h"
-EXTERN_VAR ScopeStack scope_stack;              /* scope linked list               */
+EXTERN_VAR ScopeStack scope_stack;              /* scope linked list   */
 
 #include "./lexer/lheader.h"
 EXTERN_VAR YYSTYPE yylval;                      /* The infamous yylval */

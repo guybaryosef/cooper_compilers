@@ -32,6 +32,8 @@
     enum STEntry_Type ident_type;
     TmpSymbolTableEntry *tmp_stable_entry;
     struct ScopeStackLayer *scope_layer;
+    struct AstnodeLinkedList *astnode_ll;
+    struct astnode_scope_contents *cmpnd_stmt;
 }
 
 /* getting some quality error handling up in here */
@@ -75,7 +77,8 @@
 %type <astnode_p> expr-stmt labeled-stmt conditional-stmt iterative-stmt switch-stmt break-stmt continue-stmt return-stmt goto-stmt null-stmt
 
 %type <tmp_stable_entry> label named-label case-label default-label
-%type <astnode_p> compound-stmt stmt decl-or-stmt decl-or-stmt-list
+%type <astnode_p> compound-stmt stmt decl-or-stmt 
+%type <astnode_ll> decl-or-stmt-list
 %type <astnode_p> if-stmt if-else-stmt 
 %type <astnode_p> while-stmt do-stmt for-stmt for-expr
 %type <astnode_pp>  initial-clause
@@ -111,8 +114,8 @@
 
 
 /*************************** TOP-LEVEL GRAMMAR-TYPES ****************************/
-%type <scope_layer> function-body
-%type <astnode_pp>  function-def 
+%type <astnode_p> function-body
+%type <astnode_p>  function-def 
 %type <astnode_p> declaration_or_fndef 
 %start declaration_or_fndef
 
@@ -478,10 +481,35 @@ labeled-stmt: label ':' stmt    {
 
                     $$ = newNode_sTableEntry($1);
                     $$->stable_entry.node = $3;
-                    $$->stable_entry.ident = $1->ident;
 
-                    // insert label into the current scope
-                    sTableInsert(scope_stack.innermost_scope->tables[LABEL_NAMESPACE], $$, 0);
+                    astnode *tmp;
+                    switch($$->stable_entry.stmtlabel.label_type) {
+                        case NAMED_LABEL:
+                            $$->stable_entry.ident = $1->ident;
+
+                            // check if already defined, if not, add to scope label namespace
+                            if (!(tmp = searchStackScope(LABEL_NAMESPACE, $$->stable_entry.ident))) {
+                                sTableInsert(scope_stack.innermost_scope->tables[LABEL_NAMESPACE], $$, 0);
+                            }
+                            else {
+                                // if a forward declared label, define it, otherwise an error
+                                if (tmp->stable_entry.node == NULL) {
+                                    tmp->stable_entry.node = $3;
+                                    free($$);
+                                    $$ = tmp;
+                                }
+                                else
+                                    yyerror("Multiple labels with the same name!");
+                            }
+                            break;
+                        case CASE_LABEL:
+                            // for now not doing anything
+                            printf("bb\n");
+                            break;
+                        case DEFAULT_LABEL:
+                            // nothing to put into scope label namespace
+                            break;
+                    }
                 }
             ;
 
@@ -490,19 +518,43 @@ label: named-label      { $$ = $1; }
      | default-label    { $$ = $1; }
      ;
 
-compound-stmt: '{' {createNewScope(Block);} decl-or-stmt-list '}' {deleteInnermostScope();}
+compound-stmt: '{' {createNewScope(Block);} decl-or-stmt-list '}' {
+                        $$ = newNode_compoundStmt();
+
+                        /* connect compound stmt to its astnodes */
+                        $$->compound_stmt.astnode_ll = $3;
+
+                        /* update scope stacks */
+                        $$->compound_stmt.scope_layer = scope_stack.innermost_scope;
+                        scope_stack.innermost_scope = scope_stack.innermost_scope->child;
+                }
              ;
 
-decl-or-stmt-list: /* empty */                      { /* NOTHING */ }
-                 | decl-or-stmt-list decl-or-stmt   { /* NOTHING */ }
+decl-or-stmt-list: /* empty */                      { 
+                        $$ = newASTnodeLinkedList(NULL);
+                    }
+                 | decl-or-stmt-list decl-or-stmt   { 
+                        $$ = $1;
+                        addASTnodeLinkedList($$, $2);
+
+                        /* if a label, push also its corresponding stmt to the ,
+                           ast list and also make label point to the linked list
+                           node containing the stmt instead of the stmt itself. */
+                        if ($2->nodetype == STABLE_STMT_LABEL) {
+                            struct AstnodeLinkedListNode *tmp = $$->last;
+
+                            addASTnodeLinkedList($$, $2->stable_entry.node);
+        
+                            tmp->node->stable_entry.node = newNode_labelHack($$->last);
+                        }
+                    }
                  ;
 
-decl-or-stmt: declaration   { 
-                    for (int i = 0; i < $1->len; ++i)
-                        if ($1->list[i])
-                            printAST($1->list[i], NULL);  
-                }
-            | stmt          { printAST($1, NULL);  }
+decl-or-stmt: declaration   { $$ = $1->list[0]; }
+                                        /* doesn't matter what we input, 
+                                         because we won't include these 
+                                         into the astnode linked list */
+            | stmt          { $$ = $1; }
             ;
 
 conditional-stmt: if-stmt       { $$ = $1; }
@@ -580,7 +632,7 @@ for-expr: '(' initial-clause ';' expr   ';' expr    ')' {
         ;
 
 initial-clause: expr        { $$ = newASTnodeList(1, NULL); $$->list[0] = $1; }
-              | declaration { $$ = $1; }
+              /* ignoring c++ like feature that includes declarations here */
               ;
 
 switch-stmt: SWITCH '(' expr ')' stmt { $$ = newNode_switch($3, $5); }
@@ -613,14 +665,33 @@ goto-stmt: GOTO named-label ';' {
                 $$ = newNode_gotoStmt();
                 
                 astnode *tmp;
-                if (!(tmp = searchStackScope(LABEL_NAMESPACE, $2->ident)))
-                    yyerror("No label with the specified name");
+                // search for the label in scope, if not found, add it!
+                if (!(tmp = searchStackScope(LABEL_NAMESPACE, $2->ident))) {
+                    // TODO: implement forward label declaration
+
+                    // create a new label symbol table entry
+                    $2->type = Statement_Label;
+
+                    astnode *label_entry = newNode_sTableEntry($2);
+                    label_entry->stable_entry.node = NULL;
+                    label_entry->stable_entry.ident = $2->ident;
+
+                    // // insert label into the current scope
+                    sTableInsert(scope_stack.innermost_scope->
+                                    tables[LABEL_NAMESPACE], label_entry, 0);
+  
+                    $$->goto_stmt.label_stmt = label_entry;
+                }
                 else
                     $$->goto_stmt.label_stmt = tmp;
             }
          ;
 
-named-label: IDENT { $$ = createTmpSTableEntry(); $$->ident = $1.str; }
+named-label: IDENT { 
+                    $$ = createTmpSTableEntry(); 
+                    $$->ident = $1.str;
+                    $$->stmt_label_type = NAMED_LABEL;
+                }
            ;
 
 null-stmt: ';' { $$ = newNode_gotoStmt(); $$->nodetype = NULL_STMT; }
@@ -1293,7 +1364,7 @@ array-declarator: direct-declarator '[' ']'         {
 
 fnc-declarator: direct-declarator '(' ')' {
                     $$ = $1;
-                    $$->nodetype = STABLE_FNC;
+                    $$->nodetype = STABLE_FNC_DECLARATOR;
                     $$->stable_entry.type = Function_Type;
                     $$->stable_entry.node = newNode_fncType(-1);
                 }
@@ -1310,21 +1381,31 @@ function-def: decl-specifiers declarator function-body {
             struct astnode_list *tmp_list = newASTnodeList(1, NULL); 
             tmp_list->list[0] = $2;
 
-            $$ = combineSpecifierDeclarator($1, tmp_list); 
-            $$->list[0]->stable_entry.type = Function_Type;
-            $$->list[0]->nodetype = STABLE_FNC;
-            $$->list[0]->stable_entry.node->fnc_type.scope = $3;
-
-            sTableInsert(scope_stack.innermost_scope->tables[GENERAL_NAMESPACE], $$->list[0], 0);
-
-            printAST($$->list[0], NULL);
+            astnode_list *tmp2 = combineSpecifierDeclarator($1, tmp_list); 
+            $$ = tmp2->list[0];
+            $$->stable_entry.type = Function_Type;
+            $$->nodetype = STABLE_FNC_DEFINITION;
+            $$->stable_entry.node->fnc_type.fnc_body = $3;
+            
+            /* adding function to the scope above it */
+            sTableInsert(scope_stack.innermost_scope->tables[GENERAL_NAMESPACE], $$, 0);
         }
        ;
 
+/* the reason this is seperate from the compound statement grammar is
+   so that we could specify that this is a function scope and not a 
+   block scope... probably could be avoided but not too bad a case
+   of code duplication anyways... */
 function-body: '{' { createNewScope(Function); } decl-or-stmt-list '}' {
-                $$ = scope_stack.innermost_scope;
+                $$ = newNode_compoundStmt();
+
+                /* connect compound stmt to its astnodes */
+                $$->compound_stmt.astnode_ll = $3;
+
+                /* update scope stacks */
+                $$->compound_stmt.scope_layer = scope_stack.innermost_scope;
                 scope_stack.innermost_scope = scope_stack.innermost_scope->child;
-            }
+             }
          ;
 
 
@@ -1340,7 +1421,9 @@ declaration_or_fndef: /* empty */                           { /* NOTHING */ }
                                         printAST($2->list[i], NULL);
                             }
                         }
-                    | declaration_or_fndef function-def     { /* NOTHING */ }
+                    | declaration_or_fndef function-def     { 
+                            printAST($2, NULL);
+                        }
                     ;
 
 
