@@ -3,16 +3,13 @@ ECE466: Compilers
 
 Building a compiler for the C programming language.
 
+#### Status:
+* Lexer working.
+* Parser can parse a large subset of C language - for now we decided not to bother with typedefs, enums, function prototypes, old school function definitions, and a few other small grammars.
+* Parser builds Abstract Syntax Trees for all C statements and function definitions. It parses declarators to maintain an up-to-date symbol table that incorporates scope stacks and namespaces. The parser uses the symbol table to resolve identifiers in the statements and function definitions.
 
-## Assignment 4 Todo:
-* Build grammar and AST nodes for rest of statement functionality.
-* Construct data storage of list of statements (compound statements). This will be used to group functions together and such).
-* Update expression ASTs to resolve identifiers through the symbol table, and update their printing format to reflect this.
-
-
-#### Status and next on the agenda:
-* Update expression ASTs to resolve identifiers through the symbol table, and update their printing format to reflect this
-
+#### Todo:
+* Stretch goals.
 
 ##### Stretch goals:
 * Implement function prototypes & function arguments.

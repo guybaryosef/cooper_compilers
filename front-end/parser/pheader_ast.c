@@ -986,6 +986,7 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
         case STABLE_VAR:
         case STABLE_ENUM_TAG:
         case STABLE_SU_MEMB:
+            /*
             fprintf( output, 
                 "%s is defined at %s:%d [in %s scope starting at %s:%d] "
                 "as a \nvariable with stgclass %s of type:\n", 
@@ -997,14 +998,18 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
                 scope_stack.innermost_scope->begin_line_num,
                 translateStgClass(cur->stable_entry.var.storage_class)
             ); 
-            
-            /* pad accordingly */
+               
             for (int i = 0; i < depth+1; ++i)
                 fprintf(output, "  ");
 
             fprintf(output, "%s", 
                     translateTypeQualifier(cur->stable_entry.var.type_qualifier));
             preorderTraversal(cur->stable_entry.node, output, depth);
+            */
+            fprintf(output, "stab_var name=%s def @<%s>:%d\n", 
+                cur->stable_entry.ident,
+                cur->stable_entry.file_name, 
+                cur->stable_entry.line_num);
             break;
         case STABLE_FNC_DECLARATOR:
             fprintf( output, 
@@ -1074,6 +1079,10 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
                     for (int i = 0 ; i < depth+1; ++i)
                         fprintf(output, "   ");
                     fprintf(output, "CONSTANT: (type=int)%d\n", cur->stable_entry.stmtlabel.case_label_value);
+                    
+                    for (int i = 0 ; i < depth; ++i)
+                        fprintf(output, "   ");
+                    fprintf(output, "STMT:\n");
                     break;
                 case DEFAULT_LABEL:
                     fprintf(output, "DEFAULT LABEL:\n");
@@ -1085,15 +1094,16 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
             preorderTraversal(cur->conditional_stmt.expr, output, depth+1);
                 
             for (int i = 0; i < depth; ++i)
-                fprintf(output, "  ");
+                fprintf(output, "   ");
             fprintf(output, "THEN:\n");
             preorderTraversal(cur->conditional_stmt.if_node, output, depth+1);
             
-            if (cur->conditional_stmt.else_node)
-            for (int i = 0; i < depth; ++i)
-                fprintf(output, "  ");
-            fprintf(output, "ELSE:\n");
-            preorderTraversal(cur->conditional_stmt.else_node, output, depth+1);
+            if (cur->conditional_stmt.else_node) {
+                for (int i = 0; i < depth; ++i)
+                    fprintf(output, "   ");
+                fprintf(output, "ELSE:\n");
+                preorderTraversal(cur->conditional_stmt.else_node, output, depth+1);
+            }
             break;
         case WHILE_STMT:
             fprintf(output, "WHILE\n");
@@ -1130,28 +1140,29 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
         case FOR_STMT:
             fprintf(output, "FOR\n");
             for (int i = 0; i < depth; ++i)
-                fprintf(output, "  ");
+                fprintf(output, "   ");
 
             fprintf(output, "INIT:\n");
-            for (int i = 0; i < depth; ++i)
-                fprintf(output, "  ");
 
             for (int i = 0 ; i < cur->for_stmt.initial_clause->len; ++i)
                 preorderTraversal(cur->for_stmt.initial_clause->list[i], output, depth+1);
 
+            for(int i = 0 ; i < depth ; ++i)
+                fprintf(output, "   ");
             fprintf(output, "COND:\n");
-            for (int i = 0; i < depth; ++i)
-                fprintf(output, "  ");
+
             preorderTraversal(cur->for_stmt.check_expr, output, depth+1);
 
+            for(int i = 0 ; i < depth ; ++i)
+                fprintf(output, "   ");
             fprintf(output, "BODY:\n");
-            for (int i = 0; i < depth; ++i)
-                fprintf(output, "  ");
+
             preorderTraversal(cur->for_stmt.stmt, output, depth+1);
 
+            for(int i = 0 ; i < depth ; ++i)
+                fprintf(output, "   ");
             fprintf(output, "INCR:\n");
-            for (int i = 0; i < depth; ++i)
-                fprintf(output, "  ");
+
             preorderTraversal(cur->for_stmt.iteration_expr, output, depth+1);
 
             break;

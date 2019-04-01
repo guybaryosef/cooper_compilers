@@ -127,11 +127,14 @@
 ***************************** EXPRESSIONS *****************************
 **********************************************************************/
 /* primary expressions */
-primary-expr: IDENT             { $$ = newNode_str(IDENT, $1);   }
-            | CHARLIT           { $$ = newNode_str(CHARLIT, $1); }
-            | NUMBER            { $$ = newNode_num($1);  }
-            | STRING            { $$ = newNode_str(STRING, $1);  }
-            | '(' expr ')'      { $$ = $2; }
+primary-expr: IDENT     { 
+                    /* resolve identifier from the symbol table */
+                    $$ = searchStackScope(GENERAL_NAMESPACE, $1.str);
+                }
+            | CHARLIT       { $$ = newNode_str(CHARLIT, $1); }
+            | NUMBER        { $$ = newNode_num($1);          }
+            | STRING        { $$ = newNode_str(STRING, $1);  }
+            | '(' expr ')'  { $$ = $2; }
             ; 
 
 
@@ -481,9 +484,8 @@ labeled-stmt: label ':' stmt    {
 
                     $$ = newNode_sTableEntry($1);
                     $$->stable_entry.node = $3;
-
-                    astnode *tmp;
                     switch($$->stable_entry.stmtlabel.label_type) {
+                        astnode *tmp;
                         case NAMED_LABEL:
                             $$->stable_entry.ident = $1->ident;
 
@@ -494,6 +496,7 @@ labeled-stmt: label ':' stmt    {
                             else {
                                 // if a forward declared label, define it, otherwise an error
                                 if (tmp->stable_entry.node == NULL) {
+
                                     tmp->stable_entry.node = $3;
                                     free($$);
                                     $$ = tmp;
@@ -504,7 +507,6 @@ labeled-stmt: label ':' stmt    {
                             break;
                         case CASE_LABEL:
                             // for now not doing anything
-                            printf("bb\n");
                             break;
                         case DEFAULT_LABEL:
                             // nothing to put into scope label namespace
@@ -538,14 +540,23 @@ decl-or-stmt-list: /* empty */                      {
                         addASTnodeLinkedList($$, $2);
 
                         /* if a label, push also its corresponding stmt to the ,
-                           ast list and also make label point to the linked list
-                           node containing the stmt instead of the stmt itself. */
+                           AST linked list and also make label point to the linked 
+                           list node containing the stmt instead of the stmt itself. */
                         if ($2->nodetype == STABLE_STMT_LABEL) {
-                            struct AstnodeLinkedListNode *tmp = $$->last;
+                            struct AstnodeLinkedListNode *tmp1 = $$->last;
+                            astnode *tmp2 = tmp1->node->stable_entry.node;
 
                             addASTnodeLinkedList($$, $2->stable_entry.node);
-        
-                            tmp->node->stable_entry.node = newNode_labelHack($$->last);
+                            tmp1->node->stable_entry.node = newNode_labelHack($$->last);
+
+                            while (tmp2->nodetype == STABLE_STMT_LABEL) {
+                                tmp1 = $$->last;
+
+                                addASTnodeLinkedList($$, tmp2->stable_entry.node);
+                                tmp1->node->stable_entry.node = newNode_labelHack($$->last);
+
+                                tmp2 = $$->last->node;
+                            }        
                         }
                     }
                  ;

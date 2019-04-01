@@ -1,7 +1,6 @@
 int s()
 {
-	int i;
-	i++;
+ int i;
 	switch(i)
 	{
 	 case 1:printf("one\n");break;
