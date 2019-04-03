@@ -847,7 +847,7 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
     AstnodeLinkedListNode *astnode_ll_iter; /* used in COMPOUND_STMT */
     switch(cur->nodetype) {
         case IDENT_TYPE:
-            fprintf(output, "IDENT  %s\n", cur->ident.str);
+            fprintf(output, "UNKNOWN IDENT  %s\n", cur->ident.str);
             break;
         case NUM_TYPE:
             if (cur->num.types & NUMMASK_INTGR)
@@ -903,10 +903,10 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
             preorderTraversal(cur->unop.expr, output, depth+1);
             break;
         case FNC_CALL:
-            fprintf(output, "FNCALL,  %d  arguments\n", cur->fnc.arg_count);
+            fprintf(output, "FNCALL, %d  arguments\n", cur->fnc.arg_count);
             preorderTraversal(cur->fnc.ident, output, depth + 1);
             for (int i = 0 ; i < cur->fnc.arg_count ; ++i)
-                preorderTraversal(cur->fnc.arguments[i], output, depth);
+                preorderTraversal(cur->fnc.arguments[i], output, depth+1);
             break;
         case ARG_TYPE:
             fprintf(output, "arg  #%d=\n", cur->arg.num);

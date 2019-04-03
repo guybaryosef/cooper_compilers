@@ -129,7 +129,9 @@
 /* primary expressions */
 primary-expr: IDENT     { 
                     /* resolve identifier from the symbol table */
-                    $$ = searchStackScope(GENERAL_NAMESPACE, $1.str);
+                    if (!($$ = searchStackScope(GENERAL_NAMESPACE, $1.str))) {
+                        $$ = newNode_str(IDENT, $1);
+                    }
                 }
             | CHARLIT       { $$ = newNode_str(CHARLIT, $1); }
             | NUMBER        { $$ = newNode_num($1);          }
@@ -176,12 +178,18 @@ indirect-comp-sel: postfix-expr INDSEL IDENT    {
 
 /* function calls */
 function-call: postfix-expr '(' expr-list ')'   { 
-                                                    $$ = newNode_fnc();
-                                                    $$->fnc.ident = $1;
-                                                    $$->fnc.arguments = $3->arglist.list;
-                                                    $$->fnc.arg_count = $3->arglist.size;
-                                                    free($3);
-                                                }
+                    $$ = newNode_fnc();
+                    $$->fnc.ident = $1;
+                    $$->fnc.arguments = $3->arglist.list;
+                    $$->fnc.arg_count = $3->arglist.size;
+                    free($3);
+                }
+             | postfix-expr '(' ')' {
+                    $$ = newNode_fnc();
+                    $$->fnc.ident = $1;
+                    $$->fnc.arguments = NULL;
+                    $$->fnc.arg_count = 0;
+                }
              ;
 
 expr-list: assignment-expr                  { 
