@@ -904,9 +904,31 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
             break;
         case FNC_CALL:
             fprintf(output, "FNCALL, %d  arguments\n", cur->fnc.arg_count);
-            preorderTraversal(cur->fnc.ident, output, depth + 1);
-            for (int i = 0 ; i < cur->fnc.arg_count ; ++i)
-                preorderTraversal(cur->fnc.arguments[i], output, depth+1);
+
+            if (cur->fnc.ident->nodetype == IDENT_TYPE)
+                preorderTraversal(cur->fnc.ident, output, depth+1);
+            else {
+                for (int i = 0; i < depth+1; ++i)
+                    fprintf(output, "   ");
+
+                if (cur->fnc.ident->nodetype == STABLE_FNC_DECLARATOR) {
+                    fprintf(output, "stab_fn name=%s declared @<%s>:%d\n", 
+                        cur->fnc.ident->stable_entry.ident, 
+                        cur->fnc.ident->stable_entry.file_name,
+                        cur->fnc.ident->stable_entry.line_num
+                    );
+                }
+                else { /* nodetype == STABLE_FUN_DEFINITION */
+                    fprintf(output, "stab_fn name=%s defined @<%s>:%d\n", 
+                        cur->fnc.ident->stable_entry.ident, 
+                        cur->fnc.ident->stable_entry.file_name,
+                        cur->fnc.ident->stable_entry.line_num
+                    );
+                }
+            }
+            for (int i = 0 ; i < cur->fnc.arg_count ; ++i) {
+                    preorderTraversal(cur->fnc.arguments[i], output, depth+1);
+            }
             break;
         case ARG_TYPE:
             fprintf(output, "arg  #%d=\n", cur->arg.num);
@@ -1068,6 +1090,7 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
                                     cur->stable_entry.file_name, 
                                     cur->stable_entry.line_num);
             }
+            
             break;
         case STABLE_STMT_LABEL:
             switch(cur->stable_entry.stmtlabel.label_type) {
@@ -1218,6 +1241,8 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
 
     }
 }
+
+
 
 
 /*
