@@ -487,7 +487,7 @@ void printAST(struct astnode *root, FILE *output_file);
  * members of a struct or union. This is only called when
  * a struct or union are first defined.
  */
-void printStructAST(astnode *root, FILE *output_file);
+void printStructAST(astnode *root, FILE *output_file, int depth);
 
 
 /*

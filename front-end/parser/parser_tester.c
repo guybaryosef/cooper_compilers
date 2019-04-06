@@ -20,8 +20,26 @@
 
      
 
-int main() {
-    
+int main(int argc, char **argv) {
+
+    if (argc == 1) 
+        print_level = Minimal_Level;
+    else if (argc == 3) {
+        if (!strcmp(argv[2], "1"))
+            print_level = Minimal_Level;
+        else if (!strcmp(argv[2], "2"))
+            print_level = Mid_Level;
+        else if (!strcmp(argv[2], "3"))
+            print_level = Verbose_Level;
+        else {
+            fprintf(stderr, "Correct Usage: %s [-p 1/2/3]\n", argv[0]);
+            return -1;
+        }    }
+    else {
+        fprintf(stderr, "Correct Usage: %s [-p 1/2/3]\n", argv[0]);
+        return -1;
+    }
+
     initializeFrontEnd();   /* initializes the front-end global vars */
 
     yyparse();

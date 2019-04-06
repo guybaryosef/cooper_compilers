@@ -103,7 +103,8 @@
 %type <simple_int> fnc-specifier
 %type <astnode_p> simple-declarator
 
-%type <astnode_p> pointer-declarator pointer direct-declarator fnc-declarator array-declarator
+%type <astnode_p> pointer-declarator pointer direct-declarator 
+%type <astnode_p> fnc-declarator array-declarator
 %type <astnode_p> init-decl declarator  /* initializer- technically here, but not integrated for now */
 %type <tmp_stable_entry> decl-specifiers /* pretty sure about this one */
 
@@ -130,7 +131,8 @@
 primary-expr: IDENT     { 
                     /* resolve identifier from the symbol table */
                     if (!($$ = searchStackScope(GENERAL_NAMESPACE, $1.str))) {
-                        $$ = newNode_str(IDENT, $1);
+                        $$ = newNode_sTableEntry(NULL);
+                        $$->stable_entry.ident = $1.str;
                     }
                 }
             | CHARLIT       { $$ = newNode_str(CHARLIT, $1); }
@@ -842,48 +844,53 @@ direct-abstract-declarator: '(' abstract-declarator ')'               { $$ = $2;
 
 
 declaration: decl-specifiers ';'    { 
-                    $$ = newASTnodeList(1, NULL); 
-                    $$->list[0] = $1->node;
-                }
+                $$ = newASTnodeList(1, NULL); 
+                $$->list[0] = $1->node;
+            }
            | decl-specifiers decl-init-list ';' {
-                    if (!($1->node)) {
-                        $1->node = newNode_scalarType(Int, 1);
-                        $1->type = Variable_Type;
-                    }
+            
 
-                    if (!isTmpSTableEntryValid($1)) {
-                        yyerror("Error in declaration specifiers.");
-                    }
-                    else {
-                        /* create the new symbol table entries */
-                        $$ = combineSpecifierDeclarator($1, $2); 
+                if (!($1->node)) {
+                    $1->node = newNode_scalarType(Int, 1);
+                    $1->type = Variable_Type;
+                }
 
-                        /* add the new entries to the symbol table */
-                        int ns_ind;
+                if (isTmpSTableEntryValid($1)) {
 
-                        for (int i = 0 ; i < $$->len; ++i) {
+                    /* create the new symbol table entries */
+                    $$ = combineSpecifierDeclarator($1, $2); 
+                    /* add the new entries to the symbol table */
+                    int ns_ind;
 
-                            if ($$->list[i]->stable_entry.type == Enum_Tag ||
-                                     $$->list[i]->stable_entry.type == S_Tag_Type ||
-                                     $$->list[i]->stable_entry.type == U_Tag_Type)
-                                ns_ind = SU_TAG_NAMESPACE;  /* tags (idents of struct/union/enum) */
-                            else
-                                ns_ind = GENERAL_NAMESPACE;  /* all other identifier classes */
+                    for (int i = 0 ; i < $$->len; ++i) {
+
+                        if  (   $$->list[i]->stable_entry.type == Enum_Tag   ||
+                                $$->list[i]->stable_entry.type == S_Tag_Type ||
+                                $$->list[i]->stable_entry.type == U_Tag_Type
+                            )
+                            ns_ind = SU_TAG_NAMESPACE;  /* tags (idents of struct/union/enum) */
+                        else
+                            ns_ind = GENERAL_NAMESPACE;  /* all other identifier classes */
 
 
-                            /* check if we are in global scope, as this will make
-                            variables extern by default instead of auto. */
-                            if (scope_stack.innermost_scope->scope_type == File &&
-                                    $$->list[i]->stable_entry.type == Variable_Type)
-                                $$->list[i]->stable_entry.var.storage_class = Extern;
+                        /* check if we are in global scope, as this will make
+                        variables extern by default instead of auto. */
+                        if  (   scope_stack.innermost_scope->scope_type == File &&
+                                $$->list[i]->stable_entry.type == Variable_Type ||
+                                $$->list[i]->stable_entry.type == Function_Type
+                            )
+                            $$->list[i]->stable_entry.var.storage_class = Extern;
 
-                            if(sTableInsert(scope_stack.innermost_scope->tables[ns_ind], $$->list[i], 0) < 0) {
-                                free($$->list[i]);
-                                $$->list[i] = NULL;
-                            }
+                        if(sTableInsert(scope_stack.innermost_scope->tables[ns_ind], $$->list[i], 0) < 0) {
+                            
+                            free($$->list[i]);
+                            $$->list[i] = NULL;
                         }
                     }
                 }
+                else
+                    yyerror("Error in declaration specifiers");
+            }
            ;
 
 decl-specifiers: storage-class-specifier { 
@@ -960,7 +967,7 @@ type-specifier: enum-type-specifier {
               | void-type-specifier  {                         
                         $$ = createTmpSTableEntry();
                         $$->node = $1; 
-                        $$->type =  Void_Type;
+                        $$->type =  Variable_Type;
                     }
               ;
 
@@ -1047,16 +1054,14 @@ imag-type-specifier: FLOAT _IMAGINARY       { $$ = newNode_scalarType(FloatImag,
                    | LONG DOUBLE _IMAGINARY { $$ = newNode_scalarType(LongDoubleImag, 1);}
                    ;
 
-/* for now not implementing enums, typedefs, or union.
-   With enough time, will see how many more can be included. */
+void-type-specifier: VOID        { $$ = newNode_scalarType(Void, 1); }
+                   ;
+
+/* for now not implementing enums, typedefs. */
 enum-type-specifier: ENUM        { $$ = newNode_scalarType(Int, 1); }
                    ;
-
 typedef-type-specifier: TYPEDEF  { $$ = newNode_scalarType(Int, 1); } 
                       ;
-
-void-type-specifier: VOID        { $$ = newNode_scalarType(Int, 1); }
-                   ;
 
 /* struct-type-specifier is a symbol table entry, not just a astnode type */
 struct-type-specifier: struct-type-def  { $$ = $1; }
@@ -1064,78 +1069,64 @@ struct-type-specifier: struct-type-def  { $$ = $1; }
                      ;
 
 struct-type-def: STRUCT '{' field-list '}' {   
-
+                    /* NOTE: we aren't inserting this struct into the scope symbol table */
                     TmpSymbolTableEntry *new_struct = createTmpSTableEntry();
                     new_struct->type = S_Tag_Type;
                     new_struct->su_tag_is_defined = 1;
                     $$ = newNode_sTableEntry(new_struct);
+
+                    /* insert fields into the struct */
                     for (int i = 0; i < $3->len; ++i)
-                        if (!sTableInsert($$->stable_entry.sutag.su_table, $3->list[i], 0)) 
-                            yyerror("Unable to insert members into struct symbol table.");
+                        sTableInsert($$->stable_entry.sutag.su_table, $3->list[i], 0);
                 }
-               | STRUCT struct-tag '{' field-list '}' {
-                    $$ = sTableLookUp(scope_stack.innermost_scope->tables[SU_TAG_NAMESPACE], $2.str);
-                    // todo: make the following for-loop logic not repetetive.
+               | STRUCT struct-tag  {
+                        /* NOTE: this struct will be inserted into the symbol table (if not there already) */
+                        $<astnode_p>$ = sTableLookUp(scope_stack.innermost_scope->tables[SU_TAG_NAMESPACE], $2.str);
+                    
+                        if  (   $<astnode_p>$ && 
+                                $<astnode_p>$->stable_entry.type == S_Tag_Type && 
+                                !$<astnode_p>$->stable_entry.sutag.is_defined
+                            ) {     /* if struct was declared but not defined */
+                            
+                                $<astnode_p>$->stable_entry.file_name = cur_file_name;
+                                $<astnode_p>$->stable_entry.line_num = cur_line_num;
+                            }
+                        else if (!$<astnode_p>$) {  /* if struct has not been declared previously */
 
-                    if ($$ && $$->stable_entry.type == S_Tag_Type && !$$->stable_entry.sutag.is_defined) {
+                            TmpSymbolTableEntry *new_struct = createTmpSTableEntry(); 
+                            new_struct->type = S_Tag_Type;
+                            new_struct->su_tag_is_defined = 0; /* still not fully defined */
+                            
+                            $<astnode_p>$ = newNode_sTableEntry(new_struct);
+                            $<astnode_p>$->stable_entry.ident = $2.str;
 
-                        $$->stable_entry.sutag.is_defined = 1;
-                        $$->stable_entry.file_name = cur_file_name;
-                        $$->stable_entry.line_num = cur_line_num;
-
-                        for (int i = 0; i < $4->len; ++i) {
-                            /* if field-list member is a reference to the incomplete
-                            type that is struct-tag, make pointer point to it and
-                            change the status to a completed struct. */
-                            if (    $4->list[i]->stable_entry.node->nodetype == STABLE_SU_TAG &&
-                                    !strcmp($4->list[i]->stable_entry.node->stable_entry.ident, $2.str) &&
-                                    !$4->list[i]->stable_entry.node->stable_entry.sutag.is_defined ) {
-                                $4->list[i]->stable_entry.node->stable_entry.sutag.is_defined = 1;
-                                $4->list[i]->stable_entry.node->stable_entry.node = $$;                                                
+                        }
+                        else
+                            yyerror("This struct was already defined");
+                    } '{' field-list '}' {
+                        $$ = $<astnode_p>3;
+                        
+                        for (int i = 0; i < $5->len; ++i) {
+                            if  (   $5->list[i]->stable_entry.node->nodetype == STABLE_SU_TAG           &&
+                                    !strcmp($5->list[i]->stable_entry.node->stable_entry.ident, $2.str) &&
+                                    !$5->list[i]->stable_entry.node->stable_entry.sutag.is_defined 
+                                ) {
+                                yyerror("Cannot declare variable of incomplete type. Perhaps you meant to create a pointer to it?");
                             }
                             
-                            if (sTableInsert($$->stable_entry.sutag.su_table, $4->list[i], 0) < 0) 
-                                yyerror("Inserting members into struct symbol table.");
+                            sTableInsert($$->stable_entry.sutag.su_table, $5->list[i], 0);
                         }
-                    }
-                    else if (!$$) {
 
-                        TmpSymbolTableEntry *new_struct = createTmpSTableEntry(); 
-                        new_struct->type = S_Tag_Type;
-                        new_struct->su_tag_is_defined = 1;
-                        
-                        $$ = newNode_sTableEntry(new_struct);
-                        $$->stable_entry.ident = $2.str;
+                        $$->stable_entry.sutag.is_defined = 1;
 
-                        for (int i = 0; i < $4->len; ++i) {
-                            /* if field-list member is a reference to the incomplete
-                            type that is struct-tag, make pointer point to it and
-                            change the status to a completed struct. */
-                            if (    $4->list[i]->stable_entry.node->nodetype == STABLE_SU_TAG &&
-                                    !strcmp($4->list[i]->stable_entry.node->stable_entry.ident, $2.str) &&
-                                    !$4->list[i]->stable_entry.node->stable_entry.sutag.is_defined ) {
-                                $4->list[i]->stable_entry.node->stable_entry.sutag.is_defined = 1;
-                                $4->list[i]->stable_entry.node->stable_entry.node = $$;                                                
-                            }
-                        
-                            if (sTableInsert($$->stable_entry.sutag.su_table, $4->list[i], 0) < 0) 
-                                yyerror("Inserting members into struct symbol table.");
-                        
-                        }
-                        // inserting defined struct into the innermost scope & printing it out.
-                        if(sTableInsert(scope_stack.innermost_scope->tables[SU_TAG_NAMESPACE], $$, 0) < 0)
-                            yyerror("Unable to insert variable into symbol table");
-                        printStructAST($$, NULL);
-                    }
-                    else
-                        yyerror("This struct was already defined");
+                        if (!searchStackScope(SU_TAG_NAMESPACE, $$->stable_entry.ident))
+                            sTableInsert(scope_stack.innermost_scope->tables[SU_TAG_NAMESPACE], $$, 0);
                 }
                ;
 
-struct-type-ref: STRUCT struct-tag   { 
-
-                    $$ = sTableLookUp(scope_stack.innermost_scope->tables[SU_TAG_NAMESPACE], $2.str);
-                    if (!$$) {  /* create a forward, incomplete declaration */
+struct-type-ref: STRUCT struct-tag {                    
+                    if (!($$ = sTableLookUp(scope_stack.innermost_scope->tables[SU_TAG_NAMESPACE], $2.str))) {  
+                        //* create a forward, incomplete declaration */
                         TmpSymbolTableEntry *new_struct = createTmpSTableEntry();
                         new_struct->type = S_Tag_Type;
                         new_struct->su_tag_is_defined = 0;
@@ -1187,78 +1178,64 @@ union-type-specifier: union-type-def { $$ = $1; }
                     ;
 
 union-type-def: UNION '{' field-list '}' {   
+                    /* NOTE: we aren't inserting this union into the scope symbol table */
                     TmpSymbolTableEntry *new_struct = createTmpSTableEntry();
-                        new_struct->type = U_Tag_Type;
-                        new_struct->su_tag_is_defined = 1;
-                        $$ = newNode_sTableEntry(new_struct);
-                        for (int i = 0; i < $3->len; ++i)
-                            if (!sTableInsert($$->stable_entry.sutag.su_table, $3->list[i], 0)) 
-                                yyerror("Unable to insert members into union symbol table.");
+                    new_struct->type = U_Tag_Type;
+                    new_struct->su_tag_is_defined = 1;
+                    $$ = newNode_sTableEntry(new_struct);
+
+                    /* insert fields into the union */
+                    for (int i = 0; i < $3->len; ++i)
+                        sTableInsert($$->stable_entry.sutag.su_table, $3->list[i], 0);
                 }
-              | UNION union-tag '{' field-list '}' {
-                    $$ = sTableLookUp(scope_stack.innermost_scope->tables[SU_TAG_NAMESPACE], $2.str);
-                    // todo: make the following for-loop logic not repetetive.
+              | UNION union-tag {
+                        /* NOTE: this union will be inserted into the symbol table (if not there already) */
+                        $<astnode_p>$ = sTableLookUp(scope_stack.innermost_scope->tables[SU_TAG_NAMESPACE], $2.str);
+                    
+                        if  (   $<astnode_p>$ && 
+                                $<astnode_p>$->stable_entry.type == U_Tag_Type && 
+                                !$<astnode_p>$->stable_entry.sutag.is_defined
+                            ) {     /* if union was declared but not defined */
+                            
+                                $<astnode_p>$->stable_entry.file_name = cur_file_name;
+                                $<astnode_p>$->stable_entry.line_num = cur_line_num;
+                            }
+                        else if (!$<astnode_p>$) {  /* if union has not been declared previously */
 
-                    if ($$ && $$->stable_entry.type == U_Tag_Type && !$$->stable_entry.sutag.is_defined) {
+                            TmpSymbolTableEntry *new_struct = createTmpSTableEntry(); 
+                            new_struct->type = U_Tag_Type;
+                            new_struct->su_tag_is_defined = 0; /* still not fully defined */
+                            
+                            $<astnode_p>$ = newNode_sTableEntry(new_struct);
+                            $<astnode_p>$->stable_entry.ident = $2.str;
 
-                        $$->stable_entry.sutag.is_defined = 1;
-                        $$->stable_entry.file_name = cur_file_name;
-                        $$->stable_entry.line_num = cur_line_num;
+                        }
+                        else
+                            yyerror("This union was already defined");
+                    } '{' field-list '}' {
+                        $$ = $<astnode_p>3;
                         
-                        for (int i = 0; i < $4->len; ++i) {
-                            /* if field-list member is a reference to the incomplete
-                            type that is a su-tag, make pointer point to it and
-                            change the status to a completed union. */
-                            if (    $4->list[i]->stable_entry.node->nodetype == STABLE_SU_TAG &&
-                                    !strcmp($4->list[i]->stable_entry.node->stable_entry.ident, $2.str) &&
-                                    !$4->list[i]->stable_entry.node->stable_entry.sutag.is_defined ) {
-                                $4->list[i]->stable_entry.node->stable_entry.sutag.is_defined = 1;
-                                $4->list[i]->stable_entry.node->stable_entry.node = $$;                                                
+                        for (int i = 0; i < $5->len; ++i) {
+                            if  (   $5->list[i]->stable_entry.node->nodetype == STABLE_SU_TAG           &&
+                                    !strcmp($5->list[i]->stable_entry.node->stable_entry.ident, $2.str) &&
+                                    !$5->list[i]->stable_entry.node->stable_entry.sutag.is_defined 
+                                ) { 
+                                yyerror("Cannot declare variable of incomplete type. Perhaps you meant to create a pointer to it?");
                             }
                             
-                            if (sTableInsert($$->stable_entry.sutag.su_table, $4->list[i], 0) < 0) 
-                                yyerror("Inserting members into union symbol table.");
+                            sTableInsert($$->stable_entry.sutag.su_table, $5->list[i], 0);
                         }
-                        printStructAST($$, NULL);
-                    }
-                    else if (!$$) {
 
-                        TmpSymbolTableEntry *new_union = createTmpSTableEntry(); 
-                        new_union->type = U_Tag_Type;
-                        new_union->su_tag_is_defined = 1;
-                        
-                        $$ = newNode_sTableEntry(new_union);
-                        $$->stable_entry.ident = $2.str;
+                        $$->stable_entry.sutag.is_defined = 1;
 
-                        for (int i = 0; i < $4->len; ++i) {
-                            /* if field-list member is a reference to the incomplete
-                            type that is su-tag, make pointer point to it and
-                            change the status to a completed union. */
-                            if (    $4->list[i]->stable_entry.node->nodetype == STABLE_SU_TAG &&
-                                    !strcmp($4->list[i]->stable_entry.node->stable_entry.ident, $2.str) &&
-                                    !$4->list[i]->stable_entry.node->stable_entry.sutag.is_defined ) {
-                                $4->list[i]->stable_entry.node->stable_entry.sutag.is_defined = 1;
-                                $4->list[i]->stable_entry.node->stable_entry.node = $$;                                                
-                            }
-                        
-                            if (sTableInsert($$->stable_entry.sutag.su_table, $4->list[i], 0) < 0) 
-                                yyerror("Inserting members into union symbol table.");
-                        
-                        }
-                        // inserting defined union into the innermost scope & printing it out.
-                        if(sTableInsert(scope_stack.innermost_scope->tables[SU_TAG_NAMESPACE], $$, 0) < 0)
-                            yyerror("Unable to insert variable into symbol table");
-                        printStructAST($$, NULL);
-                    }
-                    else
-                        yyerror("This union was already defined");
+                        if (!searchStackScope(SU_TAG_NAMESPACE, $$->stable_entry.ident))
+                            sTableInsert(scope_stack.innermost_scope->tables[SU_TAG_NAMESPACE], $$, 0);
                 }
               ;
 
 union-type-ref: UNION union-tag { 
 
-                    $$ = sTableLookUp(scope_stack.innermost_scope->tables[SU_TAG_NAMESPACE], $2.str);
-                    if (!$$) {  /* create a forward, incomplete declaration */
+                    if (!($$ = sTableLookUp(scope_stack.innermost_scope->tables[SU_TAG_NAMESPACE], $2.str))) {  /* create a forward, incomplete declaration */
                         TmpSymbolTableEntry *new_union = createTmpSTableEntry();
                         new_union->type = U_Tag_Type;
                         new_union->su_tag_is_defined = 0;
@@ -1312,21 +1289,49 @@ declarator: pointer-declarator  { $$ = $1; }
           ;
 
 
-pointer-declarator: pointer direct-declarator   { 
-                            $$ = $1; 
-                            astnode *handle1 = $1;
-                            astnode *handle2 = handle1;
-                            while (handle1)  {
-                                handle2 = handle1;
-                                handle1 = handle1->ptr.pointee;
+pointer-declarator: pointer direct-declarator   {  
+                        if ($2->nodetype == STABLE_FNC_DECLARATOR) {
+                            if (!$2->stable_entry.fnc.return_type) {
+                                $2->stable_entry.fnc.return_type = $1;
                             }
-                            handle2->ptr.pointee = $2; 
+                            else {
+                                astnode *pacer = $2->stable_entry.fnc.return_type;
+                                astnode *runner = pacer;
+                                
+                                while (runner && (runner->nodetype == PTR_TYPE || runner->nodetype == ARRAY_TYPE)) {
+                                    pacer = runner;
+                                    if (runner->nodetype == PTR_TYPE)
+                                        runner = runner->ptr.pointee;
+                                    else
+                                        runner = runner->arr.ptr;
+                                }                             
+                                pacer->ptr.pointee = $1;
+                            }
+                        }   
+                        else if ($2->stable_entry.node) {
+                            astnode *pacer = $2;
+                            astnode *runner = $2->stable_entry.node;
+                            
+                            while (runner && (runner->nodetype == PTR_TYPE || runner->nodetype == ARRAY_TYPE)) {
+                                pacer = runner;
+                                if (runner->nodetype == PTR_TYPE)
+                                    runner = runner->ptr.pointee;
+                                else
+                                    runner = runner->arr.ptr;
+                            } 
+                            pacer->ptr.pointee = $1;
                         }
+                        else {
+                            $2->stable_entry.node = $1;
+                        }
+
+                        $$ = $2;
+                    }
                   ;
 
 pointer: '*'                        { $$ = newNode_ptr(None); }
        | '*' type-qualifier-list    { $$ = newNode_ptr($2); }
-       | '*' pointer                        { 
+       | '*' pointer { 
             astnode *tmp = $2;
             astnode *tmp2;
             while (tmp) {
@@ -1368,25 +1373,74 @@ simple-declarator: IDENT {
                     }
                  ;
 
-array-declarator: direct-declarator '[' ']'         {   
-                        $$ = newNode_arr(-1); 
-                        $$->arr.ptr->ptr.pointee = $1;
+array-declarator: direct-declarator '[' ']'         {  
+                        astnode *pacer = $1;
+                        
+                        if ($1->stable_entry.node) {
+                            astnode *runner = $1->stable_entry.node;
+                            
+                            while (runner && (runner->nodetype == PTR_TYPE || runner->nodetype == ARRAY_TYPE)) {
+                                pacer = runner;
+                                if (runner->nodetype == PTR_TYPE)
+                                    runner = runner->ptr.pointee;
+                                else
+                                    runner = runner->arr.ptr;
+                            } 
+                            pacer->ptr.pointee = newNode_arr(-1);
+                        }
+                        else {
+                            pacer->stable_entry.node = newNode_arr(-1);
+                        }
+                        $$ = $1;
                     }
                 | direct-declarator '[' NUMBER ']'  {
-                        $$ = newNode_arr($3.val);
-                        $$->arr.ptr->ptr.pointee = $1;                    
+                        astnode *pacer = $1;
+                        
+                        if ($1->stable_entry.node) {
+                            astnode *runner = $1->stable_entry.node;
+                            
+                            while (runner && (runner->nodetype == PTR_TYPE || runner->nodetype == ARRAY_TYPE)) {
+                                pacer = runner;
+                                if (runner->nodetype == PTR_TYPE)
+                                    runner = runner->ptr.pointee;
+                                else
+                                    runner = runner->arr.ptr;
+                            } 
+                            pacer->ptr.pointee = newNode_arr($3.val);
+                        }
+                        else 
+                            pacer->stable_entry.node = newNode_arr($3.val);
+                        $$ = $1;
                     }
                 /* for now only allow these type of array declarations. We will 
                    also simplify by not implementing variable-length arrays. */
                 ;
 
 fnc-declarator: direct-declarator '(' ')' {
-                    $$ = $1;
-                    $$->nodetype = STABLE_FNC_DECLARATOR;
-                    $$->stable_entry.type = Function_Type;
-                    $$->stable_entry.node = newNode_fncType(-1);
+                        astnode *pacer = $1;
 
-
+                        if ($1->stable_entry.node) {
+                            astnode *runner = $1->stable_entry.node;
+                            
+                            while (runner && (runner->nodetype == PTR_TYPE || runner->nodetype == ARRAY_TYPE)) {
+                                pacer = runner;
+                                if (runner->nodetype == PTR_TYPE)
+                                    runner = runner->ptr.pointee;
+                                else
+                                    runner = runner->arr.ptr;
+                            } 
+                            /* NOTE: -1 == unknown number of arguments */
+                            pacer->ptr.pointee = newNode_fncType(-1);
+                            $$ = $1;
+                            }
+                        else {
+                            TmpSymbolTableEntry *tmp = createTmpSTableEntry();
+                            tmp->type = Function_Type;
+                            $$ = newNode_sTableEntry(tmp);
+                            $$->stable_entry.ident = $1->stable_entry.ident;
+                            $$->stable_entry.fnc.return_type = NULL;
+                        }
+                        
                 }
               /* simpilify function declarations to only include (). */
               ;
@@ -1398,6 +1452,7 @@ fnc-declarator: direct-declarator '(' ')' {
 **********************************************************************/
 
 function-def: decl-specifiers declarator  {
+
             /* check if function is already declared first */
             if ($<astnode_p>$ = searchStackScope(GENERAL_NAMESPACE, $2->stable_entry.ident)) {
                 $<astnode_p>$->stable_entry.type = Function_Type;
@@ -1414,14 +1469,14 @@ function-def: decl-specifiers declarator  {
                 $<astnode_p>$ = tmp2->list[0];
                 $<astnode_p>$->stable_entry.type = Function_Type;
                 $<astnode_p>$->nodetype = STABLE_FNC_DEFINITION;
-                $<astnode_p>$->stable_entry.node->fnc_type.fnc_body = NULL;
+                $<astnode_p>$->stable_entry.fnc.function_body = NULL;
 
                 /* adding function to the scope above it */
                 sTableInsert(scope_stack.innermost_scope->tables[GENERAL_NAMESPACE], $<astnode_p>$, 0);
             }
         } function-body {
             $$ = $<astnode_p>3;
-            $$->stable_entry.node->fnc_type.fnc_body = $4;
+            $$->stable_entry.fnc.function_body = $4;
         }
        ;
 

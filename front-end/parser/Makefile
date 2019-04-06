@@ -4,7 +4,7 @@ CPP = gcc -E -w 	# preprocessor
 # my testing make
 my-test-parser: flex-bison frontEndHeaders.o symbol_table.o pheader_ast.o parser_tester.o pheaders.o 
 	gcc -o parser frontEndHeaders.o parser_tester.o pheaders.o  pheader_ast.o symbol_table.o
-	$(CPP) tests_4/my_test.c | ./parser
+	$(CPP) tests_4/my_test.c | ./parser -p 2
 
 # tests for assignment 2
 official-test-parser2: flex-bison frontEndHeaders.o parser_tester.o pheaders.o pheader_ast.o

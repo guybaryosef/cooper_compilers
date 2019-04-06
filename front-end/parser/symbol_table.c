@@ -72,11 +72,11 @@ void sTableDestroy(SymbolTable *table) {
 int sTableInsert(SymbolTable *table, astnode *entry, int dup_toggle) {
     /*  keep the symbol table at least twice the size of the 
         # of elements so that our lookups stay fast */
+
     if (table->filled >= table->size/2)
         sTableResize(table);
 
     int data_ind = sTableHash(entry->stable_entry.ident, table->size);
-
     // linear probing
     while ( table->data[data_ind] && 
             strcmp(table->data[data_ind]->stable_entry.ident, entry->stable_entry.ident)) {
@@ -428,42 +428,60 @@ astnode_list *combineSpecifierDeclarator(TmpSymbolTableEntry *specifier,
 
     for (int i = 0; i < decl_list->len; ++i) {
         new_entries->list[i] = newNode_sTableEntry(specifier);
-        /* get cur_handle to be the actual declarator node and second_handle
-           to be the last node pointing to this declarator (if the path 
-           included a pointer or array).     */
-        astnode *cur_handle = decl_list->list[i];
+        new_entries->list[i]->stable_entry.ident = decl_list->list[i]->stable_entry.ident;
+        
+        /* get second_handle to be the last node of the type of this declarator */
+        astnode *cur_handle = decl_list->list[i]->stable_entry.node;
         astnode *second_handle = cur_handle;
-        while ( cur_handle->nodetype == PTR_TYPE ||
-                cur_handle->nodetype == ARRAY_TYPE) {
+        while   (   cur_handle &&
+                    (cur_handle->nodetype == PTR_TYPE    ||
+                     cur_handle->nodetype == ARRAY_TYPE)
+                ) {
+
             second_handle = cur_handle;
+
             if (cur_handle->nodetype == PTR_TYPE)
                 cur_handle = cur_handle->ptr.pointee;
             else 
                 cur_handle = cur_handle->arr.ptr;
         }
 
-        new_entries->list[i]->stable_entry.ident = cur_handle->stable_entry.ident;
-        
-        /* for some declarator types, we alter the declaration type: */
-        astnode *get_pointee;
-        switch(decl_list->list[i]->nodetype) {
-            case PTR_TYPE:
+        if (decl_list->list[i]->nodetype == STABLE_FNC_DECLARATOR) {
+            /* get to tip or return type nodes, and append the type specifier */
+            if (!decl_list->list[i]->stable_entry.fnc.return_type) {
+                decl_list->list[i]->stable_entry.fnc.return_type = specifier->node;
+            }
+            else {
+                astnode *cur_handle = decl_list->list[i]->stable_entry.fnc.return_type;
+                astnode *second_handle = cur_handle;
+                while   (   cur_handle &&
+                            (cur_handle->nodetype == PTR_TYPE    ||
+                            cur_handle->nodetype == ARRAY_TYPE)
+                        ) {
+
+                    second_handle = cur_handle;
+
+                    if (cur_handle->nodetype == PTR_TYPE)
+                        cur_handle = cur_handle->ptr.pointee;
+                    else 
+                        cur_handle = cur_handle->arr.ptr;
+                }
                 second_handle->ptr.pointee = specifier->node;
-                new_entries->list[i]->stable_entry.node = decl_list->list[i];  
-                break;
-            case ARRAY_TYPE:
-                second_handle->ptr.pointee = specifier->node;
-                new_entries->list[i]->stable_entry.node = decl_list->list[i];  
-                break;
-            case STABLE_FNC_DECLARATOR:  
-                decl_list->list[i]->stable_entry.node->fnc_type.return_type = specifier->node;
-                new_entries->list[i]->stable_entry.node = decl_list->list[i]->stable_entry.node;
-                free(decl_list->list[i]);
-                new_entries->list[i]->nodetype = STABLE_FNC_DECLARATOR;
-                break;
-            default:
-                free(decl_list->list[i]);
-        }        
+                
+            }
+            new_entries->list[i] = decl_list->list[i];
+        }
+        else if (cur_handle && cur_handle->nodetype == FNC_TYPE) {
+            cur_handle->fnc_type.return_type = specifier->node;
+            new_entries->list[i]->stable_entry.node = decl_list->list[i]->stable_entry.node;
+            free(decl_list->list[i]);
+        }   
+        else if (second_handle && second_handle->nodetype == PTR_TYPE) {
+            /* deals with array and pointer types */
+            new_entries->list[i]->stable_entry.node = decl_list->list[i]->stable_entry.node;
+            second_handle->ptr.pointee = specifier->node;
+        }     
+
     }
     free(specifier);
 

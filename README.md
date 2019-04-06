@@ -10,8 +10,6 @@ Building a compiler for the C programming language.
 * Need to begin assignment 5.
 
 #### Todo:
-* Add flags to whether to print the variable declarator definitions.
-* Fix structs and unions to be defined after the declarator instead of after their body.
 * Assignment 5 - Quads baby.
 
 ##### Stretch goals:
