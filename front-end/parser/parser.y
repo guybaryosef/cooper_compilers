@@ -12,6 +12,7 @@
     #include "../front_end_header.h"
     #include "./symbol_table.h"
     #include "./pheader_ast.h"
+    #include "./quads.h"
 %}
 
 /* Specify bison header file of token and YYSTYPE definitions.  */
@@ -1512,6 +1513,7 @@ declaration_or_fndef: /* empty */                           { /* NOTHING */ }
                         }
                     | declaration_or_fndef function-def     { 
                             printAST($2, NULL);
+                            generateQuads($2, NULL);
                         }
                     ;
 

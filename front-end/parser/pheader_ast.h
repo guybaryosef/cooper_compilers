@@ -210,7 +210,7 @@ struct astnode_scope_contents {
 ////////////////////////////////////////////////////////
 //////////////// Symbol Table Structs //////////////////
 ////////////////////////////////////////////////////////
-/* There are 10 different uses for identifiers in the C language, most
+/** There are 10 different uses for identifiers in the C language, most
  * of which require different attributes to be kept by the compiler.
  * These identifiers will be placed into a symbol table, and they
  * will be constructed as AST nodes. 
@@ -344,7 +344,7 @@ typedef struct AstnodeLinkedList {
 AstnodeLinkedListNode *newASTnodeLinkedListNode(struct astnode *node);
 AstnodeLinkedList *newASTnodeLinkedList();
 
-/*
+/**
  * addASTnodeLinkedList - Adds an astnode containing a statement 
  * into an ASTnodeLinkedList struct.
  * 
@@ -364,7 +364,7 @@ struct labelDerefHack {
     struct AstnodeLinkedListNode *ptr; 
 };
 
-/*
+/**
  * newNode_labelHack - creates an astnode for the hackish solution
  * of having the label statement point no to a stable_entry, but
  * rather to a node in the linked list of astnodes, so that we could 
@@ -459,7 +459,7 @@ struct TmpSymbolTableEntry;
 astnode *newNode_sTableEntry(struct TmpSymbolTableEntry *tmp_entry);
 
 
-/*
+/**
  * token2op - Takes the token name of an operator and 
  * returns a string of how that operator looks in the C
  * language.
@@ -469,7 +469,7 @@ astnode *newNode_sTableEntry(struct TmpSymbolTableEntry *tmp_entry);
 char *token2op(int token_name);
 
 
-/*
+/**
  * printAST - Given the root node of an Abstract Syntax Tree,
  * this function prints out the tree in a format matching 
  * Hakner's in the assignment sheet.
@@ -482,7 +482,7 @@ char *token2op(int token_name);
 void printAST(struct astnode *root, FILE *output_file);
 
 
-/*
+/**
  * printStructAST - A quick way to specify (print out) the
  * members of a struct or union. This is only called when
  * a struct or union are first defined.
@@ -490,28 +490,28 @@ void printAST(struct astnode *root, FILE *output_file);
 void printStructAST(astnode *root, FILE *output_file, int depth);
 
 
-/*
+/**
  * preorderTraversal - A helper function for printAST. This
  * function implements preorder traversal for the AST printing.
  */
 void preorderTraversal(struct astnode *cur, FILE *output, int depth);
 
 
-/*
+/**
  * translateStgclass - A helper function for gettint the correct
  * printing format for variable storage classes.s
  */
 char *translateStgClass(enum SymbolTableStorageClass stgclass);
 
 
-/*
+/**
  * translateTypeQualifier - A helper function for gettint the correct
  * printing format for variable storage classes.s
  */
 char *translateTypeQualifier(enum SymbolTableTypeQualifiers qualifier);
 
 
-/*
+/**
  * translateScopeType - A helper function for getting the correct
  * printing format for variable storage classes.s
  */
@@ -520,7 +520,7 @@ char *translateScopeType(enum ScopeType type);
 
 
 
-/* 
+/**
  * freeTree - Frees the dynamically allocated memory 
  * that was used by the Abstract Syntax Tree.
  *

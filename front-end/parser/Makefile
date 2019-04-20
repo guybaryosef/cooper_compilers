@@ -2,9 +2,9 @@ CPP = gcc -E -w 	# preprocessor.
 PL?= 1				# printing level. 1=minimal, 2=middle, 3=verbose.
 
 # my testing make
-my-test-parser: flex-bison frontEndHeaders.o symbol_table.o pheader_ast.o parser_tester.o pheaders.o 
-	gcc -o parser frontEndHeaders.o parser_tester.o pheaders.o  pheader_ast.o symbol_table.o
-	$(CPP) tests_4/my_test.c | ./parser -p $(PL)
+my-test-parser: flex-bison frontEndHeaders.o symbol_table.o quads.o pheader_ast.o parser_tester.o pheaders.o 
+	gcc -o parser frontEndHeaders.o parser_tester.o pheaders.o quads.o pheader_ast.o symbol_table.o
+	$(CPP) tests_5/my_test.c | ./parser -p $(PL)
 
 # tests for assignment 2
 official-test-parser2: flex-bison frontEndHeaders.o parser_tester.o pheaders.o pheader_ast.o
@@ -38,6 +38,8 @@ create-lexer:
 	flex -o ../lexer/lexer.c ../lexer/lexer.l 
 
 flex-bison: create-lexer create-parser
+
+quads.o: quads.h quads.c 
 
 parser_tester.o: parser_tester.c parser.c ../lexer/lexer.c 
 	gcc -c ./parser_tester.c

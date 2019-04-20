@@ -1,4 +1,4 @@
-/*
+/**
  * ECE:466 Compilers
  * By: Guy Bar Yosef
  * 
@@ -19,7 +19,7 @@
 /////////////////////// Symbol Table Functions ///////////////////////
 //////////////////////////////////////////////////////////////////////
 
-/*
+/**
  * sTableCreate - Allocates memory for a new, empty symbol
  * table with the size specified in the macro SYMBOL_TABLE_INIT_SIZE.
  */
@@ -42,7 +42,7 @@ SymbolTable *sTableCreate() {
 }
 
 
-/*
+/**
  * sTableDestroy - Given a symbol table, this function 
  * frees all its associated memory and return a 1 on sucess and
  * a -1 on error.
@@ -57,7 +57,7 @@ void sTableDestroy(SymbolTable *table) {
 }
 
 
-/*
+/**
  * sTableInsert - Given a symbol table and a symbol table,
  * this function inserts the entry into the table and returns a 1
  * on sucess and a -1 if the entry already exists.
@@ -102,7 +102,7 @@ int sTableInsert(SymbolTable *table, astnode *entry, int dup_toggle) {
 }
 
 
-/*
+/**
  * sTableLookUp - Given a symbol table and a symbol table entry, this
  * function returns a pointer to the symbol table entry that represents this
  * identifier. If no such entry is found, NULL is returned.
@@ -125,7 +125,7 @@ astnode *sTableLookUp(SymbolTable *table, char *entry_name) {
 }
 
 
-/*
+/**
  * sTableResize - Resizes a symbol table by increasing its size 
  * to the next predetermined hash table size.
  * 
@@ -173,7 +173,7 @@ int sTableResize(SymbolTable *table) {
 }
 
 
-/*
+/**
  * sTableHash - Hashes an identifier, modulus the hashtable's capacity.
  */
 int sTableHash(char *ident, int capacity) {
@@ -191,7 +191,7 @@ int sTableHash(char *ident, int capacity) {
 }
 
 
-/*
+/**
  * createTmpSTableEntry - creates a temporary symbol table
  * entry strucutre, which will serve as a temporary place holder
  * for all the different declarator specifiers, until a type can 
@@ -216,7 +216,7 @@ TmpSymbolTableEntry *createTmpSTableEntry() {
 
 
 
-/*
+/**
  * helperTypeQualifierAddition - A funciton to add two type qualifiers 
  * together.
  */
@@ -275,7 +275,7 @@ enum possibleTypeQualifiers helperTypeQualifierAddition(enum possibleTypeQualifi
 }
 
 
-/*
+/**
  * typeQualifierSTableEntry - Updates the
  * type qualifier of the temporary symbol table entry.
  */
@@ -286,7 +286,7 @@ void typeQualifierSTableEntry(TmpSymbolTableEntry *entry,
 }
 
 
-/*
+/**
  * isTmpSTableEntryValid - Given a TmpSymbolTAbleEntry object,
  * this function determins whether the declaration specifiers
  * for the specified type are valid. 
@@ -294,20 +294,7 @@ void typeQualifierSTableEntry(TmpSymbolTableEntry *entry,
  * Returns 1 (true) or 0(false).
  */
 _Bool isTmpSTableEntryValid(TmpSymbolTableEntry *entry) {
-    /*
-    printf("%d\n",  (int)entry->fnc_is_inline);
-    printf("%ld\n",  (long)entry->fnc_args_type);
-    printf("%ld\n",  (long)entry->su_tag_is_defined );
-    printf("%ld\n",  (long)entry->enum_tag_is_defined);
-    printf("%ld\n",  (long)entry->enum_parent_tag);
-    printf("%ld\n",  (long)entry->enum_const_val);
-    printf("%ld\n",  (long)entry->stmt_IR_assembly_label);
-    printf("%ld\n",  (long)entry->typedef_type);
-    printf("%ld\n",  (long)entry->su_memb_offset);
-    printf("%ld\n",  (long)entry->su_memb_type);
-    printf("%ld\n",  (long)entry->su_memb_bit_field_width);
-    printf("%ld\n",  (long)entry->su_memb_bit_offset);
-    */
+
     /* This function checks whether all declaration specifiers 
        incompatible with this type are NULL or 0,
        (which are the values they are initialized with). */ 
@@ -398,7 +385,7 @@ _Bool isTmpSTableEntryValid(TmpSymbolTableEntry *entry) {
 }
 
 
-/*
+/**
  * Takes in a temporary symbol table entry of declaration specifiers
  * (which includes type specifiers, qualifiers, storage class, etc) as 
  * well as an astnode_list struct that contains an array of declarators,
@@ -494,7 +481,7 @@ astnode_list *combineSpecifierDeclarator(TmpSymbolTableEntry *specifier,
 ////////////////////// Scope Related Functions ///////////////////////
 //////////////////////////////////////////////////////////////////////
 
-/*
+/**
  * searchStackScope - Given a namespace and an identifier, this 
  * function searches through the scope stack (innermost to outermost) 
  * in search of the first variable identifier that correctly matches 
@@ -517,7 +504,7 @@ astnode *searchStackScope(enum Namespace ns, char *ident) {
 }
 
 
-/*
+/**
  * createNewScope - This function creates a new scope.
  * 
  * Implementation-wise, this function acts as a constructor for the
@@ -539,7 +526,7 @@ void createNewScope(enum ScopeType type) {
 }
 
 
-/*
+/**
  * deleteInnermostScope - This function deletes the innermost scope
  * that is in the scope stack. Deleting here refers to freeing the
  * memory, erasing all the symbol tables in the scope. 

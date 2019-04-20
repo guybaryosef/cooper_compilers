@@ -25,6 +25,9 @@ void initializeFrontEnd() {
 	error_count = 0;
     yycolumn = 1;
 
+    /* IR generic code initialization */
+    generic_node_count = 1;
+
     /* scope stack initialization */
     createNewScope(File);
 }

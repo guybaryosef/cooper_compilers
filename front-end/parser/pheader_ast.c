@@ -1,4 +1,4 @@
-/*
+/**
  * ECE:466 Compilers
  * By: Guy Bar Yosef
  * 
@@ -24,7 +24,7 @@
 ////////////////////////////////////////////////////////
 
 
-/*
+/**
  *  newNode_num - Creates a new AST node of type num.
  */
 astnode *newNode_num(struct YYnum num) {
@@ -44,7 +44,7 @@ astnode *newNode_num(struct YYnum num) {
 }
 
 
-/*
+/**
  * newNode_str - Creates anew AST node of type identifier,
  * string literal, or character literal.
  * 
@@ -78,7 +78,7 @@ astnode *newNode_str(int token_name, struct YYstr str) {
 }
 
 
-/*
+/**
  * newNode_unop - Creates a new AST node for type unop 
  * (unary operation).
  */
@@ -109,7 +109,7 @@ astnode *newNode_unop(int token_name) {
 }
 
 
-/*
+/**
  * newNode_binop - Creates a new AST node for type binop 
  * (binary operation).
  */
@@ -145,7 +145,7 @@ astnode *newNode_binop(int token_name) {
 }
 
 
-/*
+/**
  * newNode_func - Creates a new AST node
  * of type function.
  * 
@@ -167,7 +167,7 @@ astnode *newNode_fnc() {
 }
 
 
-/*
+/**
  * newNode_arglist - creates a new AST node
  * for the argument list of a function.
  */
@@ -185,7 +185,7 @@ astnode *newNode_arglist() {
     return node;
 }
 
-/*
+/**
  * expand_arglist - Expands the list of arguments
  * by 1.
  */
@@ -198,7 +198,7 @@ void expand_arglist(astnode *node) {
     node->arglist.list = new_arg_list;
 }
 
-/*
+/**
  * newNode_arg - creates a new AST node
  * of type function argument.
  */
@@ -215,7 +215,7 @@ astnode *newNode_arg(int num) {
     return node;
 }
 
-/*
+/**
  * newNode_slct - creates a new AST node
  * of type component selection.
  * 
@@ -236,7 +236,7 @@ astnode *newNode_slct() {
 }
 
 
-/*
+/**
  * newNode_ternary - Creates an AST node for
  * the ternary operator (expr ? res1 : res 2).
  */
@@ -255,7 +255,7 @@ astnode *newNode_ternary() {
 }
 
 
-/*
+/**
  * newNode_assment - Creates an AST node for the
  * assignment expression operator (=).
  */
@@ -274,7 +274,7 @@ astnode *newNode_assment(int op) {
 }
 
 
-/*
+/**
  * newNode_ptr - Creates an AST node for a pointer.
  */
 astnode *newNode_ptr(enum SymbolTableTypeQualifiers qual) {
@@ -291,7 +291,7 @@ astnode *newNode_ptr(enum SymbolTableTypeQualifiers qual) {
 }
 
 
-/*
+/**
  * newNode_arr - Creates an AST node for an array.
  * 
  * An input of -1 indicates that it is an incomplete array type.
@@ -309,7 +309,7 @@ astnode *newNode_arr(int size) {
     return node;
 }
 
-/*
+/**
  * newNodeType - Creates a new AST node for a scalar type.
  */
 astnode *newNode_scalarType(enum ScalarTypes type, _Bool is_signed) {
@@ -326,7 +326,7 @@ astnode *newNode_scalarType(enum ScalarTypes type, _Bool is_signed) {
 }
 
 
-/*
+/**
  * newNode_fncType - Creates a new AST node for a
  * function type.
  */
@@ -348,7 +348,7 @@ astnode *newNode_fncType(int arg_len) {
     return node;
 }
 
-/*
+/**
  * newNode_strctType - Creates a new AST node that holds
  * the symbol table of a struct type.
  */
@@ -364,7 +364,7 @@ astnode *newNode_strctType() {
     return node;
 }
 
-/*
+/**
  * newNode_conditionalStmt - Creates a new AST node that holds
  * an if-else conditional statment.
  */
@@ -386,7 +386,7 @@ astnode *newNode_conditionalStmt
     return node;
 }; 
 
-/*
+/**
  * newNode_whileStmt - Creates a new AST node that holds
  * a while loop statement.
  */
@@ -406,7 +406,7 @@ astnode *newNode_whileStmt(astnode *expr, astnode *stmt) {
 }
 
 
-/*
+/**
  * newNode_doWhileStmt - Creates a new AST node that holds
  * a do-while loop statment.
  */
@@ -425,7 +425,7 @@ astnode *newNode_doWhileStmt(astnode *expr, astnode *stmt) {
     return node;
 }
 
-/*
+/**
  * newNode_forLoop - Creates a new AST node that holds
  * a for loop statment.
  */
@@ -442,7 +442,7 @@ astnode *newNode_forLoop() {
     return node;
 }   
 
-/*
+/**
  * newNode_switch - Creates a new AST node that holds
  * a switch statment.
  */
@@ -462,7 +462,7 @@ astnode *newNode_switch(astnode *expr, astnode *stmt) {
     return node;
 }
 
-/*
+/**
  * newNode_flowControl - Creates a new AST node that holds
  * a flow control statment (break or continue statement).
  */
@@ -476,7 +476,7 @@ astnode *newNode_flowControl() {
     return node;
 }
 
-/*
+/**
  * newNode_returnStmt - Creates a new AST node that holds
  * a return statement.
  */
@@ -491,7 +491,7 @@ astnode *newNode_returnStmt() {
     return node;
 }
 
-/*
+/**
  * newNode_gotoStmt - Creates a new AST node that holds
  * a goto statement.
  */
@@ -507,7 +507,7 @@ astnode *newNode_gotoStmt() {
 }
 
 
-/*
+/**
  * newNode_compoundStmt - Creates a new AST node that holds
  * a compound statnement.
  */
@@ -528,7 +528,7 @@ astnode *newNode_compoundStmt() {
 }
 
 
-/*
+/**
  * newNode_labelHack - creates an astnode for the hackish solution
  * of having the label statement point no to a stable_entry, but
  * rather to a node in the linked list of astnodes, so that we could 
@@ -549,7 +549,7 @@ astnode *newNode_labelHack(struct AstnodeLinkedListNode *ll_node) {
 }
 
 
-/*
+/**
  * newNode_sTableEntry - creates a new AST node
  * as a symbol table entry. There are several different
  * versions of this AST node, and will be decided 
@@ -632,7 +632,7 @@ astnode *newNode_sTableEntry(TmpSymbolTableEntry *tmp_entry) {
 }
 
 
-/* 
+/** 
  * The constructor for the astnode_list struct.
  * This struct will be used for a declarator list. 
  */
@@ -658,7 +658,7 @@ astnode_list *newASTnodeList(int len, astnode_list *cur_list) {
 }
 
 
-/* 
+/** 
  * The constructor for the AstnodeLinkedListNode struct.
  * This struct will be used for a list of statements, ie
  * a compound statement. 
@@ -677,7 +677,7 @@ AstnodeLinkedListNode *newASTnodeLinkedListNode(astnode *node) {
 }
 
 
-/*
+/**
  * The constructor for the AstnodeLinkedList struct.
  * This struct will be used for a list of statements, ie
  * a compound statement. 
@@ -696,7 +696,7 @@ AstnodeLinkedList *newASTnodeLinkedList(astnode *node) {
 };
 
 
-/*
+/**
  * addASTnodeLinkedList - Adds an astnode containing a statement 
  * into an ASTnodeLinkedList struct.
  * 
@@ -724,7 +724,7 @@ void addASTnodeLinkedList(AstnodeLinkedList *ll, astnode *node) {
 //////////////////////////////////////////////////////////
 
 
-/*
+/**
  * token2op - Takes the token name of an operator and 
  * returns how the operator is printed in Hakne'r AST example.
  * 
@@ -783,7 +783,7 @@ char *token2op(int token_name) {
 
 
 
-/*
+/**
  * printAST - Given the root node of an Abstract Syntax Tree,
  * this function prints out the tree in a format matching 
  * Hakner's in the assignment sheet.
@@ -801,7 +801,7 @@ void printAST(astnode *root, FILE *output_file) {
 }
 
 
-/*
+/**
  * printStructAST - A quick way to specify (print out) the
  * members of a struct or union. This is only called when
  * a struct or union are first defined.
@@ -836,7 +836,7 @@ void printStructAST(astnode *root, FILE *output_file, int depth) {
 }
 
 
-/*
+/**
  * preorderTraversal - A helper function for printAST. This
  * function implements preorder traversal for the AST printing.
  */
@@ -860,9 +860,9 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
             if (cur->num.types & NUMMASK_INTGR)
                 fprintf(output, "CONSTANT:  (type=int)%lld\n", cur->num.val);
             else if (cur->num.types & NUMMASK_DOUBLE)
-                fprintf(output, "CONSTANT:  (type=double)%g\n", cur->num.d_val);
+                fprintf(output, "CONSTANT:  (type=double)%ff\n", (double)cur->num.d_val);
             else
-                fprintf(output, "CONSTANT:  (type=float)%g\n", cur->num.d_val);
+                fprintf(output, "CONSTANT:  (type=float)%f\n", (float) cur->num.d_val);
             break;
         case CHRLIT_TYPE:
             fprintf(output, "CONSTANT:  (type=int)%d\n", cur->chrlit.c_val);
@@ -1047,7 +1047,6 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
                 preorderTraversal(cur->stable_entry.node, output, depth+1);
             }
             else {
-
                 fprintf(output, "stab_var name=%s def @<%s>:%d\n", 
                     cur->stable_entry.ident,
                     cur->stable_entry.file_name, 
@@ -1306,7 +1305,7 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
 
 
 
-/*
+/**
  * translateStgclass - A helper function for gettint the correct
  * printing format for variable storage classes.s
  */
@@ -1321,7 +1320,7 @@ char *translateStgClass(enum SymbolTableStorageClass stgclass) {
 }
 
 
-/*
+/**
  * translateTypeQualifier - A helper function for gettint the correct
  * printing format for variable storage classes.s
  */
@@ -1338,7 +1337,7 @@ char *translateTypeQualifier(enum SymbolTableTypeQualifiers qualifier) {
     }
 }
 
-/*
+/**
  * translateScopeType - A helper function for gettint the correct
  * printing format for variable storage classes.s
  */
@@ -1351,7 +1350,7 @@ char *translateScopeType(enum ScopeType type) {
     }
 }
 
-/* 
+/** 
  * freeTree - Frees the dynamically allocated memory 
  * that was used by the Abstract Syntax Tree.
  *

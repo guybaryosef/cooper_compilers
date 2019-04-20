@@ -46,6 +46,8 @@ EXTERN_VAR char strlit_buffer[MAX_STRLIT_SIZE]; /* buffer for string literals   
 EXTERN_VAR char *helper_end, *helper_begin; 
 EXTERN_VAR int yycolumn;                        /* implements locations for the lexer */
 EXTERN_VAR enum PrintLevel print_level;         /* the level on which to print      */
+EXTERN_VAR int generic_node_count;              /* a counter of the value of next IR generic node */
+
 #include "./parser/symbol_table.h"
 EXTERN_VAR ScopeStack scope_stack;              /* scope linked list   */
 

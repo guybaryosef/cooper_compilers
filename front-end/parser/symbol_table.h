@@ -1,4 +1,4 @@
-/*
+/**
  * ECE:466 Compilers
  * By: Guy Bar Yosef
  * 
@@ -115,14 +115,14 @@ typedef struct TmpSymbolTableEntry {
 /////////////////////// Symbol Table Functions ///////////////////////
 //////////////////////////////////////////////////////////////////////
 
-/*
+/**
  * sTableCreate - Allocates memory for a new, empty symbol
  * table with the size specified in the macro SYMBOL_TABLE_INIT_SIZE.
  */
 SymbolTable *sTableCreate();
 
 
-/*
+/**
  * sTableDestroy - Given a symbol table, this function 
  * frees all its associated memory and return a 1 on sucess and
  * a -1 on error.
@@ -130,7 +130,7 @@ SymbolTable *sTableCreate();
 void sTableDestroy(SymbolTable *table);
 
 
-/*
+/**
  * sTableInsert - Given a symbol table and a symbol table entry,
  * this function inserts the entry into the table and returns a 1
  * on sucess and a -1 on error.
@@ -142,7 +142,7 @@ void sTableDestroy(SymbolTable *table);
 int sTableInsert(SymbolTable *table, struct astnode *entry, int dup_toggle);
 
 
-/*
+/**
  * sTableLookUp - Given a symbol table and a symbol table entry, this
  * function returns a pointer to the symbol table entry that represents this
  * identifier. If no such entry is found in any scope, NULL is returned.
@@ -150,20 +150,20 @@ int sTableInsert(SymbolTable *table, struct astnode *entry, int dup_toggle);
 struct astnode *sTableLookUp(SymbolTable *table, char *entry);
 
 
-/*
+/**
  * sTableResize - Resizes a symbol table by increasing its size 
  * to the next predetermined hash table size.
  */
 int sTableResize(SymbolTable *table);
 
 
-/*
+/**
  * sTableHash - Produces the hash of an identifier.
  */
 int sTableHash(char *ident, int mod);
 
 
-/*
+/**
  * createTmpSTableEntry - creates a temporary symbol table
  * entry strucutre, which will serve as a temporary place holder
  * for all the different declarator specifiers, until a type can 
@@ -175,7 +175,7 @@ int sTableHash(char *ident, int mod);
 TmpSymbolTableEntry *createTmpSTableEntry();
 
 
-/*
+/**
  * typeQualifierSTableEntry - Updates the
  * type qualifier of the temporary symbol table entry.
  */
@@ -183,7 +183,7 @@ void typeQualifierSTableEntry(TmpSymbolTableEntry *entry,
                               enum possibleTypeQualifiers qualifier);
 
 
-/*
+/**
  * helperTypeQualifierAddition - A funciton to add two type qualifiers 
  * together.
  */
@@ -193,7 +193,7 @@ enum possibleTypeQualifiers helperTypeQualifierAddition(
 
 
 
-/*
+/**
  * isTmpSTableEntryValid - Given a TmpSymbolTAbleEntry object,
  * this function determins whether the declaration specifiers
  * for the specified type are valid. 
@@ -203,7 +203,7 @@ enum possibleTypeQualifiers helperTypeQualifierAddition(
 _Bool isTmpSTableEntryValid(TmpSymbolTableEntry *entry);
 
 
-/*
+/**
  * Takes in a temporary symbol table entry of declaration specifiers
  * (which includes type specifiers, qualifiers, storage class, etc) as 
  * well as an astnode_list struct that contains an array of declarators,
@@ -223,7 +223,7 @@ struct astnode_list *combineSpecifierDeclarator(TmpSymbolTableEntry *specifier, 
 ////////////////////// Scope Related Functions ///////////////////////
 //////////////////////////////////////////////////////////////////////
 
-/*
+/**
  * searchStackScope - Given a namespace and an identifier, this 
  * function searches through the scope stack (innermost to outermost) 
  * in search of the first variable identifier that correctly matches 
@@ -234,7 +234,7 @@ struct astnode_list *combineSpecifierDeclarator(TmpSymbolTableEntry *specifier, 
 astnode *searchStackScope(enum Namespace ns, char *ident);
 
 
-/*
+/**
  * createNewScope - This function creates a new scope.
  * 
  * Implementation-wise, this function acts as a constructor for the
@@ -243,7 +243,7 @@ astnode *searchStackScope(enum Namespace ns, char *ident);
 void createNewScope(enum ScopeType type);
 
 
-/*
+/**
  * deleteInnermostScope - This function deletes the innermost scope
  * that is in the scope stack. Deleting here refers to freeing the
  * memory, erasing all the symbol tables in the scope. 
