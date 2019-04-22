@@ -569,7 +569,7 @@ astnode *newNode_sTableEntry(TmpSymbolTableEntry *tmp_entry) {
     }
 
     if (!tmp_entry) {  /* applies to struct declarations */
-        new_entry->nodetype = IDENT_TYPE;
+        new_entry->nodetype = STABLE_IDENT_TYPE;
         return new_entry;
     }
     new_entry->stable_entry.file_name = tmp_entry->file_name;
@@ -851,6 +851,7 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
 
     AstnodeLinkedListNode *astnode_ll_iter; /* used in COMPOUND_STMT */
     switch(cur->nodetype) {
+        case STABLE_IDENT_TYPE:
         case IDENT_TYPE:
             fprintf(output, "UNKNOWN IDENT  %s\n", cur->stable_entry.ident);
             if (cur->stable_entry.node)
@@ -1020,7 +1021,7 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
         case STABLE_ENUM_TAG:
         case STABLE_SU_MEMB:
             if (print_level == Verbose_Level) {
-
+                
                 fprintf( output, 
                     "%s is defined at %s:%d [in %s scope starting at %s:%d] "
                     "as a \n", 

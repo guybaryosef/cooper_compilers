@@ -47,6 +47,10 @@ EXTERN_VAR char *helper_end, *helper_begin;
 EXTERN_VAR int yycolumn;                        /* implements locations for the lexer */
 EXTERN_VAR enum PrintLevel print_level;         /* the level on which to print      */
 EXTERN_VAR int generic_node_count;              /* a counter of the value of next IR generic node */
+EXTERN_VAR struct QuadLLNode *cur_quad_ll;      /* the current quad linked list to append to      */
+EXTERN_VAR struct BasicBlock *cur_basic_block;  /* the current basic block to append to           */
+
+
 
 #include "./parser/symbol_table.h"
 EXTERN_VAR ScopeStack scope_stack;              /* scope linked list   */

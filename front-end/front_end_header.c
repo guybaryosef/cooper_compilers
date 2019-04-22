@@ -9,6 +9,7 @@
 
 
 #include "front_end_header.h"
+#include "./parser/quads.h"
 
 #include <stdlib.h>
 
@@ -26,7 +27,9 @@ void initializeFrontEnd() {
     yycolumn = 1;
 
     /* IR generic code initialization */
-    generic_node_count = 1;
+    cur_basic_block = calloc(1, sizeof(BasicBlock));
+    cur_quad_ll = cur_basic_block->quads_ll;
+    generic_node_count = 1; 
 
     /* scope stack initialization */
     createNewScope(File);

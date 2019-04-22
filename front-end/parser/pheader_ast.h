@@ -20,6 +20,7 @@
 /// Structs used in Abstract Syntax Tree Definitions ///
 ////////////////////////////////////////////////////////
 
+#define STABLE_IDENT_TYPE -1
 #define IDENT_TYPE 1  /* struct for a token Identifer */
 struct astnode_ident {  
     char *str;

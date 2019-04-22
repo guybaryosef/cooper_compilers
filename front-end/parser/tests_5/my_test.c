@@ -1,5 +1,6 @@
-int *i, *v, a;
-char *b;
+
+int a[10], b;
+
 int main() {
-    a = i + b;
+    printf(a[3]);
 }

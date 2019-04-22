@@ -14,32 +14,21 @@
 struct astnode;
 
 
-/* sizeof operator constants */
-#define DATATYPE_CHAR_SIZE 1
-#define DATATYPE_SHORT_SIZE 2
-#define DATATYPE_INTEGER_SIZE 4
-#define DATATYPE_LONG 8
-#define DATATYPE_LONGLONG 8
-#define DATATYPE_POINTER 8
-#define DATATYPE_FLOAT 4
-#define DATATYPE_DOUBLE 8
-#define DATATYPE_LONGDOUBLE 16
+/////////////////////////////////////////////////////////////////////////
+///////////////////////////// Basic Blocks //////////////////////////////
+/////////////////////////////////////////////////////////////////////////
+
+/* each basic block is made out of a linked list of quads and a unique label */
+typedef struct BasicBlock {
+    char *u_label;          /* a unique label */
+    struct QuadLLNode *quads_ll;   /* linked list of quads */
+} BasicBlock;
 
 /**
- * evaluateSizeOf - Evalutates the SizeOf operators into a constant.
- * Because we are not implementing a variable length array any time
- * soon, this will always evaluate into a constant during compile-time.
+ * newBasicBlock - Creates and returns a new IR Basic Block.
  */
-struct astnode *evaluateSizeOf(struct astnode *node);
+BasicBlock *newBasicBlock();
 
-/**
- * newGenericTemp - Generates a new generic node that is of temporary
- * type. There temporary types will be used when evaluating
- * subexpressions and the like. We will defer register allocation until
- * the BackEnd and so for now we will assume an infinite supply of 
- * virtual registers in which to place temporary values.
- */
-struct astnode *newGenericTemp();
 
 
 /////////////////////////////////////////////////////////////////////////
@@ -54,14 +43,15 @@ struct astnode *newGenericTemp();
  *  - l - long  - 32 bites
  *  - q - quads - 64 bites 
  */
-enum QuadOpcode {   MOVB = 1, MOVW, MOVL, MOVQ, ADDB, ADDW, ADDL, ADDQ,
-                    MODB, MODW, MODL, MODQ,     XORB, XORW, XORL, XORQ,
-                    ANDB, ANDW, ANDL, ANDQ,     MULB, MULW, MULL, MULQ,
-                    SUBB, SUBW, SUBL, SUBQ,     COMPLB, COMPLW, COMPLL, COMPLQ,
-                    ORB, ORW, ORL, ORQ,         LT, GT, SHL_OP, SHR_OP, LTEQ_OP, GTEQ_OP, 
-                    DIVB, DIVW, DIVL, DIVQ,      EQEQ_OP, NOTEQ_OP, 
-                    LOGO, LOGN, COMMA,       DEREF, PLPL, MINMIN,
-                    NEG, POS, LOG_NEG_EXPR,     ADDR_OF, STORE, LOAD, LEA
+enum QuadOpcode {MOVB = 1,MOVW, MOVL, MOVQ, ADDB, ADDW, ADDL, ADDQ,
+                    MODB, MODW, MODL, MODQ, XORB, XORW, XORL, XORQ,
+                    ANDB, ANDW, ANDL, ANDQ, MULB, MULW, MULL, MULQ,
+                    SUBB, SUBW, SUBL, SUBQ, COMPLB,COMPLW, COMPLL, COMPLQ,
+                    ORB, ORW, ORL, ORQ,     LT,   GT,   SHL_OP, SHR_OP, LTEQ_OP, GTEQ_OP, 
+                    DIVB, DIVW, DIVL, DIVQ, EQEQ_OP, NOTEQ_OP, 
+                    LOGO, LOGN, COMMA,DEREF,PLPL, MINMIN,
+                    NEG, POS, LOG_NEG_EXPR, STORE, LOAD, LEA,
+                    ARGBEGIN, ARG, CALL
                 };  
 
 
@@ -71,13 +61,6 @@ typedef struct Quad {
     enum QuadOpcode opcode;
     struct astnode *result, *src1, *src2;
 } Quad;
-
-
-/**
- * emitQuad - generates a new quad with the specified opcode and the generic
- * nodes des (destination), source 1 (src 1), and source 2 (src2).
- */
-Quad *emitQuad(enum QuadOpcode op, struct astnode *des, struct astnode *src1, struct astnode *src2);
 
 
 /* A linked list wrapper of a quad */
@@ -93,20 +76,17 @@ typedef struct QuadLLNode {
 QuadLLNode *newQuadLLNode(Quad *new_quad);
 
 
+/**
+ * emitQuad - generates a new quad with the specified opcode and the generic
+ * nodes des (destination), source 1 (src 1), and source 2 (src2).
+ */
+Quad *emitQuad(enum QuadOpcode op, struct astnode *des, struct astnode *src1, struct astnode *src2);
 
 
-
-
-/////////////////////////////////////////////////////////////////////////
-///////////////////////////// Basic Blocks //////////////////////////////
-/////////////////////////////////////////////////////////////////////////
-
-/* each basic block is made out of a linked list of quads and a unique label */
-typedef struct BasicBlock {
-    char *u_label;          /* a unique label */
-    QuadLLNode *quads_ll;   /* linked list of quads */
-} BasicBlock;
-
+/**
+ * printQuad - Prints out to stdout a QUAD intermediate representation.
+ */
+void printQuad(Quad *quad);
 
 
 /**
@@ -120,8 +100,13 @@ void generateQuads(struct astnode *root, FILE *output_file);
  * printQuads - Prints out the Intermediate Representation (quads) of
  * the expressions inside a compound statement. 
  */
-void genQuad(struct astnode *compound_stmt, FILE *output_file);
+void generateQuadsHelper(struct astnode *compound_stmt, FILE *output_file);
 
+
+/**
+ * genQuads - Generates the QUADS of an astnode (and all its children).
+ */
+struct astnode *genQuads(struct astnode *root);
 
 /**
  * generateAssignmentIR - Generates the IR of an assignment operation.
@@ -147,10 +132,21 @@ struct astnode *genRvalue(struct astnode *node, struct astnode *target);
  */
 char *op2str(enum QuadOpcode op);
 
+
 /**
  * node2str - A helper function used to output the value of a node in QUADS.
  */
 char *node2str(struct astnode *node);
+
+
+/**
+ * generateFunctionCall - Generates the QUADS necessary for a 
+ * function call. We will attempt to keep this architecture 
+ * independent, thereby pushing off many of the architecture
+ * specific parts of the function call assembly code to the
+ * backend.
+ */
+void generateFunctionCall(struct astnode *node);
 
 
 /**
@@ -159,6 +155,35 @@ char *node2str(struct astnode *node);
  * Else returns a NULL AST pointer.
  */
 struct astnode *confirmSamePointer(struct astnode *node1,struct astnode *node2);
+
+
+/* sizeof operator constants */
+#define DATATYPE_CHAR_SIZE 1
+#define DATATYPE_SHORT_SIZE 2
+#define DATATYPE_INTEGER_SIZE 4
+#define DATATYPE_LONG 8
+#define DATATYPE_LONGLONG 8
+#define DATATYPE_POINTER 8
+#define DATATYPE_FLOAT 4
+#define DATATYPE_DOUBLE 8
+#define DATATYPE_LONGDOUBLE 16
+/**
+ * evaluateSizeOf - Evalutates the SizeOf operators into a constant.
+ * Because we are not implementing a variable length array any time
+ * soon, this will always evaluate into a constant during compile-time.
+ */
+struct astnode *evaluateSizeOf(struct astnode *node);
+
+
+/**
+ * newGenericTemp - Generates a new generic node that is of temporary
+ * type. There temporary types will be used when evaluating
+ * subexpressions and the like. We will defer register allocation until
+ * the BackEnd and so for now we will assume an infinite supply of 
+ * virtual registers in which to place temporary values.
+ */
+struct astnode *newGenericTemp();
+
 
 
 #endif
