@@ -33,7 +33,7 @@ struct astnode_num {
     double d_val;
 }; 
 
-/* Comparison operators (< > <= >=) and logical 
+/* Comparison operators (< > <= >= == !=) and logical 
    operators (&& ||) are both binary operations.
    The distinction is made only for 
    differentiating the AST-printing format. */
@@ -207,6 +207,10 @@ struct astnode_scope_contents {
     struct AstnodeLinkedList *astnode_ll;
 };
 
+#define BASIC_BLOCK_TYPE 200 /* is a basic block */
+struct astnode_bb {
+    struct BasicBlock *bb;
+};
 
 ////////////////////////////////////////////////////////
 //////////////// Symbol Table Structs //////////////////
@@ -410,6 +414,7 @@ typedef struct astnode {
         struct astnode_goto goto_stmt;
         struct astnode_scope_contents compound_stmt;
         struct labelDerefHack label_deref_hack; 
+        struct astnode_bb bb_type;
     };
 } astnode;
 
@@ -452,6 +457,8 @@ astnode *newNode_flowControl();     /* break/continue stmt  */
 astnode *newNode_returnStmt();      /* a return statement   */
 astnode *newNode_gotoStmt();        /* goto statement       */
 astnode *newNode_compoundStmt();    /* a compound statement */
+astnode *newNode_bb(struct BasicBlock *block);  /* creatres a new basic block node */
+
 
 /* forward declaration, will be defined in symbol_table.h */
 struct TmpSymbolTableEntry; 

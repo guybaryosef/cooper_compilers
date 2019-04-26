@@ -27,9 +27,11 @@ void initializeFrontEnd() {
     yycolumn = 1;
 
     /* IR generic code initialization */
-    cur_basic_block = calloc(1, sizeof(BasicBlock));
-    cur_quad_ll = cur_basic_block->quads_ll;
+    cur_basic_block = NULL;
+    initial_bb = NULL;
+    cur_quad_ll = NULL;
     generic_node_count = 1; 
+    generic_bb_count = 1;
 
     /* scope stack initialization */
     createNewScope(File);

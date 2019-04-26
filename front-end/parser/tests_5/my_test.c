@@ -1,6 +1,8 @@
 
-int a[10], b;
+int g;
 
 int main() {
-    printf(a[3]);
+
+    g = (a<b);
 }
+

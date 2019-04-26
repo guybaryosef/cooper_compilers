@@ -28,7 +28,7 @@ struct YYstr {
     char char_val;
 };
 
-enum PrintLevel { Minimal_Level = 1, Mid_Level, Verbose_Level };
+enum PrintLevel { Minimal_Level = 1, Mid_Level, Verbose_Level};
 
 #define LINESIZE 1024
 #define MAX_STRLIT_SIZE 2048
@@ -45,8 +45,12 @@ EXTERN_VAR char tmp[20];						/* temp helper variable             */
 EXTERN_VAR char strlit_buffer[MAX_STRLIT_SIZE]; /* buffer for string literals       */
 EXTERN_VAR char *helper_end, *helper_begin; 
 EXTERN_VAR int yycolumn;                        /* implements locations for the lexer */
-EXTERN_VAR enum PrintLevel print_level;         /* the level on which to print      */
+EXTERN_VAR enum PrintLevel ast_pl;              /* the level of which to print asts */
+EXTERN_VAR enum PrintLevel quads_pl;            /* the level of which to print quads*/
+
+EXTERN_VAR struct BasicBlock *initial_bb;       /* the entry basic block; the first one           */
 EXTERN_VAR int generic_node_count;              /* a counter of the value of next IR generic node */
+EXTERN_VAR int generic_bb_count;                /* a counter of the value of next basic block     */
 EXTERN_VAR struct QuadLLNode *cur_quad_ll;      /* the current quad linked list to append to      */
 EXTERN_VAR struct BasicBlock *cur_basic_block;  /* the current basic block to append to           */
 

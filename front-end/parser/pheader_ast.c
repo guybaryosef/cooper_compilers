@@ -549,6 +549,24 @@ astnode *newNode_labelHack(struct AstnodeLinkedListNode *ll_node) {
 }
 
 
+
+/**
+ * newNode_bb - creates a new basic block node.
+ */
+astnode *newNode_bb(struct BasicBlock *block) {
+    astnode *node;
+    if ((node = calloc(1, sizeof(astnode))) == NULL) {
+        fprintf(stderr, "Error allocating memory for AST node: %s\n", 
+                                                    strerror(errno));
+        exit(-1);
+    }
+    
+    node->nodetype = BASIC_BLOCK_TYPE;
+    node->bb_type.bb = block;
+    return node;  
+}
+
+
 /**
  * newNode_sTableEntry - creates a new AST node
  * as a symbol table entry. There are several different
@@ -718,6 +736,8 @@ void addASTnodeLinkedList(AstnodeLinkedList *ll, astnode *node) {
     ll->last->next = newASTnodeLinkedListNode(node);
     ll->last = ll->last->next;
 }
+
+
 
 //////////////////////////////////////////////////////////
 ///////////// Abstract Syntax Tree Functions /////////////
@@ -1020,7 +1040,7 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
         case STABLE_VAR:
         case STABLE_ENUM_TAG:
         case STABLE_SU_MEMB:
-            if (print_level == Verbose_Level) {
+            if (ast_pl == Verbose_Level) {
                 
                 fprintf( output, 
                     "%s is defined at %s:%d [in %s scope starting at %s:%d] "
@@ -1055,7 +1075,7 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
             }
             break;
         case STABLE_FNC_DECLARATOR:
-            if (print_level == Verbose_Level) {
+            if (ast_pl == Verbose_Level) {
                 fprintf( output, 
                     "%s is defined at %s:%d [in %s scope starting at %s:%d] "
                     "as a \n", 
@@ -1120,7 +1140,7 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
                                     cur->stable_entry.file_name, 
                                     cur->stable_entry.line_num);
             }
-            if (print_level == Verbose_Level) {
+            if (ast_pl == Verbose_Level) {
                 printStructAST(cur, output, depth+1);    
             }
             
@@ -1252,7 +1272,7 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
                 fprintf(output, "GOTO: <undefined>\n");
             break;
         case STABLE_FNC_DEFINITION:
-            if (print_level == Verbose_Level) {
+            if (ast_pl == Verbose_Level) {
                 fprintf( output, 
                     "%s is defined at %s:%d [in %s scope starting at %s:%d] "
                     "as a \n", 
@@ -1272,7 +1292,7 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
                     translateStgClass(cur->stable_entry.var.storage_class)
                 );
             }
-            else if (print_level == Mid_Level) {
+            else if (ast_pl == Mid_Level) {
                 fprintf(output, "stab_fn name=%s declared @<%s>:%d\n", 
                     cur->stable_entry.ident, 
                     cur->stable_entry.file_name,

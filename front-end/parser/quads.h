@@ -20,8 +20,9 @@ struct astnode;
 
 /* each basic block is made out of a linked list of quads and a unique label */
 typedef struct BasicBlock {
-    char *u_label;          /* a unique label */
-    struct QuadLLNode *quads_ll;   /* linked list of quads */
+    char *u_label;        /* a unique label */
+    struct QuadLLNode *quads_ll;    /* linked list of quads */
+    struct BasicBlock *next;  /* the next basic block */
 } BasicBlock;
 
 /**
@@ -51,7 +52,8 @@ enum QuadOpcode {MOVB = 1,MOVW, MOVL, MOVQ, ADDB, ADDW, ADDL, ADDQ,
                     DIVB, DIVW, DIVL, DIVQ, EQEQ_OP, NOTEQ_OP, 
                     LOGO, LOGN, COMMA,DEREF,PLPL, MINMIN,
                     NEG, POS, LOG_NEG_EXPR, STORE, LOAD, LEA,
-                    ARGBEGIN, ARG, CALL
+                    ARGBEGIN, ARG, CALL, CMP, BR, BRNEQ, BREQ, BRLT, BRLE,
+                    BRGT, BRGE, CC_LT, CC_GT, CC_EQ, CC_NEQ, CC_GE, CC_LE
                 };  
 
 
@@ -73,20 +75,7 @@ typedef struct QuadLLNode {
 /**
  * newQuadLLNode - Creates and returns a new linked list node of a quad.
  */
-QuadLLNode *newQuadLLNode(Quad *new_quad);
-
-
-/**
- * emitQuad - generates a new quad with the specified opcode and the generic
- * nodes des (destination), source 1 (src 1), and source 2 (src2).
- */
-Quad *emitQuad(enum QuadOpcode op, struct astnode *des, struct astnode *src1, struct astnode *src2);
-
-
-/**
- * printQuad - Prints out to stdout a QUAD intermediate representation.
- */
-void printQuad(Quad *quad);
+void newQuadLLNode(Quad *new_quad);
 
 
 /**
@@ -108,6 +97,30 @@ void generateQuadsHelper(struct astnode *compound_stmt, FILE *output_file);
  */
 struct astnode *genQuads(struct astnode *root);
 
+
+/**
+ * generateConditionalIR - Generates the IR required for 
+ * conditional statements.
+ */
+void generateConditionalIR(struct astnode *node);
+
+
+/**
+ * generateConditionIR - Generates quds for a conditional expression.
+ */ 
+void generateConditionIR(struct astnode *node, BasicBlock *bb_then, BasicBlock *bb_else);
+
+
+/**
+ * generateFunctionCallIR - Generates the QUADS necessary for a 
+ * function call. We will attempt to keep this architecture 
+ * independent, thereby pushing off many of the architecture
+ * specific parts of the function call assembly code to the
+ * backend.
+ */
+void generateFunctionCallIR(struct astnode *node);
+
+
 /**
  * generateAssignmentIR - Generates the IR of an assignment operation.
  */
@@ -127,6 +140,30 @@ struct astnode *genLvalue(struct astnode *node, enum LvalueMode *mode);
 struct astnode *genRvalue(struct astnode *node, struct astnode *target);
 
 
+/*
+ * emitQuad - generates a new quad with the specified opcode and the generic
+ * nodes des (destination), source 1 (src 1), and source 2 (src2).
+ */
+Quad *emitQuad(enum QuadOpcode op, struct astnode *des, struct astnode *src1, struct astnode *src2);
+
+/**
+ * printIR - prints the whole of the IR.
+ */
+void printIR(BasicBlock *bb);
+
+
+/**
+ * printBB - Prints out to stdout the basic block.
+ */
+void printBB(BasicBlock *bb);
+
+
+/**
+ * printQuad - Prints out to stdout a QUAD intermediate representation.
+ */
+void printQuad(Quad quad);
+
+
 /**
  * op2str - A helper function to output the generated QUADs opcode. 
  */
@@ -137,16 +174,6 @@ char *op2str(enum QuadOpcode op);
  * node2str - A helper function used to output the value of a node in QUADS.
  */
 char *node2str(struct astnode *node);
-
-
-/**
- * generateFunctionCall - Generates the QUADS necessary for a 
- * function call. We will attempt to keep this architecture 
- * independent, thereby pushing off many of the architecture
- * specific parts of the function call assembly code to the
- * backend.
- */
-void generateFunctionCall(struct astnode *node);
 
 
 /**

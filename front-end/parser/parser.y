@@ -1514,6 +1514,9 @@ declaration_or_fndef: /* empty */                           { /* NOTHING */ }
                     | declaration_or_fndef function-def     { 
                             printAST($2, NULL);
                             generateQuads($2, NULL);
+                            printBB(cur_basic_block);
+                            // if (quads_pl == Mid_Level)
+                            //     printIR(initial_bb);
                         }
                     ;
 

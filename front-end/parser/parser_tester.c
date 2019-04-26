@@ -23,20 +23,30 @@
 int main(int argc, char **argv) {
 
     if (argc == 1) 
-        print_level = Minimal_Level;
-    else if (argc == 3) {
+        ast_pl = Minimal_Level;
+    else if (argc == 4) {
         if (!strcmp(argv[2], "1"))
-            print_level = Minimal_Level;
+            ast_pl = Minimal_Level;
         else if (!strcmp(argv[2], "2"))
-            print_level = Mid_Level;
+            ast_pl = Mid_Level;
         else if (!strcmp(argv[2], "3"))
-            print_level = Verbose_Level;
+            ast_pl = Verbose_Level;
         else {
             fprintf(stderr, "Correct Usage: %s [-p 1/2/3]\n", argv[0]);
             return -1;
-        }    }
+        }
+
+        if (!strcmp(argv[3], "1"))
+            quads_pl = Minimal_Level;
+        else if (!strcmp(argv[3], "2"))
+            quads_pl = Mid_Level;
+        else {
+            fprintf(stderr, "Correct Usage: %s [-p 1/2/3 1/2]\n", argv[0]);
+            return -1;
+        }   
+    }
     else {
-        fprintf(stderr, "Correct Usage: %s [-p 1/2/3]\n", argv[0]);
+        fprintf(stderr, "Correct Usage: %s [-p 1/2/3 1/2]\n", argv[0]);
         return -1;
     }
 
