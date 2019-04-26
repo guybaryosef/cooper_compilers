@@ -18,7 +18,7 @@ Stages 2-5 involve the parser and the assignment specification can be found resp
 3. Parser - Parsing C declarations, symbols, and types.
 4. Parser - Parsing C statements and functions.
 5. Quad Generation - Generating intermediate representation. 
-6. Back-end - Assembly code generation.
+6. Back-end - Target code (x86-32 assembly) generation.
 
 #### Status:
 * Lexer working.
@@ -27,12 +27,12 @@ Stages 2-5 involve the parser and the assignment specification can be found resp
 * Completed quads for a medium-sized subset of the C language. This includes C expressions, function calls, conditional statements and loops. Excluded from this are function prototypes, function definitions with parameters, structure member operations, casts, ternary and comma operators, compound literals, switch statements, goto and labeled statements and initialized declarators.
 
 #### Todo:
-* Assignment 6 - the BackEnd!
+* Change quads output to be to a specifiable file (defaults to c-program-file-name.s)
+* Create backend function to generate assembly for global and static variables.
+* Implement a simple one-quad-window instruction selector, converting quads to assembly.
+* Implement a primitive register allocator 
 
 
 ##### Stretch goals:
 * Type conversion quads.
-* Implement function prototypes & function arguments.
-* Implement enums.
-* Implement struct bit fields.
-* Implement initialized declarators.
+* Implement grammars for function prototypes & function arguments, enums, struct bit fields, initialized declarators.

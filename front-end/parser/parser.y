@@ -15,9 +15,10 @@
     #include "./quads.h"
 %}
 
-/* Specify bison header file of token and YYSTYPE definitions.  */
-/* This will be used by both the lexer and parser.              */
-%defines "../lexer/lheader.h"
+/* Specify bison header file of token and YYSTYPE definitions.
+    This will be used by both the lexer and parser.
+    Note that now that it is generated, no need to call it again. */
+// %defines "./front-end/lexer/lheader.h"
 
 %union {
     int simple_int;

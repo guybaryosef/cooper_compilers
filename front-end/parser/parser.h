@@ -30,8 +30,8 @@
    This special exception was added by the Free Software Foundation in
    version 2.2 of Bison.  */
 
-#ifndef YY_YY_FRONT_END_LEXER_LHEADER_H_INCLUDED
-# define YY_YY_FRONT_END_LEXER_LHEADER_H_INCLUDED
+#ifndef YY_YY_FRONT_END_PARSER_PARSER_H_INCLUDED
+# define YY_YY_FRONT_END_PARSER_PARSER_H_INCLUDED
 /* Debug traces.  */
 #ifndef YYDEBUG
 # define YYDEBUG 0
@@ -134,7 +134,7 @@ union YYSTYPE
     struct AstnodeLinkedList *astnode_ll;
     struct astnode_scope_contents *cmpnd_stmt;
 
-#line 138 "./front-end/lexer/lheader.h" /* yacc.c:1909  */
+#line 138 "./front-end/parser/parser.h" /* yacc.c:1909  */
 };
 
 typedef union YYSTYPE YYSTYPE;
@@ -161,4 +161,4 @@ extern YYSTYPE yylval;
 extern YYLTYPE yylloc;
 int yyparse (void);
 
-#endif /* !YY_YY_FRONT_END_LEXER_LHEADER_H_INCLUDED  */
+#endif /* !YY_YY_FRONT_END_PARSER_PARSER_H_INCLUDED  */
