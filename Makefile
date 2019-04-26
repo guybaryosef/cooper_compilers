@@ -37,4 +37,4 @@ symbol_table.o: ./front-end/parser/symbol_table.h ./front-end/parser/symbol_tabl
 	gcc -c ./front-end/parser/symbol_table.c
 
 clear:
-	rm  *.o .front-end/lexer/lexer.c ./front-end/parser/parser.c ./front-end/parser/parser.output ./parser
+	rm  *.o .front-end/lexer/lexer.c ./front-end/parser/parser.c ./front-end/parser/parser.output ./guycc
