@@ -1,5 +1,5 @@
 
-z()
+void z()
 {
 int a,b;
     if (a<b)

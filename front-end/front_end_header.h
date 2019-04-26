@@ -53,6 +53,9 @@ EXTERN_VAR int generic_node_count;              /* a counter of the value of nex
 EXTERN_VAR int generic_bb_count;                /* a counter of the value of next basic block     */
 EXTERN_VAR struct QuadLLNode *cur_quad_ll;      /* the current quad linked list to append to      */
 EXTERN_VAR struct BasicBlock *cur_basic_block;  /* the current basic block to append to           */
+EXTERN_VAR struct BasicBlock *continue_bb;      /* the basic block that a continue stmt points to */
+EXTERN_VAR struct BasicBlock *break_bb;         /* the basic block that a break stmt points to    */
+
 
 
 

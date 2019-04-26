@@ -1,6 +1,6 @@
 int a[10];
 
-f()
+void f()
 {
 int x, *p;
     x=a[3];

@@ -142,3 +142,15 @@ int yyerror (char const *err_str) {
 
     return 0;
 }
+
+
+/* 
+ * yyerror - The function that gets called when an error occurs in both
+ * the lexer and and parser.
+ */
+int yywarn (char const *err_str) {
+    fprintf(stderr, "%s:%d:%d Warning: %s\n", 
+                cur_file_name, cur_line_num, yylloc.last_column, err_str);
+
+    return 0;
+}

@@ -817,7 +817,7 @@ void printAST(astnode *root, FILE *output_file) {
 
     FILE *output = (output_file) ? output_file : stdout;
     preorderTraversal(root, output, 0);
-    fprintf(output, "\n");  /* keeping consistent with Hakner's format */
+    if (ast_pl != Minimal_Level) fprintf(output, "\n");  /* keeping consistent with Hakner's format */
 }
 
 
@@ -861,7 +861,7 @@ void printStructAST(astnode *root, FILE *output_file, int depth) {
  * function implements preorder traversal for the AST printing.
  */
 void preorderTraversal(astnode *cur, FILE *output, int depth) {
-    if (cur == NULL)    /* for error checking, might be beneficial to throw error here */
+    if (cur == NULL || ast_pl == Minimal_Level)
         return;
 
     /* format the tab spacing correctly */
@@ -872,10 +872,12 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
     AstnodeLinkedListNode *astnode_ll_iter; /* used in COMPOUND_STMT */
     switch(cur->nodetype) {
         case STABLE_IDENT_TYPE:
-        case IDENT_TYPE:
             fprintf(output, "UNKNOWN IDENT  %s\n", cur->stable_entry.ident);
             if (cur->stable_entry.node)
                 preorderTraversal(cur->stable_entry.node, output, depth+1);
+            break;
+        case IDENT_TYPE:
+            fprintf(output, "UNKNOWN IDENT: (%s)\n", cur->ident.str);
             break;
         case NUM_TYPE:
             if (cur->num.types & NUMMASK_INTGR)
@@ -1067,7 +1069,7 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
                 fprintf(output, "%s", translateTypeQualifier(cur->stable_entry.var.type_qualifier));
                 preorderTraversal(cur->stable_entry.node, output, depth+1);
             }
-            else {
+            else if (ast_pl == Mid_Level) {
                 fprintf(output, "stab_var name=%s def @<%s>:%d\n", 
                     cur->stable_entry.ident,
                     cur->stable_entry.file_name, 
@@ -1102,7 +1104,7 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
 
                 fprintf(output, "and taking an unspecified number of arguments.\n");
             }
-            else {
+            else if (ast_pl == Mid_Level) {
                 fprintf(output, "stab_fn name=%s declared @<%s>:%d\n", 
                     cur->stable_entry.ident, 
                     cur->stable_entry.file_name,
@@ -1140,6 +1142,7 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
                                     cur->stable_entry.file_name, 
                                     cur->stable_entry.line_num);
             }
+
             if (ast_pl == Verbose_Level) {
                 printStructAST(cur, output, depth+1);    
             }
@@ -1187,29 +1190,28 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
                 fprintf(output, "    ");
 
             fprintf(output, "COND:\n");
-            for (int i = 0; i < depth; ++i)
-                fprintf(output, "    ");
             preorderTraversal(cur->while_stmt.expr, output, depth+1);
 
-            fprintf(output, "BODY:\n");
             for (int i = 0; i < depth; ++i)
                 fprintf(output, "    ");
+            fprintf(output, "BODY:\n");
+;
             preorderTraversal(cur->while_stmt.stmt, output, depth+1);
 
             break;
         case DO_WHILE_STMT:
             fprintf(output, "DO-WHILE\n");
+            
             for (int i = 0; i < depth; ++i)
                 fprintf(output, "    ");
-
             fprintf(output, "BODY:\n");
-            for (int i = 0; i < depth; ++i)
-                fprintf(output, "    ");
+
             preorderTraversal(cur->do_while_stmt.stmt, output, depth+1);
             
-            fprintf(output, "COND:\n");
             for (int i = 0; i < depth; ++i)
                 fprintf(output, "    ");
+            fprintf(output, "COND:\n");
+
             preorderTraversal(cur->do_while_stmt.expr, output, depth+1);
 
             break;
@@ -1219,9 +1221,7 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
                 fprintf(output, "    ");
 
             fprintf(output, "INIT:\n");
-
-            for (int i = 0 ; i < cur->for_stmt.initial_clause->len; ++i)
-                preorderTraversal(cur->for_stmt.initial_clause->list[i], output, depth+1);
+            preorderTraversal(cur->for_stmt.initial_clause, output, depth+1);
 
             for(int i = 0 ; i < depth ; ++i)
                 fprintf(output, "    ");
@@ -1291,6 +1291,8 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
                     "%s function with stgclass of type:\n", 
                     translateStgClass(cur->stable_entry.var.storage_class)
                 );
+                fprintf(output, "AST Dump for function called %s:\n", cur->stable_entry.ident);
+                preorderTraversal(cur->stable_entry.fnc.function_body, output, depth+1);
             }
             else if (ast_pl == Mid_Level) {
                 fprintf(output, "stab_fn name=%s declared @<%s>:%d\n", 
@@ -1298,10 +1300,9 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
                     cur->stable_entry.file_name,
                     cur->stable_entry.line_num
                 );
+                fprintf(output, "AST Dump for function called %s:\n", cur->stable_entry.ident);
+                preorderTraversal(cur->stable_entry.fnc.function_body, output, depth+1);
             }
-
-            fprintf(output, "AST Dump for function called %s:\n", cur->stable_entry.ident);
-            preorderTraversal(cur->stable_entry.fnc.function_body, output, depth+1);
             break;
         case COMPOUND_STMT:
             fprintf(output, "LIST {\n");

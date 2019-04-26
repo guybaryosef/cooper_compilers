@@ -55,5 +55,12 @@ void checkNumberTypes(YYSTYPE *yylval, char *yytext);
 int yyerror(char const *err_str);   
 
 
+/* 
+ * yyerror - The function that gets called when an error occurs in both
+ * the lexer and and parser.
+ */
+int yywarn (char const *err_str);
+
+
 
 #endif

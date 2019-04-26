@@ -80,9 +80,8 @@
 %type <tmp_stable_entry> label named-label case-label default-label
 %type <astnode_p> compound-stmt stmt decl-or-stmt 
 %type <astnode_ll> decl-or-stmt-list
-%type <astnode_p> if-stmt if-else-stmt 
-%type <astnode_p> while-stmt do-stmt for-stmt for-expr
-%type <astnode_pp>  initial-clause
+%type <astnode_p> if-stmt if-else-stmt initial-clause
+%type <astnode_p> while-stmt do-stmt for-stmt for-expr 
 
 /************************** TYPE GRAMMAR-TYPES (hehe) **************************/
 %type <storage_class> storage-class-specifier 
@@ -653,7 +652,7 @@ for-expr: '(' initial-clause ';' expr   ';' expr    ')' {
             }
         ;
 
-initial-clause: expr        { $$ = newASTnodeList(1, NULL); $$->list[0] = $1; }
+initial-clause: expr        { $$ = $1; }
               /* ignoring c++ like feature that includes declarations here */
               ;
 
@@ -1514,9 +1513,8 @@ declaration_or_fndef: /* empty */                           { /* NOTHING */ }
                     | declaration_or_fndef function-def     { 
                             printAST($2, NULL);
                             generateQuads($2, NULL);
-                            printBB(cur_basic_block);
-                            // if (quads_pl == Mid_Level)
-                            //     printIR(initial_bb);
+                            if (quads_pl == Mid_Level) 
+                                printBB(cur_basic_block);
                         }
                     ;
 

@@ -32,7 +32,9 @@ void initializeFrontEnd() {
     cur_quad_ll = NULL;
     generic_node_count = 1; 
     generic_bb_count = 1;
-
+    continue_bb = NULL;
+    break_bb = NULL;
+    
     /* scope stack initialization */
     createNewScope(File);
 }

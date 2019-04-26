@@ -1,8 +1,9 @@
 
-int g;
+int a[10];
 
-int main() {
-
-    g = (a<b);
+void f()
+{
+int x, *p;
+    x=a[3];
+    p= &a[5];
 }
-

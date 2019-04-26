@@ -103,8 +103,7 @@ astnode *genQuads(astnode *node) {
             initial_bb = cur_basic_block;
     }
 
-    astnode *target = newGenericTemp();
-
+    astnode *target;
     AstnodeLinkedListNode *cur;
     switch (node->nodetype) {
         case COMPOUND_STMT:
@@ -122,18 +121,236 @@ astnode *genQuads(astnode *node) {
             return NULL;
 
         case FNC_CALL:
-            generateFunctionCallIR(node);
+            generateFunctionCallIR(node, NULL);
             return NULL;
 
         case CONDITIONAL_STMT:
             generateConditionalIR(node);
             return NULL;
 
+        case WHILE_STMT:
+            generateWhileLoopIR(node);
+            return NULL;
+
+        case FOR_STMT:
+            generateForLoopIR(node);
+            return NULL;
+
+        case DO_WHILE_STMT:
+            generateDoWhileLoopIR(node);
+            return NULL;
+
+        case BREAK_STMT:
+            if (break_bb) {
+                emitQuad(BR, NULL, newNode_bb(break_bb), NULL);
+            }
+            else {
+                yyerror("Invalid break statement.");
+            }
+            return NULL;
+
+        case CONTINUE_STMT:
+            if (continue_bb)
+                emitQuad(BR, NULL, newNode_bb(continue_bb), NULL);
+            else
+                yyerror("Invalid continue statement.");
+            return NULL;
+
+        case RETURN_STMT:
+            target = genRvalue(node->return_stmt.expr, NULL);
+            emitQuad(RETURN, NULL, target, NULL);
+            return NULL;
+
+        case UNOP_TYPE:
+            if (node->unop.op == PLUSPLUS || node->unop.op == MINUSMINUS) {
+                genPostixIncrIR(node, node->unop.op);
+                return NULL;
+            }
+            // else let logic fall through to the default case
         default:
+            yywarn("This line has no useful effect");
+            target = newGenericTemp();
             emitQuad(MOVQ, target, genRvalue(node, NULL), NULL);
             return target;
     }
 }    
+
+
+/**
+ * genPostixIncrIR - Generates IR for a postfix expression.
+ */ 
+astnode *genPostixIncrIR(astnode *node, int node_type) {
+    // set up a tmp variable which will be returned by the function
+    astnode *tmp = genRvalue(node->unop.expr, NULL);
+
+
+    // set up the increment value node
+    struct YYnum num_val;
+    num_val.val = 1;
+    num_val.types = NUMMASK_INTGR | NUMMASK_INT;
+
+    // set up the new assignment node
+    astnode *new_node = newNode_assment('=');
+    new_node->assignment.left = node->unop.expr;
+
+    astnode *new_op;
+    if (node_type == PLUSPLUS)
+        new_op = newNode_binop('+');
+    else
+        new_op = newNode_binop('-');
+
+    new_op->binop.left = tmp;
+    new_op->binop.right = newNode_num(num_val);
+    
+    new_node->assignment.right = new_op;
+
+    generateAssignmentIR(new_node);
+
+    return tmp;
+}
+
+
+/**
+ * generateForLoopIR - Generates IR for a for-loop.
+ */
+void generateForLoopIR(astnode *node) {
+
+    // generate initial clause IR in existing bb 
+    genQuads(node->for_stmt.initial_clause);
+
+    // set up the basic blocks the for loop will consist of
+    BasicBlock *condition_bb = newBasicBlock(NULL);
+    
+    BasicBlock *loop_bb = newBasicBlock(NULL);
+
+    BasicBlock *increment_bb = newBasicBlock(NULL);
+    loop_bb->next = increment_bb;
+    increment_bb->next = condition_bb;
+    
+    BasicBlock *next_bb = newBasicBlock(NULL);
+
+    // move basic block state to while condition basic block
+    cur_basic_block->next = condition_bb;
+    if (quads_pl == Mid_Level) printBB(cur_basic_block);
+    cur_basic_block = condition_bb;
+    cur_quad_ll = cur_basic_block->quads_ll;
+
+    // set up the corresponding cursors for continue and break stmts
+    continue_bb = increment_bb;
+    break_bb = next_bb;
+    
+    generateConditionIR(node->for_stmt.check_expr, loop_bb, next_bb);
+
+    // set up basic block setup for the loop body
+    if (quads_pl == Mid_Level) printBB(cur_basic_block);
+    cur_basic_block = loop_bb;
+    cur_quad_ll = cur_basic_block->quads_ll;
+
+    // generate quads for the loop body
+    genQuads(node->for_stmt.stmt);
+
+    // remove continue and break cursors after loop is done
+    continue_bb = NULL;
+    break_bb = NULL;
+
+    // set up bb setups for the increment expression
+    if (quads_pl == Mid_Level) printBB(cur_basic_block);
+    cur_basic_block = increment_bb;
+    cur_quad_ll = cur_basic_block->quads_ll;
+
+    // generate quads for the increment expression
+    genQuads(node->for_stmt.iteration_expr);
+
+    // set up next basic block after while loop 
+    if (quads_pl == Mid_Level) printBB(cur_basic_block);
+    cur_basic_block = next_bb;
+    cur_quad_ll = cur_basic_block->quads_ll;
+}
+
+
+/**
+ * generateDoWhileLoopIR - Generates IR for a do-while loop.
+ */
+void generateDoWhileLoopIR(astnode *node) {
+
+    BasicBlock *if_bb = newBasicBlock(NULL);
+    
+    BasicBlock *loop_bb = newBasicBlock(NULL);
+    loop_bb->next = if_bb;
+
+    BasicBlock *next_bb = newBasicBlock(NULL);
+
+    // move bb state to loop body bb
+    cur_basic_block->next = loop_bb;
+    if (quads_pl == Mid_Level) printBB(cur_basic_block);
+    cur_basic_block = loop_bb;
+    cur_quad_ll = cur_basic_block->quads_ll;
+
+    // set up the corresponding cursors for continue and break stmts
+    continue_bb = if_bb;
+    break_bb = next_bb;
+
+    // generate quads for the loop body
+    genQuads(node->while_stmt.stmt);
+
+    // set up basic block setup for the loop condition
+    if (quads_pl == Mid_Level) printBB(cur_basic_block);
+    cur_basic_block = if_bb;
+    cur_quad_ll = cur_basic_block->quads_ll;
+
+    generateConditionIR(node->while_stmt.expr, loop_bb, next_bb);
+
+    // remove continue and break cursors after loop is done
+    continue_bb = NULL;
+    break_bb = NULL;
+
+    // set up next basic block after while loop 
+    if (quads_pl == Mid_Level) printBB(cur_basic_block);
+    cur_basic_block = next_bb;
+    cur_quad_ll = cur_basic_block->quads_ll;
+}
+
+
+/**
+ * generateWhileLoopIR - Generates IR for a while loop.
+ */
+void generateWhileLoopIR(astnode *node) {    
+    BasicBlock *if_bb = newBasicBlock(NULL);
+    
+    BasicBlock *loop_bb = newBasicBlock(NULL);
+    loop_bb->next = if_bb;
+
+    BasicBlock *next_bb = newBasicBlock(NULL);
+
+    // move basic block state to while condition basic block
+    cur_basic_block->next = if_bb;
+    if (quads_pl == Mid_Level) printBB(cur_basic_block);
+    cur_basic_block = if_bb;
+    cur_quad_ll = cur_basic_block->quads_ll;
+
+    // set up the corresponding cursors for continue and break stmts
+    continue_bb = if_bb;
+    break_bb = next_bb;
+    
+    generateConditionIR(node->while_stmt.expr, loop_bb, next_bb);
+
+    // set up basic block setup for the loop body
+    if (quads_pl == Mid_Level) printBB(cur_basic_block);
+    cur_basic_block = loop_bb;
+    cur_quad_ll = cur_basic_block->quads_ll;
+
+    // generate quads for the loop body
+    genQuads(node->while_stmt.stmt);
+
+    // remove continue and break cursors after loop is done
+    continue_bb = NULL;
+    break_bb = NULL;
+
+    // set up next basic block after while loop 
+    if (quads_pl == Mid_Level) printBB(cur_basic_block);
+    cur_basic_block = next_bb;
+    cur_quad_ll = cur_basic_block->quads_ll;
+}
 
 
 /**
@@ -183,7 +400,7 @@ void generateConditionalIR(astnode *node) {
         generateConditionIR(node->conditional_stmt.expr, bb_then, bb_else);
 
         // create quads for 'then' case
-        printBB(cur_basic_block);   /* print the basic block up to the condiitonal */
+        if (quads_pl == Mid_Level) printBB(cur_basic_block);   /* print the basic block up to the condiitonal */
 
         cur_basic_block = bb_then;
         cur_quad_ll = cur_basic_block->quads_ll;
@@ -193,7 +410,7 @@ void generateConditionalIR(astnode *node) {
 
         // create quads for 'else' case
         if (node->conditional_stmt.else_node) {
-            printBB(cur_basic_block);  /* print the 'then' basic block  */
+            if (quads_pl == Mid_Level) printBB(cur_basic_block);  /* print the 'then' basic block  */
             cur_basic_block = bb_else;
             cur_quad_ll = cur_basic_block->quads_ll;
         
@@ -201,7 +418,7 @@ void generateConditionalIR(astnode *node) {
             emitQuad(BR, NULL, newNode_bb(bb_next), NULL);
         }
 
-        printBB(cur_basic_block);   /* print either the 'then' or 'else' block */
+        if (quads_pl == Mid_Level) printBB(cur_basic_block);   /* print either the 'then' or 'else' block */
         cur_basic_block = bb_next;
         cur_quad_ll = cur_basic_block->quads_ll;
     }    
@@ -252,7 +469,7 @@ void generateConditionIR(astnode *node, BasicBlock *bb_then, BasicBlock *bb_else
  * specific parts of the function call assembly code to the
  * backend.
  */
-void generateFunctionCallIR(astnode *node) {
+void generateFunctionCallIR(astnode *node, astnode *target) {
     if (node->nodetype != FNC_CALL)
         yyerror("Cannot create a funciton call for a non-function call type");
 
@@ -262,14 +479,16 @@ void generateFunctionCallIR(astnode *node) {
 
     emitQuad(ARGBEGIN, NULL, newNode_num(num_val), NULL);
 
-
     for (int i = 0 ; i < node->fnc.arg_count ; ++i) {
         num_val.val = i+1;
         astnode *new_tmp = genRvalue(node->fnc.arguments[i]->arg.expr, NULL);
         emitQuad(ARG, NULL, newNode_num(num_val), new_tmp);
     }
 
-    emitQuad(CALL, NULL, node->fnc.ident, NULL);
+    if (target)
+        emitQuad(CALL, target, node->fnc.ident, NULL);
+    else
+        emitQuad(CALL, NULL, node->fnc.ident, NULL);
 }
 
 
@@ -279,7 +498,6 @@ void generateFunctionCallIR(astnode *node) {
 void generateAssignmentIR(astnode *node) {
     enum LvalueMode l_mode;
     astnode *des = genLvalue(node->assignment.left, &l_mode);
-
 
     if (des == NULL)
         yyerror("Invalid assignment of an l-value.");
@@ -347,7 +565,7 @@ astnode *genRvalue(astnode *node, astnode *target) {
         // for now ignore type values
         astnode *left = genRvalue(node->binop.left, NULL);
         astnode *right = genRvalue(node->binop.right, NULL);
-
+        
         enum QuadOpcode op;
         switch (node->binop.op)  {
             case '%':    op = MODQ;     break;
@@ -378,14 +596,14 @@ astnode *genRvalue(astnode *node, astnode *target) {
             tmp_val.types = NUMMASK_INTGR;
             tmp_val.types |= NUMMASK_INT;
             astnode *num_val = newNode_num(tmp_val);
-            if (  (node->binop.left->nodetype == STABLE_VAR && (
-                    node->binop.left->stable_entry.node->nodetype == PTR_TYPE || 
-                    node->binop.left->stable_entry.node->nodetype == ARRAY_TYPE)) && 
-                    (node->binop.right->nodetype == NUM_TYPE) ) 
+
+            if ( (node->binop.left->nodetype == STABLE_VAR && (
+                node->binop.left->stable_entry.node->nodetype == PTR_TYPE || 
+                node->binop.left->stable_entry.node->nodetype == ARRAY_TYPE) ) && 
+                (node->binop.right->nodetype == NUM_TYPE) ) 
             {
                 astnode *tmp = newGenericTemp();
                 emitQuad(MULQ, tmp, right, num_val);
-                free(right);
                 right = tmp;
             }
             else if ( (node->binop.right->nodetype == STABLE_VAR && (
@@ -395,7 +613,6 @@ astnode *genRvalue(astnode *node, astnode *target) {
             {
                 astnode *tmp = newGenericTemp();
                 emitQuad(MULQ, tmp, left, num_val);
-                free(left);
                 left = tmp;
             }
             /* if both are pointers, need to confirm they point to the same type and
@@ -427,20 +644,24 @@ astnode *genRvalue(astnode *node, astnode *target) {
     else if (node->nodetype == UNOP_TYPE) {
         // for now ignore type values
 
-        // convert sizeof operator to an constant value
-        astnode *expr = genRvalue(node->unop.expr, NULL);
-        enum QuadOpcode op;
-        switch (node->unop.op) { 
-            case '~':       op = COMPLQ;        break;
-            case '-':       op = NEG;           break;
-            case '+':       op = POS;           break;
-            case '!':       op = LOG_NEG_EXPR;  break;
-            case PLUSPLUS:  op = PLUSPLUS;      break;
-            case MINUSMINUS:op = MINUSMINUS;    break;
+        // a bit more logic if it is a postfix increment
+        if (node->unop.op == PLUSPLUS || node->unop.op == MINUSMINUS) {
+            return genPostixIncrIR(node, node->unop.op);
         }
+        else {
+            // convert sizeof operator to an constant value
+            astnode *expr = genRvalue(node->unop.expr, NULL);
+            enum QuadOpcode op;
+            switch (node->unop.op) { 
+                case '~':       op = COMPLQ;        break;
+                case '-':       op = NEG;           break;
+                case '+':       op = POS;           break;
+                case '!':       op = LOG_NEG_EXPR;  break;
+            }
         
-        emitQuad(op, target, expr, NULL);
-        return target;
+            emitQuad(op, target, expr, NULL);
+            return target;
+        }
     }
     else if (node->nodetype == SIZEOF_TYPE) {
         astnode *expr = evaluateSizeOf(node->unop.expr);
@@ -453,9 +674,14 @@ astnode *genRvalue(astnode *node, astnode *target) {
         return target;
     }
     else if (node->nodetype == ADDR_TYPE) {
-        // convert sizeof operator to an constant value
-        astnode *expr = genRvalue(node->unop.expr, NULL);
-        emitQuad(LEA, target, expr, NULL);
+        printf("%d\n", node->unop.expr->nodetype);
+        if (node->unop.expr->nodetype == DEREF_TYPE) {
+            genRvalue(node->unop.expr->unop.expr, target); 
+        }
+        else {
+            astnode *expr = genRvalue(node->unop.expr, NULL);
+            emitQuad(LEA, target, expr, NULL);
+        }
         return target;
     }
     else if (node->nodetype == COMPARE_TYPE) {
@@ -469,6 +695,10 @@ astnode *genRvalue(astnode *node, astnode *target) {
             case NOTEQ:emitQuad(CC_NEQ, target, NULL, NULL); break;
             default:  yyerror("Invalid comparator operator");
         }
+        return target;
+    }
+    else if (node->nodetype == FNC_CALL) {
+        generateFunctionCallIR(node, target);
         return target;
     }
     return NULL;
@@ -497,18 +727,6 @@ Quad *emitQuad(enum QuadOpcode op, astnode *des, astnode *src1, astnode *src2) {
 
 
 /**
- * printIR - prints the whole of the IR.
- */
-void printIR(BasicBlock *bb) {
-    BasicBlock *cur = bb;
-
-    printBB(cur);
-    if (cur->next)
-    printIR(cur->next);
-}
-
-
-/**
  * printBB - Prints out to stdout the basic block.
  */
 void printBB(BasicBlock *bb) {
@@ -522,6 +740,9 @@ void printBB(BasicBlock *bb) {
         printQuad(cur_node->quad);
         cur_node = cur_node->next;
     }
+
+    if (bb->next)
+        printf("    fall to -> %s\n", bb->next->u_label);
 }
 
 
@@ -622,6 +843,7 @@ char *op2str(enum QuadOpcode op) {
         case CC_EQ: return "CC_EQ";
         case CC_GE: return "CC_GE";
         case CC_LE: return "CC_LE";
+        case RETURN:        return "RETURN";
         case CC_NEQ:        return "CC_NEQ";
         case MINMIN:        return "MINMIN";
         case COMPLB:        return "COMPLB";

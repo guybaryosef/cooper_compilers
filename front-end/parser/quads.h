@@ -48,9 +48,9 @@ enum QuadOpcode {MOVB = 1,MOVW, MOVL, MOVQ, ADDB, ADDW, ADDL, ADDQ,
                     MODB, MODW, MODL, MODQ, XORB, XORW, XORL, XORQ,
                     ANDB, ANDW, ANDL, ANDQ, MULB, MULW, MULL, MULQ,
                     SUBB, SUBW, SUBL, SUBQ, COMPLB,COMPLW, COMPLL, COMPLQ,
-                    ORB, ORW, ORL, ORQ,     LT,   GT,   SHL_OP, SHR_OP, LTEQ_OP, GTEQ_OP, 
+                    ORB, ORW, ORL, ORQ, LT, GT, SHL_OP, SHR_OP, LTEQ_OP, GTEQ_OP, 
                     DIVB, DIVW, DIVL, DIVQ, EQEQ_OP, NOTEQ_OP, 
-                    LOGO, LOGN, COMMA,DEREF,PLPL, MINMIN,
+                    LOGO, LOGN, COMMA, DEREF, PLPL, MINMIN,
                     NEG, POS, LOG_NEG_EXPR, STORE, LOAD, LEA,
                     ARGBEGIN, ARG, CALL, CMP, BR, BRNEQ, BREQ, BRLT, BRLE,
                     BRGT, BRGE, CC_LT, CC_GT, CC_EQ, CC_NEQ, CC_GE, CC_LE
@@ -99,6 +99,29 @@ struct astnode *genQuads(struct astnode *root);
 
 
 /**
+ * genPostixIncrIR - Generates IR for a postfix expression.
+ */ 
+struct astnode *genPostixIncrIR(struct astnode *node, int node_type);
+
+
+/**
+ * generateForLoopIR - Generates IR for a for-loop.
+ */
+void generateForLoopIR(struct astnode *node);
+
+
+/**
+ * generateDoWhileLoopIR - Generates IR for a do-while loop.
+ */
+void generateDoWhileLoopIR(struct astnode *node);
+
+
+/**
+ * generateWhileLoopIR - Generates IR for a while loop.
+ */
+void generateWhileLoopIR(struct astnode *node);
+
+/**
  * generateConditionalIR - Generates the IR required for 
  * conditional statements.
  */
@@ -118,7 +141,7 @@ void generateConditionIR(struct astnode *node, BasicBlock *bb_then, BasicBlock *
  * specific parts of the function call assembly code to the
  * backend.
  */
-void generateFunctionCallIR(struct astnode *node);
+void generateFunctionCallIR(struct astnode *node, struct astnode *target);
 
 
 /**
@@ -145,11 +168,6 @@ struct astnode *genRvalue(struct astnode *node, struct astnode *target);
  * nodes des (destination), source 1 (src 1), and source 2 (src2).
  */
 Quad *emitQuad(enum QuadOpcode op, struct astnode *des, struct astnode *src1, struct astnode *src2);
-
-/**
- * printIR - prints the whole of the IR.
- */
-void printIR(BasicBlock *bb);
 
 
 /**

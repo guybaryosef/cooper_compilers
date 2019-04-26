@@ -145,7 +145,7 @@ struct astnode_do_while {
 
 #define FOR_STMT 53 /* for loop statement */
 struct astnode_for_loop {
-    struct astnode_list *initial_clause;
+    struct astnode *initial_clause;
     struct astnode *check_expr;
     struct astnode *iteration_expr;
     struct astnode *stmt;

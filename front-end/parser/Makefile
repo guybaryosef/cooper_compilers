@@ -1,6 +1,6 @@
 CPP = gcc -E -w 	# preprocessor.
 vA?= 1				# ast printing level: 1=minimal, 2=middle, 3=verbose.
-vQ?= 2				# quads printing level- defaults to print
+vQ?= 1				# quads printing level- defaults to print
 
 # my testing make
 my-test-parser: flex-bison frontEndHeaders.o symbol_table.o quads.o pheader_ast.o parser_tester.o pheaders.o 
