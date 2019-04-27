@@ -24,7 +24,7 @@
    locations feature for the parser (will lead to and error, because 
    it requires variables that the parser initializes).
    As such, we define YYLTYPE which is supposed to be defined in the 
-   parser and which yyerror uses. Here we will no be using it for,
+   parser and which yyerror uses. Here we will not be using it,
    just implementing it to keep the compiler happy. 	*/
 YYLTYPE yylloc = { 1,1,1,1};
 

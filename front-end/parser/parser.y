@@ -1512,10 +1512,11 @@ declaration_or_fndef: /* empty */                           { /* NOTHING */ }
                             }
                         }
                     | declaration_or_fndef function-def     { 
-                            printAST($2, NULL);
-                            generateQuads($2, NULL);
+                            printAST($2, NULL);        
+
+                            generateQuads($2);
                             if (quads_pl == Mid_Level) 
-                                printBB(cur_basic_block);
+                                printBB_ll(&bb_ll);
                         }
                     ;
 

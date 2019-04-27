@@ -12,6 +12,9 @@
  */
 
 
+#include <stdio.h>
+
+
 #ifndef FRONT_END
 #define FRONT_END
 
@@ -48,14 +51,14 @@ EXTERN_VAR int yycolumn;                        /* implements locations for the 
 EXTERN_VAR enum PrintLevel ast_pl;              /* the level of which to print asts */
 EXTERN_VAR enum PrintLevel quads_pl;            /* the level of which to print quads*/
 
-EXTERN_VAR struct BasicBlock *initial_bb;       /* the entry basic block; the first one           */
+EXTERN_VAR struct BB_ll bb_ll;                 /* a linked list of basic blocks- 1 for each function in input */
 EXTERN_VAR int generic_node_count;              /* a counter of the value of next IR generic node */
 EXTERN_VAR int generic_bb_count;                /* a counter of the value of next basic block     */
 EXTERN_VAR struct QuadLLNode *cur_quad_ll;      /* the current quad linked list to append to      */
 EXTERN_VAR struct BasicBlock *cur_basic_block;  /* the current basic block to append to           */
 EXTERN_VAR struct BasicBlock *continue_bb;      /* the basic block that a continue stmt points to */
 EXTERN_VAR struct BasicBlock *break_bb;         /* the basic block that a break stmt points to    */
-
+EXTERN_VAR FILE *output_file;                   /* the output file that will be written to        */
 
 
 

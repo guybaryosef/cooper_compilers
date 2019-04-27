@@ -6,6 +6,7 @@
  * associated with quads (IR generation). 
  */
 #include <stdio.h>
+#include <stdbool.h>
 
 
 #ifndef QUADS
@@ -23,6 +24,7 @@ typedef struct BasicBlock {
     char *u_label;        /* a unique label */
     struct QuadLLNode *quads_ll;    /* linked list of quads */
     struct BasicBlock *next;  /* the next basic block */
+    _Bool printed;          /* a flag to know if already printed or not */
 } BasicBlock;
 
 /**
@@ -30,6 +32,20 @@ typedef struct BasicBlock {
  */
 BasicBlock *newBasicBlock();
 
+
+// A node for a linked list of basic blocks. In this linked list will
+// be the entry basic block into each function in the input.
+typedef struct BB_ll_node {
+    BasicBlock *bb;
+    struct BB_ll_node *next;
+} BB_ll_node;
+
+BB_ll_node *newBBnode(BasicBlock *bb);  /* constructor for a BB_ll_node */
+
+typedef struct BB_ll {
+    BB_ll_node *first;
+    BB_ll_node *last;
+} BB_ll;
 
 
 /////////////////////////////////////////////////////////////////////////
@@ -82,14 +98,7 @@ void newQuadLLNode(Quad *new_quad);
  * generateQuads - Generates the Intermediate Representation (quads) of 
  * a function and stores them into a specified file (stdout be default). 
  */
-void generateQuads(struct astnode *root, FILE *output_file);
-
-  
-/**
- * printQuads - Prints out the Intermediate Representation (quads) of
- * the expressions inside a compound statement. 
- */
-void generateQuadsHelper(struct astnode *compound_stmt, FILE *output_file);
+void generateQuads(struct astnode *root);
 
 
 /**
@@ -168,6 +177,13 @@ struct astnode *genRvalue(struct astnode *node, struct astnode *target);
  * nodes des (destination), source 1 (src 1), and source 2 (src2).
  */
 Quad *emitQuad(enum QuadOpcode op, struct astnode *des, struct astnode *src1, struct astnode *src2);
+
+
+/**
+ * printBB_ll - Prints the IR of the file, ie the IR for each function in the 
+ * file, ie the IR for each basic block in the basic-block-linked-list.
+ */
+void printBB_ll(BB_ll *ll);
 
 
 /**

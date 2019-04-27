@@ -1,11 +1,12 @@
 CPP = gcc -E -w 	# preprocessor.
-vA?= 1				# ast printing level: 1=minimal, 2=middle, 3=verbose.
-vQ?= 1				# quads printing level- defaults to print
+ast?= 1				# ast printing level: 1=minimal, 2=middle, 3=verbose.
+quad?= 1				# quads printing level- defaults to print
+
 
 # my testing make
-my-test-compiler: flex-bison frontEndHeaders.o symbol_table.o quads.o pheader_ast.o compiler_test.o pheaders.o 
-	gcc -o guycc frontEndHeaders.o compiler_test.o pheaders.o quads.o pheader_ast.o symbol_table.o
-	$(CPP) ./back-end/tests_6/my_test.c | ./guycc -p $(vA) $(vQ)
+my-test-compiler: flex-bison frontEndHeaders.o symbol_table.o quads.o pheader_ast.o compiler_test.o pheaders.o back-end.o
+	gcc -o guycc frontEndHeaders.o compiler_test.o pheaders.o quads.o pheader_ast.o symbol_table.o back-end.o
+	$(CPP) ./back-end/tests_6/my_test.c | ./guycc -p $(ast) $(quad)
 
 
 
@@ -17,6 +18,9 @@ create-lexer:
 	flex -o ./front-end/lexer/lexer.c ./front-end/lexer/lexer.l 
 
 flex-bison: create-lexer create-parser
+
+back-end.o: ./back-end/assemb_gen.h ./back-end/assemb_gen.c
+	gcc -o back-end.o -c ./back-end/assemb_gen.c
 
 quads.o: ./front-end/parser/quads.h ./front-end/parser/quads.c
 	gcc -c ./front-end/parser/quads.c

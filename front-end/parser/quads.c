@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <stdbool.h>
 
 #include "quads.h"
 #include "../front_end_header.h"
@@ -42,11 +42,21 @@ BasicBlock *newBasicBlock(char *name) {
 
     new_block->next = NULL;
     new_block->quads_ll = NULL;
-    
+    new_block->printed = false;
     cur_quad_ll = NULL;
     return new_block;
 }
 
+
+/**
+ * newBBnode - A constructor for a basic block linked list node (BB_ll_node).
+ */
+BB_ll_node *newBBnode(BasicBlock *bb) {
+    BB_ll_node *new_node = malloc(sizeof(BB_ll_node));
+    new_node->bb = bb;
+    new_node->next = NULL;
+    return new_node;
+}
 
 
 /////////////////////////////////////////////////////////////////////////
@@ -79,13 +89,21 @@ void newQuadLLNode(Quad *new_quad) {
  * generateQuads - Generates the Intermediate Representation (quads) of 
  * a function and stores them into a specified file (stdout be default). 
  */
-void generateQuads(astnode *root, FILE *output_file) {
-    
-    FILE *output = (output_file) ? output_file : stdout;
-
+void generateQuads(astnode *root) {
     if (root->nodetype != STABLE_FNC_DEFINITION)
         yyerror("Attempting to print quads of a non-function definition type!");
     else {
+        cur_basic_block = newBasicBlock(root->stable_entry.ident);
+
+        if (bb_ll.first == NULL) {
+            bb_ll.first = newBBnode(cur_basic_block);
+            bb_ll.last = bb_ll.first;
+        }
+        else {
+            bb_ll.last->next = newBBnode(cur_basic_block);
+            bb_ll.last = bb_ll.last->next;
+        }
+
         genQuads(root->stable_entry.fnc.function_body);
     }
 }
@@ -95,13 +113,6 @@ void generateQuads(astnode *root, FILE *output_file) {
  * genQuads - Generates the QUADS of an astnode (and all its children).
  */
 astnode *genQuads(astnode *node) {
-
-    // do basic block checks, to make sure that we are pushing quads correctly
-    if (!cur_basic_block) {
-        cur_basic_block = newBasicBlock(NULL);
-        if (!initial_bb)
-            initial_bb = cur_basic_block;
-    }
 
     astnode *target;
     AstnodeLinkedListNode *cur;
@@ -231,7 +242,6 @@ void generateForLoopIR(astnode *node) {
 
     // move basic block state to while condition basic block
     cur_basic_block->next = condition_bb;
-    if (quads_pl == Mid_Level) printBB(cur_basic_block);
     cur_basic_block = condition_bb;
     cur_quad_ll = cur_basic_block->quads_ll;
 
@@ -242,7 +252,6 @@ void generateForLoopIR(astnode *node) {
     generateConditionIR(node->for_stmt.check_expr, loop_bb, next_bb);
 
     // set up basic block setup for the loop body
-    if (quads_pl == Mid_Level) printBB(cur_basic_block);
     cur_basic_block = loop_bb;
     cur_quad_ll = cur_basic_block->quads_ll;
 
@@ -254,7 +263,6 @@ void generateForLoopIR(astnode *node) {
     break_bb = NULL;
 
     // set up bb setups for the increment expression
-    if (quads_pl == Mid_Level) printBB(cur_basic_block);
     cur_basic_block = increment_bb;
     cur_quad_ll = cur_basic_block->quads_ll;
 
@@ -262,7 +270,6 @@ void generateForLoopIR(astnode *node) {
     genQuads(node->for_stmt.iteration_expr);
 
     // set up next basic block after while loop 
-    if (quads_pl == Mid_Level) printBB(cur_basic_block);
     cur_basic_block = next_bb;
     cur_quad_ll = cur_basic_block->quads_ll;
 }
@@ -282,7 +289,6 @@ void generateDoWhileLoopIR(astnode *node) {
 
     // move bb state to loop body bb
     cur_basic_block->next = loop_bb;
-    if (quads_pl == Mid_Level) printBB(cur_basic_block);
     cur_basic_block = loop_bb;
     cur_quad_ll = cur_basic_block->quads_ll;
 
@@ -294,7 +300,6 @@ void generateDoWhileLoopIR(astnode *node) {
     genQuads(node->while_stmt.stmt);
 
     // set up basic block setup for the loop condition
-    if (quads_pl == Mid_Level) printBB(cur_basic_block);
     cur_basic_block = if_bb;
     cur_quad_ll = cur_basic_block->quads_ll;
 
@@ -305,7 +310,6 @@ void generateDoWhileLoopIR(astnode *node) {
     break_bb = NULL;
 
     // set up next basic block after while loop 
-    if (quads_pl == Mid_Level) printBB(cur_basic_block);
     cur_basic_block = next_bb;
     cur_quad_ll = cur_basic_block->quads_ll;
 }
@@ -324,7 +328,6 @@ void generateWhileLoopIR(astnode *node) {
 
     // move basic block state to while condition basic block
     cur_basic_block->next = if_bb;
-    if (quads_pl == Mid_Level) printBB(cur_basic_block);
     cur_basic_block = if_bb;
     cur_quad_ll = cur_basic_block->quads_ll;
 
@@ -335,7 +338,6 @@ void generateWhileLoopIR(astnode *node) {
     generateConditionIR(node->while_stmt.expr, loop_bb, next_bb);
 
     // set up basic block setup for the loop body
-    if (quads_pl == Mid_Level) printBB(cur_basic_block);
     cur_basic_block = loop_bb;
     cur_quad_ll = cur_basic_block->quads_ll;
 
@@ -347,7 +349,6 @@ void generateWhileLoopIR(astnode *node) {
     break_bb = NULL;
 
     // set up next basic block after while loop 
-    if (quads_pl == Mid_Level) printBB(cur_basic_block);
     cur_basic_block = next_bb;
     cur_quad_ll = cur_basic_block->quads_ll;
 }
@@ -400,7 +401,6 @@ void generateConditionalIR(astnode *node) {
         generateConditionIR(node->conditional_stmt.expr, bb_then, bb_else);
 
         // create quads for 'then' case
-        if (quads_pl == Mid_Level) printBB(cur_basic_block);   /* print the basic block up to the condiitonal */
 
         cur_basic_block = bb_then;
         cur_quad_ll = cur_basic_block->quads_ll;
@@ -410,7 +410,6 @@ void generateConditionalIR(astnode *node) {
 
         // create quads for 'else' case
         if (node->conditional_stmt.else_node) {
-            if (quads_pl == Mid_Level) printBB(cur_basic_block);  /* print the 'then' basic block  */
             cur_basic_block = bb_else;
             cur_quad_ll = cur_basic_block->quads_ll;
         
@@ -418,7 +417,6 @@ void generateConditionalIR(astnode *node) {
             emitQuad(BR, NULL, newNode_bb(bb_next), NULL);
         }
 
-        if (quads_pl == Mid_Level) printBB(cur_basic_block);   /* print either the 'then' or 'else' block */
         cur_basic_block = bb_next;
         cur_quad_ll = cur_basic_block->quads_ll;
     }    
@@ -727,13 +725,27 @@ Quad *emitQuad(enum QuadOpcode op, astnode *des, astnode *src1, astnode *src2) {
 
 
 /**
+ * printBB_ll - Prints the IR of the file, ie the IR for each function in the 
+ * file, ie the IR for each basic block in the basic-block-linked-list.
+ */
+void printBB_ll(BB_ll *ll) {
+    BB_ll_node *cur = ll->first;
+
+    while (cur) {
+        printBB(cur->bb);
+        cur = cur->next;
+    }
+}
+
+
+/**
  * printBB - Prints out to stdout the basic block.
  */
 void printBB(BasicBlock *bb) {
-    if (!bb)
+    if (!bb || bb->printed)
         return;
-    
-    printf("%s:\n", bb->u_label);
+
+    fprintf(output_file, "%s:\n", bb->u_label);
     QuadLLNode *cur_node = bb->quads_ll;
 
     while(cur_node) {
@@ -742,7 +754,8 @@ void printBB(BasicBlock *bb) {
     }
 
     if (bb->next)
-        printf("    fall to -> %s\n", bb->next->u_label);
+        fprintf(output_file, "    fall to -> %s\n", bb->next->u_label);
+    bb->printed = true;
 }
 
 
@@ -750,29 +763,34 @@ void printBB(BasicBlock *bb) {
  * printQuad - Prints out to stdout a QUAD intermediate representation.
  */
 void printQuad(Quad quad) {
-    printf("        ");
+    fprintf(output_file, "        ");
     if (quad.result != NULL) {
         char *val = node2str(quad.result);
         char *tmp = malloc(sizeof(char)*(strlen(val) + 2));
         strcpy(tmp, val);
         tmp[strlen(val)] = '=';
-        printf("%-7s", tmp);
+        fprintf(output_file, "%-7s", tmp);
     }
     else
         printf("       ");
     
-    printf("%-8s", op2str(quad.opcode));
+    fprintf(output_file, "%-8s", op2str(quad.opcode));
     
     if (quad.src1 != NULL) 
-        printf("%s", node2str(quad.src1));
+        fprintf(output_file, "%s", node2str(quad.src1));
 
     if (quad.src1 && quad.src2)
-        printf(",");
+        fprintf(output_file, ",");
 
     if (quad.src2 != NULL)
-        printf("%s", node2str(quad.src2));
+        fprintf(output_file, "%s", node2str(quad.src2));
     
-    printf("\n");
+    fprintf(output_file, "\n");
+
+    if (quad.src1 && quad.src1->nodetype == BASIC_BLOCK_TYPE)
+        printBB(quad.src1->bb_type.bb);
+    if (quad.src2 && quad.src2->nodetype == BASIC_BLOCK_TYPE)
+        printBB(quad.src2->bb_type.bb);
 }
 
 /**

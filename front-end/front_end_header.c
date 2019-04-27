@@ -12,6 +12,8 @@
 #include "./parser/quads.h"
 
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
 
 /*
@@ -28,13 +30,14 @@ void initializeFrontEnd() {
 
     /* IR generic code initialization */
     cur_basic_block = NULL;
-    initial_bb = NULL;
     cur_quad_ll = NULL;
     generic_node_count = 1; 
     generic_bb_count = 1;
     continue_bb = NULL;
     break_bb = NULL;
-    
+  
+    output_file = stdout;
+
     /* scope stack initialization */
     createNewScope(File);
 }

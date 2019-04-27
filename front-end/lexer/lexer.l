@@ -343,7 +343,7 @@ L?\"		{
 
 	/* Preprocessor output as well as keeping track 
 	   of file name and line number for error checking. */
-#\ [0-9]+\ \"[a-zA-Z0-9\/\._]+\".*\n {
+#\ [0-9]+\ \"[a-zA-Z0-9\/\._\-]+\".*\n {
 		/* ignore column numbers in preprocessor output */
 		yycolumn -= yyleng;
 
@@ -351,8 +351,15 @@ L?\"		{
 		helper_begin = strstr(yytext, "\""); 
 		helper_end = strstr(++helper_begin, "\"");
 		strncpy(cur_file_name, helper_begin, (size_t)(helper_end-helper_begin));
-		cur_file_name[(size_t)(helper_end-helper_begin)] = 0;
 
+		cur_file_name[(size_t)(helper_end-helper_begin)] = 0;
+		
+		char *last_part = strrchr(cur_file_name, '/') + 1;
+		if (last_part) {
+			strcpy(cur_file_name, last_part);
+			cur_file_name[(size_t)(helper_end-last_part)] = 0;
+		}
+		
 		/* get current line */
 		helper_begin = strstr(yytext, " ");
 		helper_end = strstr(++helper_begin, " ");

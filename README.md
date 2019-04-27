@@ -25,9 +25,9 @@ Stages 2-5 involve the parser and the assignment specification can be found resp
 * Parser can parse a large subset of C language - for now we decided not to bother with typedefs, enums, function prototypes, old school function definitions, and a few other small grammars.
 * Parser builds Abstract Syntax Trees for all C statements and function definitions. It parses declarators to maintain an up-to-date symbol table that incorporates scope stacks and namespaces. The parser uses the symbol table to resolve identifiers in the statements and function definitions.
 * Completed quads for a medium-sized subset of the C language. This includes C expressions, function calls, conditional statements and loops. Excluded from this are function prototypes, function definitions with parameters, structure member operations, casts, ternary and comma operators, compound literals, switch statements, goto and labeled statements and initialized declarators.
+* Currently working on target code generation.
 
 #### Todo:
-* Change quads output to be to a specifiable file (defaults to c-program-file-name.s)
 * Create backend function to generate assembly for global and static variables.
 * Implement a simple one-quad-window instruction selector, converting quads to assembly.
 * Implement a primitive register allocator 
