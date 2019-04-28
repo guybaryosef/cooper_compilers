@@ -15,9 +15,11 @@
 #include "./front-end/front_end_header.h"
 #include "./front-end/lexer/lexer.c"
 #include "./front-end/parser/parser.c"
+#include "./back-end/assemb_gen.h"
+
+#include "./back-end/back_end_header.h"
 
 
-     
 int main(int argc, char **argv) {
     if (argc == 2) {
         ast_pl = Minimal_Level; 
@@ -49,8 +51,16 @@ int main(int argc, char **argv) {
         return -1;
     }
 
-    initializeFrontEnd();   /* initializes the front-end global vars */
+    /* initializes the front-end global vars */
+    initializeFrontEnd();   
 
-    yyparse();
+    /* run front-end */
+    yyparse();  
+
+    /* run back-end */
+    initializeRegisterCollection();
+    generateAssemb32(NULL);
+    // generateAssemb32("t.s");   
+
     return 0;
 }

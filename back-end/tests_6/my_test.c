@@ -1,11 +1,6 @@
-int printf();
-
-void f() {
-    int c;
-    c = 2;
-}
+#include <stdio.h>
 
 int main() {
-    int a;
-    a = 1;
+    int c, b =2;
+    printf("%d, %d\n", c, b);
 }

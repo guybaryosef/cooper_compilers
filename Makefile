@@ -1,14 +1,16 @@
-CPP = gcc -E -w 	# preprocessor.
-ast?= 1				# ast printing level: 1=minimal, 2=middle, 3=verbose.
-quad?= 1				# quads printing level- defaults to print
+CPP = gcc -E -w	# preprocessor
+ast?= 1			# ast printing level: 1=none, 2=minimal, 3=verbose.
+quad?= 1		# quads printing level- 1=none, 2=berbose. 
 
 
 # my testing make
-my-test-compiler: flex-bison frontEndHeaders.o symbol_table.o quads.o pheader_ast.o compiler_test.o pheaders.o back-end.o
-	gcc -o guycc frontEndHeaders.o compiler_test.o pheaders.o quads.o pheader_ast.o symbol_table.o back-end.o
-	$(CPP) ./back-end/tests_6/my_test.c | ./guycc -p $(ast) $(quad)
+my-test-compiler: flex-bison frontEndHeaders.o symbol_table.o quads.o pheader_ast.o compiler_test.o pheaders.o back-end.o backEndHeaders.o
+	gcc -o guycc frontEndHeaders.o compiler_test.o pheaders.o quads.o pheader_ast.o symbol_table.o back-end.o backEndHeaders.o
+	$(CPP) ./tests/my_test.c | ./guycc -p $(ast) $(quad)
 
-
+actual-assembly:
+	gcc -S -O0 ./tests/my_test.c
+	cat my_test.s
 
 # partial builds
 create-parser:
@@ -34,6 +36,9 @@ pheaders.o: ./front-end/lexer/lheader.h ./front-end/lexer/lheader2.h ./front-end
 frontEndHeaders.o: ./front-end/front_end_header.h ./front-end/front_end_header.c
 	gcc -o frontEndHeaders.o -c ./front-end/front_end_header.c
 
+backEndHeaders.o: ./back-end/back_end_header.h ./back-end/back_end_header.c
+	gcc -o backEndHeaders.o -c ./back-end/back_end_header.c
+
 pheader_ast.o: ./front-end/parser/pheader_ast.c ./front-end/parser/pheader_ast.h ./front-end/parser/symbol_table.h
 	gcc -c ./front-end/parser/pheader_ast.c
 
@@ -41,4 +46,4 @@ symbol_table.o: ./front-end/parser/symbol_table.h ./front-end/parser/symbol_tabl
 	gcc -c ./front-end/parser/symbol_table.c
 
 clear:
-	rm  *.o ./front-end/lexer/lexer.c .front-end/lexer/lexer.c ./front-end/parser/parser.c ./front-end/parser/parser.output ./guycc
+	rm  a.out *.s *.o ./front-end/lexer/lexer.c .front-end/lexer/lexer.c ./front-end/parser/parser.c ./front-end/parser/parser.output ./guycc

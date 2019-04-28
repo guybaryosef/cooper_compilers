@@ -522,7 +522,10 @@ void createNewScope(enum ScopeType type) {
     new_scope->scope_type = type;
     new_scope->begin_line_num = cur_line_num;
     new_scope->beginning_file = cur_file_name;
+
     scope_stack.innermost_scope = new_scope;
+    if (!(scope_stack.global_scope))
+        scope_stack.global_scope = new_scope;
 }
 
 

@@ -9,3 +9,8 @@
 ./front-end/parser/tests_3/my_test.c
 ./front-end/parser/tests_4/my_test.c
 
+# backend files
+./back-end/tests_6/my_test.c
+
+# overall files
+./tests/my_test.c

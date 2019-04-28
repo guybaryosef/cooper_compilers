@@ -1517,6 +1517,7 @@ declaration_or_fndef: /* empty */                           { /* NOTHING */ }
                             generateQuads($2);
                             if (quads_pl == Mid_Level) 
                                 printBB_ll(&bb_ll);
+                            printf("\n");
                         }
                     ;
 

@@ -44,6 +44,7 @@ typedef struct SymbolTable {
  */
 enum ScopeType { File = 1, Function, Block, Proto };
 enum Namespace { LABEL_NAMESPACE = 0, SU_TAG_NAMESPACE, GENERAL_NAMESPACE };
+
 typedef struct ScopeStackLayer {
     enum ScopeType scope_type;  /* one of the 4 types of scopes             */
     SymbolTable *tables[3];     /* diff table for each namespace            */
@@ -57,6 +58,7 @@ typedef struct ScopeStackLayer {
    beginning with the innermost scope and working outwards
    towards file (global) scope. */
 typedef struct ScopeStack {
+    ScopeStackLayer *global_scope;
     ScopeStackLayer *innermost_scope;
 } ScopeStack;
 

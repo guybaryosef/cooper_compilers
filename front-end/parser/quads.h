@@ -25,6 +25,7 @@ typedef struct BasicBlock {
     struct QuadLLNode *quads_ll;    /* linked list of quads */
     struct BasicBlock *next;  /* the next basic block */
     _Bool printed;          /* a flag to know if already printed or not */
+    _Bool translated;       /* whether the bb has already been converted into assembly */
 } BasicBlock;
 
 /**
@@ -218,16 +219,6 @@ char *node2str(struct astnode *node);
 struct astnode *confirmSamePointer(struct astnode *node1,struct astnode *node2);
 
 
-/* sizeof operator constants */
-#define DATATYPE_CHAR_SIZE 1
-#define DATATYPE_SHORT_SIZE 2
-#define DATATYPE_INTEGER_SIZE 4
-#define DATATYPE_LONG 8
-#define DATATYPE_LONGLONG 8
-#define DATATYPE_POINTER 8
-#define DATATYPE_FLOAT 4
-#define DATATYPE_DOUBLE 8
-#define DATATYPE_LONGDOUBLE 16
 /**
  * evaluateSizeOf - Evalutates the SizeOf operators into a constant.
  * Because we are not implementing a variable length array any time

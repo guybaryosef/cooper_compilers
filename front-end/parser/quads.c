@@ -18,6 +18,7 @@
 #include "../lexer/lheader2.h"
 #include "symbol_table.h"
 #include "pheader_ast.h"
+#include "../../back-end/assemb_gen.h"
 
 
 
@@ -43,6 +44,7 @@ BasicBlock *newBasicBlock(char *name) {
     new_block->next = NULL;
     new_block->quads_ll = NULL;
     new_block->printed = false;
+    new_block->translated = false;
     cur_quad_ll = NULL;
     return new_block;
 }
@@ -181,7 +183,7 @@ astnode *genQuads(astnode *node) {
         default:
             yywarn("This line has no useful effect");
             target = newGenericTemp();
-            emitQuad(MOVQ, target, genRvalue(node, NULL), NULL);
+            emitQuad(MOVL, target, genRvalue(node, NULL), NULL);
             return target;
     }
 }    
@@ -540,23 +542,23 @@ astnode *genRvalue(astnode *node, astnode *target) {
         return target;
     }
     else if (node->nodetype == STABLE_VAR) {
-        emitQuad(MOVQ, target, node, NULL);
+        emitQuad(MOVL, target, node, NULL);
         return target;
     }
     else if (node->nodetype == NUM_TYPE) {
-        emitQuad(MOVQ, target, node, NULL);
+        emitQuad(MOVL, target, node, NULL);
         return target;
     }
     else if (node->nodetype == CHRLIT_TYPE) {
-        emitQuad(MOVQ, target, node, NULL);
+        emitQuad(MOVL, target, node, NULL);
         return target;
     }
     else if (node->nodetype == IDENT_TYPE) {
-        emitQuad(MOVQ, target, node, NULL);
+        emitQuad(MOVL, target, node, NULL);
         return target;
     }
     else if (node->nodetype == STRLIT_TYPE) {
-        emitQuad(MOVQ, target, node, NULL);
+        emitQuad(MOVL, target, node, NULL);
         return target;
     }
     else if (node->nodetype == BINOP_TYPE) {
@@ -566,12 +568,12 @@ astnode *genRvalue(astnode *node, astnode *target) {
         
         enum QuadOpcode op;
         switch (node->binop.op)  {
-            case '%':    op = MODQ;     break;
-            case '^':    op = XORQ;     break;
-            case '&':    op = ANDQ;     break;
-            case '*':    op = MULQ;     break;
-            case '-':    op = SUBQ;     break;
-            case '+':    op = ADDQ;     break;
+            case '%':    op = MODL;     break;
+            case '^':    op = XORL;     break;
+            case '&':    op = ANDL;     break;
+            case '*':    op = MULL;     break;
+            case '-':    op = SUBL;     break;
+            case '+':    op = ADDL;     break;
             case '|':    op = ORQ;      break;
             case '<':    op = LT;       break;
             case '>':    op = GT;       break;
@@ -590,7 +592,7 @@ astnode *genRvalue(astnode *node, astnode *target) {
         // if doing addition of anything regarding pointers, need to do poitner arithmetic
         if (node->binop.op == '+' || node->binop.op == '-') {
             struct YYnum tmp_val;
-            tmp_val.val = 8;
+            tmp_val.val = DATATYPE_POINTER;
             tmp_val.types = NUMMASK_INTGR;
             tmp_val.types |= NUMMASK_INT;
             astnode *num_val = newNode_num(tmp_val);
@@ -601,7 +603,7 @@ astnode *genRvalue(astnode *node, astnode *target) {
                 (node->binop.right->nodetype == NUM_TYPE) ) 
             {
                 astnode *tmp = newGenericTemp();
-                emitQuad(MULQ, tmp, right, num_val);
+                emitQuad(MULL, tmp, right, num_val);
                 right = tmp;
             }
             else if ( (node->binop.right->nodetype == STABLE_VAR && (
@@ -610,7 +612,7 @@ astnode *genRvalue(astnode *node, astnode *target) {
                     node->binop.left->nodetype == NUM_TYPE) 
             {
                 astnode *tmp = newGenericTemp();
-                emitQuad(MULQ, tmp, left, num_val);
+                emitQuad(MULL, tmp, left, num_val);
                 left = tmp;
             }
             /* if both are pointers, need to confirm they point to the same type and
@@ -628,7 +630,7 @@ astnode *genRvalue(astnode *node, astnode *target) {
                     astnode *tmp_targ = newGenericTemp();
                     emitQuad(op, tmp_targ, left, right);
 
-                    emitQuad(DIVQ, target, tmp_targ, size);
+                    emitQuad(DIVL, target, tmp_targ, size);
                     return target;
                 }              
                 else
@@ -651,7 +653,7 @@ astnode *genRvalue(astnode *node, astnode *target) {
             astnode *expr = genRvalue(node->unop.expr, NULL);
             enum QuadOpcode op;
             switch (node->unop.op) { 
-                case '~':       op = COMPLQ;        break;
+                case '~':       op = COMPLL;        break;
                 case '-':       op = NEG;           break;
                 case '+':       op = POS;           break;
                 case '!':       op = LOG_NEG_EXPR;  break;
@@ -663,7 +665,7 @@ astnode *genRvalue(astnode *node, astnode *target) {
     }
     else if (node->nodetype == SIZEOF_TYPE) {
         astnode *expr = evaluateSizeOf(node->unop.expr);
-        emitQuad(MOVQ, target, expr, NULL);
+        emitQuad(MOVL, target, expr, NULL);
         return target;
     }
     else if (node->nodetype == DEREF_TYPE) {
@@ -914,7 +916,7 @@ char *node2str(astnode *node) {
             sprintf(str_val, "%f", node->num.d_val);
     }
     else if (node->nodetype == CHRLIT_TYPE) {
-        sprintf(str_val, "%c", node->chrlit.c_val);
+        sprintf(str_val, "%d", node->chrlit.c_val);
     }
     else if (node->nodetype == IDENT_TYPE) {
         sprintf(str_val, "%s", node->ident.str);
@@ -951,7 +953,7 @@ astnode *evaluateSizeOf(astnode *node) {
 
     switch(node->nodetype) {
         case PTR_TYPE:
-            num_val.val = 8;
+            num_val.val = DATATYPE_POINTER;
             return newNode_num(num_val);
         case NUM_TYPE:
 

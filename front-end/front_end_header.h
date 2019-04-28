@@ -15,8 +15,8 @@
 #include <stdio.h>
 
 
-#ifndef FRONT_END
-#define FRONT_END
+#ifndef FRONT_END_HEADER
+#define FRONT_END_HEADER
 
 
 /* Defines a str and num structs that will appear in YYSTYPE (yylval) */
