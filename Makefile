@@ -1,11 +1,11 @@
-CPP = gcc -E -w	# preprocessor
-ast?= 1			# ast printing level: 1=none, 2=minimal, 3=verbose.
-quad?= 1		# quads printing level- 1=none, 2=berbose. 
-input?= ./tests/my_test.c	# input file
-output?= stdout				# if not specified, prints to stdout and does not execute
+CPP = gcc -E -w# preprocessor
+ast?= 1# ast printing level: 1=none, 2=minimal, 3=verbose.
+quad?= 1# quads printing level- 1=none, 2=berbose. 
+input?= ./tests/my_test.c# input file
+output?=stdout# if not specified, prints to stdout and does not execute
 
 
-# 
+# run the compiler
 guycc: flex-bison frontEndHeaders.o symbol_table.o quads.o pheader_ast.o compiler_test.o pheaders.o back-end.o backEndHeaders.o
 ifeq ($(output),stdout)
 	gcc -o guycc frontEndHeaders.o compiler_test.o pheaders.o quads.o pheader_ast.o symbol_table.o back-end.o backEndHeaders.o
@@ -17,13 +17,18 @@ else
 	./a.out
 endif
 
-
+# print to stdout unoptimized, position-dependent, x86-32 assembly code 
 actual-assembly:
 	gcc -S -m32 -O0 ./tests/my_test.c -fno-pic -o actual_test.s
 	cat actual_test.s
 
 
-# partial builds
+clear:
+	rm my_test a.out *.s *.o ./front-end/lexer/lexer.c .front-end/lexer/lexer.c ./front-end/parser/parser.c ./front-end/parser/parser.output ./guycc
+
+##############################
+####### partial builds #######
+##############################
 create-parser:
 	bison -v -d -o ./front-end/parser/parser.c ./front-end/parser/parser.y -Wconflicts-sr
 
@@ -56,5 +61,3 @@ pheader_ast.o: ./front-end/parser/pheader_ast.c ./front-end/parser/pheader_ast.h
 symbol_table.o: ./front-end/parser/symbol_table.h ./front-end/parser/symbol_table.c
 	gcc -c ./front-end/parser/symbol_table.c
 
-clear:
-	rm my_test a.out *.s *.o ./front-end/lexer/lexer.c .front-end/lexer/lexer.c ./front-end/parser/parser.c ./front-end/parser/parser.output ./guycc
