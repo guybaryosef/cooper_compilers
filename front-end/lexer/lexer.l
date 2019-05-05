@@ -231,24 +231,30 @@ L?\"		{
 	}
 
 <CHR_LIT,STR_LIT>\\[\\0nabtrfv'\"?]	{
-		if (yylval.str.str_size < MAX_STRLIT_SIZE) {
-			switch(yytext[1]) {
-				case '\\':strlit_buffer[yylval.str.str_size] = 92; break;
-				case '0': strlit_buffer[yylval.str.str_size] = 0;  break;
-				case 'n': strlit_buffer[yylval.str.str_size] = 10; break;
-				case 'a': strlit_buffer[yylval.str.str_size] = 7;  break;
-				case 'b': strlit_buffer[yylval.str.str_size] = 8;  break;
-				case 't': strlit_buffer[yylval.str.str_size] = 9;  break;
-				case 'r': strlit_buffer[yylval.str.str_size] = 13; break;
-				case 'f': strlit_buffer[yylval.str.str_size] = 12; break;
-				case 'v': strlit_buffer[yylval.str.str_size] = 11; break;
-				case '\'':strlit_buffer[yylval.str.str_size] = 39; break;
-				case '"': strlit_buffer[yylval.str.str_size] = 34; break;
-				case '?': strlit_buffer[yylval.str.str_size] = 63;
-				default: break;
-			} 
-			++yylval.str.str_size;
-		}
+		strlit_buffer[yylval.str.str_size] = '\\';
+		++yylval.str.str_size;
+		
+		strlit_buffer[yylval.str.str_size] = yytext[1];
+		++yylval.str.str_size;
+
+		// if (yylval.str.str_size < MAX_STRLIT_SIZE) {
+		// 	switch(yytext[1]) {
+		// 		case '\\':strlit_buffer[yylval.str.str_size] = 92; break;
+		// 		case '0': strlit_buffer[yylval.str.str_size] = 0;  break;
+		// 		case 'n': strlit_buffer[yylval.str.str_size] = 10; break;
+		// 		case 'a': strlit_buffer[yylval.str.str_size] = 7;  break;
+		// 		case 'b': strlit_buffer[yylval.str.str_size] = 8;  break;
+		// 		case 't': strlit_buffer[yylval.str.str_size] = 9;  break;
+		// 		case 'r': strlit_buffer[yylval.str.str_size] = 13; break;
+		// 		case 'f': strlit_buffer[yylval.str.str_size] = 12; break;
+		// 		case 'v': strlit_buffer[yylval.str.str_size] = 11; break;
+		// 		case '\'':strlit_buffer[yylval.str.str_size] = 39; break;
+		// 		case '"': strlit_buffer[yylval.str.str_size] = 34; break;
+		// 		case '?': strlit_buffer[yylval.str.str_size] = 63;
+		// 		default: break;
+		// 	} 
+		// 	++yylval.str.str_size;
+		// }
 	}
 
 <CHR_LIT,STR_LIT>\\{OCT}{1,3}	{

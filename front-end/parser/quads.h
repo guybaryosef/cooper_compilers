@@ -68,7 +68,7 @@ enum QuadOpcode {MOVB = 1,MOVW, MOVL, MOVQ, ADDB, ADDW, ADDL, ADDQ,
                     ORB, ORW, ORL, ORQ, LT, GT, SHL_OP, SHR_OP, LTEQ_OP, GTEQ_OP, 
                     DIVB, DIVW, DIVL, DIVQ, EQEQ_OP, NOTEQ_OP, 
                     LOGO, LOGN, COMMA, DEREF, PLPL, MINMIN,
-                    NEG, POS, LOG_NEG_EXPR, STORE, LOAD, LEA,
+                    NEG, LOG_NEG_EXPR, STORE, LOAD, LEA,
                     ARGBEGIN, ARG, CALL, CMP, BR, BRNEQ, BREQ, BRLT, BRLE,
                     BRGT, BRGE, CC_LT, CC_GT, CC_EQ, CC_NEQ, CC_GE, CC_LE
                 };  
@@ -190,7 +190,7 @@ void printBB_ll(BB_ll *ll);
 /**
  * printBB - Prints out to stdout the basic block.
  */
-void printBB(BasicBlock *bb);
+Quad *printBB(BasicBlock *bb, _Bool in_conditional_arm);
 
 
 /**

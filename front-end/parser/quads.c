@@ -30,6 +30,8 @@
  * newBasicBlock - Creates and returns a new IR Basic Block.
  */
 BasicBlock *newBasicBlock(char *name) {
+    static int generic_bb_count = 0;
+
     BasicBlock *new_block = malloc(sizeof(BasicBlock));
 
     if (!name) {
@@ -45,7 +47,6 @@ BasicBlock *newBasicBlock(char *name) {
     new_block->quads_ll = NULL;
     new_block->printed = false;
     new_block->translated = false;
-    cur_quad_ll = NULL;
     return new_block;
 }
 
@@ -238,7 +239,6 @@ void generateForLoopIR(astnode *node) {
 
     BasicBlock *increment_bb = newBasicBlock(NULL);
     loop_bb->next = increment_bb;
-    increment_bb->next = condition_bb;
     
     BasicBlock *next_bb = newBasicBlock(NULL);
 
@@ -260,16 +260,17 @@ void generateForLoopIR(astnode *node) {
     // generate quads for the loop body
     genQuads(node->for_stmt.stmt);
 
-    // remove continue and break cursors after loop is done
-    continue_bb = NULL;
-    break_bb = NULL;
-
     // set up bb setups for the increment expression
     cur_basic_block = increment_bb;
     cur_quad_ll = cur_basic_block->quads_ll;
 
     // generate quads for the increment expression
     genQuads(node->for_stmt.iteration_expr);
+    emitQuad(BR, NULL, newNode_bb(condition_bb), NULL);
+
+    // remove continue and break cursors after loop is done
+    continue_bb = NULL;
+    break_bb = NULL;
 
     // set up next basic block after while loop 
     cur_basic_block = next_bb;
@@ -324,7 +325,6 @@ void generateWhileLoopIR(astnode *node) {
     BasicBlock *if_bb = newBasicBlock(NULL);
     
     BasicBlock *loop_bb = newBasicBlock(NULL);
-    loop_bb->next = if_bb;
 
     BasicBlock *next_bb = newBasicBlock(NULL);
 
@@ -345,6 +345,7 @@ void generateWhileLoopIR(astnode *node) {
 
     // generate quads for the loop body
     genQuads(node->while_stmt.stmt);
+    emitQuad(BR, NULL, newNode_bb(continue_bb), NULL);
 
     // remove continue and break cursors after loop is done
     continue_bb = NULL;
@@ -361,7 +362,7 @@ void generateWhileLoopIR(astnode *node) {
  * conditional statements.
  */
 void generateConditionalIR(astnode *node) {
-    
+
     // check for logical and and ors- we need to break them apart */
     if (node->conditional_stmt.expr->nodetype == LOG_TYPE) {
         astnode *cond_node = node->conditional_stmt.expr;
@@ -386,7 +387,7 @@ void generateConditionalIR(astnode *node) {
         }
     }
     else {
-
+        
         BasicBlock *bb_then = newBasicBlock(NULL);
         BasicBlock *bb_else= newBasicBlock(NULL);
 
@@ -398,12 +399,10 @@ void generateConditionalIR(astnode *node) {
         else
             bb_next = bb_else;
 
-
         // create quads for conditional
         generateConditionIR(node->conditional_stmt.expr, bb_then, bb_else);
 
         // create quads for 'then' case
-
         cur_basic_block = bb_then;
         cur_quad_ll = cur_basic_block->quads_ll;
 
@@ -437,7 +436,19 @@ void generateConditionIR(astnode *node, BasicBlock *bb_then, BasicBlock *bb_else
 
     // evaluate conditional 'if' stmt
     if (node->nodetype == COMPARE_TYPE) {       /* compare */
-        emitQuad(CMP, NULL, node->binop.left, node->binop.right);
+        astnode *left_side, *right_side;
+        
+        if (node->binop.left->nodetype != TEMP_REG_TYPE)
+            left_side = genRvalue(node->binop.left, NULL);
+        else
+            left_side = node->binop.left;
+
+        if (node->binop.right->nodetype != TEMP_REG_TYPE)
+            right_side = genRvalue(node->binop.right, NULL);
+        else
+            right_side = node->binop.right;
+
+        emitQuad(CMP, NULL, left_side, right_side);
 
         switch(node->binop.op) {
             case '<': emitQuad(BRLT, NULL, newNode_bb(bb_then), newNode_bb(bb_else));   break;
@@ -479,7 +490,7 @@ void generateFunctionCallIR(astnode *node, astnode *target) {
 
     emitQuad(ARGBEGIN, NULL, newNode_num(num_val), NULL);
 
-    for (int i = 0 ; i < node->fnc.arg_count ; ++i) {
+    for (int i = node->fnc.arg_count-1 ; i > -1 ; --i) {
         num_val.val = i+1;
         astnode *new_tmp = genRvalue(node->fnc.arguments[i]->arg.expr, NULL);
         emitQuad(ARG, NULL, newNode_num(num_val), new_tmp);
@@ -496,6 +507,7 @@ void generateFunctionCallIR(astnode *node, astnode *target) {
  * generateAssignmentIR - Generates the IR of an assignment operation.
  */
 void generateAssignmentIR(astnode *node) {
+    
     enum LvalueMode l_mode;
     astnode *des = genLvalue(node->assignment.left, &l_mode);
 
@@ -532,32 +544,51 @@ astnode *genLvalue(astnode *node, enum LvalueMode *mode) {
 
 /**
  * genRvalue - Generates the r-values of an expression.
+ * 
+ * We check for whether the target is defined in each if
+ * statement instead of once at the beginning because for
+ * efficient quad generation, we want each tmp register=variable
+ * to get initialized as soon as possible to when it will 
+ * get used as a source.
  */
 astnode *genRvalue(astnode *node, astnode *target) {
-    if (!target) target = newGenericTemp();
 
     if (node->nodetype == STABLE_VAR && node->stable_entry.node->nodetype == ARRAY_TYPE) {
-        astnode *tmp = newGenericTemp();
+        if (!target) target = newGenericTemp();
         emitQuad(LEA, target, node, NULL);
         return target;
     }
     else if (node->nodetype == STABLE_VAR) {
-        emitQuad(MOVL, target, node, NULL);
+        if (!target) target = newGenericTemp();
+
+        if (target->nodetype == STABLE_VAR) {
+            astnode *tmp_tag = newGenericTemp();
+            emitQuad(MOVL, tmp_tag, node, NULL);
+            emitQuad(MOVL, target, tmp_tag, NULL);
+        }
+        else {
+            emitQuad(MOVL, target, node, NULL);
+        }
+
         return target;
     }
     else if (node->nodetype == NUM_TYPE) {
+        if (!target) target = newGenericTemp();
         emitQuad(MOVL, target, node, NULL);
         return target;
     }
     else if (node->nodetype == CHRLIT_TYPE) {
+        if (!target) target = newGenericTemp();
         emitQuad(MOVL, target, node, NULL);
         return target;
     }
     else if (node->nodetype == IDENT_TYPE) {
+        if (!target) target = newGenericTemp();
         emitQuad(MOVL, target, node, NULL);
         return target;
     }
     else if (node->nodetype == STRLIT_TYPE) {
+        if (!target) target = newGenericTemp();
         emitQuad(MOVL, target, node, NULL);
         return target;
     }
@@ -575,17 +606,9 @@ astnode *genRvalue(astnode *node, astnode *target) {
             case '-':    op = SUBL;     break;
             case '+':    op = ADDL;     break;
             case '|':    op = ORQ;      break;
-            case '<':    op = LT;       break;
-            case '>':    op = GT;       break;
-            case '/':    op = DIVQ;     break;
+            case '/':    op = DIVL;     break;
             case SHL:    op = SHL;      break;
             case SHR:    op = SHR;      break;
-            case LTEQ:   op = LTEQ;     break;
-            case GTEQ:   op = GTEQ;     break;
-            case EQEQ:   op = EQEQ;     break;
-            case NOTEQ:  op = NOTEQ;    break;
-            case LOGOR:  op = LOGOR;    break;
-            case LOGAND: op = LOGAND;   break;
             case ',':    op = COMMA;    break;
         }
         
@@ -593,14 +616,16 @@ astnode *genRvalue(astnode *node, astnode *target) {
         if (node->binop.op == '+' || node->binop.op == '-') {
             struct YYnum tmp_val;
             tmp_val.val = DATATYPE_POINTER;
-            tmp_val.types = NUMMASK_INTGR;
-            tmp_val.types |= NUMMASK_INT;
+            tmp_val.types = NUMMASK_INTGR | NUMMASK_INT;
             astnode *num_val = newNode_num(tmp_val);
+
 
             if ( (node->binop.left->nodetype == STABLE_VAR && (
                 node->binop.left->stable_entry.node->nodetype == PTR_TYPE || 
                 node->binop.left->stable_entry.node->nodetype == ARRAY_TYPE) ) && 
-                (node->binop.right->nodetype == NUM_TYPE) ) 
+                (node->binop.right->nodetype == NUM_TYPE || 
+                node->binop.right->nodetype == STABLE_VAR && 
+                node->binop.right->stable_entry.node->nodetype == SCALAR_TYPE) ) 
             {
                 astnode *tmp = newGenericTemp();
                 emitQuad(MULL, tmp, right, num_val);
@@ -609,7 +634,9 @@ astnode *genRvalue(astnode *node, astnode *target) {
             else if ( (node->binop.right->nodetype == STABLE_VAR && (
                     node->binop.right->stable_entry.node->nodetype == PTR_TYPE || 
                     node->binop.right->stable_entry.node->nodetype == ARRAY_TYPE) ) && 
-                    node->binop.left->nodetype == NUM_TYPE) 
+                    (node->binop.left->nodetype == NUM_TYPE || 
+                    node->binop.left->nodetype == STABLE_VAR && 
+                    node->binop.left->stable_entry.node->nodetype == SCALAR_TYPE)) 
             {
                 astnode *tmp = newGenericTemp();
                 emitQuad(MULL, tmp, left, num_val);
@@ -630,6 +657,7 @@ astnode *genRvalue(astnode *node, astnode *target) {
                     astnode *tmp_targ = newGenericTemp();
                     emitQuad(op, tmp_targ, left, right);
 
+                    if (!target) target = newGenericTemp();
                     emitQuad(DIVL, target, tmp_targ, size);
                     return target;
                 }              
@@ -637,6 +665,24 @@ astnode *genRvalue(astnode *node, astnode *target) {
                     yyerror("Unable to do pointer arithmetic on differing types!");
             }
         }
+
+        if (!target) target = newGenericTemp();
+        emitQuad(op, target, left, right);
+        
+        return target;
+    }
+    else if (node->nodetype == LOG_TYPE) {
+        // for now ignore type values
+        astnode *left = genRvalue(node->binop.left, NULL);
+        astnode *right = genRvalue(node->binop.right, NULL);
+        
+        enum QuadOpcode op;
+        switch (node->binop.op) {
+            case LOGAND: op = LOGN; break;
+            case LOGOR:  op = LOGO; break;
+        }
+
+        if (!target) target = newGenericTemp();
         emitQuad(op, target, left, right);
         
         return target;
@@ -655,32 +701,45 @@ astnode *genRvalue(astnode *node, astnode *target) {
             switch (node->unop.op) { 
                 case '~':       op = COMPLL;        break;
                 case '-':       op = NEG;           break;
-                case '+':       op = POS;           break;
+                case '+':       op = MOVL;           break;
                 case '!':       op = LOG_NEG_EXPR;  break;
             }
         
+            if (!target) target = newGenericTemp();
             emitQuad(op, target, expr, NULL);
             return target;
         }
     }
     else if (node->nodetype == SIZEOF_TYPE) {
         astnode *expr = evaluateSizeOf(node->unop.expr);
+
+        if (!target) target = newGenericTemp();
         emitQuad(MOVL, target, expr, NULL);
         return target;
     }
     else if (node->nodetype == DEREF_TYPE) {
         astnode *left = genRvalue(node->unop.expr, NULL);
+
+        if (!target) target = newGenericTemp();
         emitQuad(LOAD, target, left, NULL);
         return target;
     }
     else if (node->nodetype == ADDR_TYPE) {
-        printf("%d\n", node->unop.expr->nodetype);
+
         if (node->unop.expr->nodetype == DEREF_TYPE) {
+            if (!target) target = newGenericTemp();
             genRvalue(node->unop.expr->unop.expr, target); 
         }
         else {
-            astnode *expr = genRvalue(node->unop.expr, NULL);
-            emitQuad(LEA, target, expr, NULL);
+            if (node->unop.expr->nodetype == STABLE_VAR) {
+                if (!target) target = newGenericTemp();
+                    emitQuad(LEA, target, node->unop.expr, NULL);
+            }
+            else {
+                astnode *expr = genRvalue(node->unop.expr, NULL);
+                if (!target) target = newGenericTemp();
+                    emitQuad(LEA, target, expr, NULL);
+            }
         }
         return target;
     }
@@ -695,9 +754,11 @@ astnode *genRvalue(astnode *node, astnode *target) {
             case NOTEQ:emitQuad(CC_NEQ, target, NULL, NULL); break;
             default:  yyerror("Invalid comparator operator");
         }
+        if (!target) target = newGenericTemp();
         return target;
     }
     else if (node->nodetype == FNC_CALL) {
+        if (!target) target = newGenericTemp();
         generateFunctionCallIR(node, target);
         return target;
     }
@@ -734,7 +795,8 @@ void printBB_ll(BB_ll *ll) {
     BB_ll_node *cur = ll->first;
 
     while (cur) {
-        printBB(cur->bb);
+        printBB(cur->bb, false);
+
         cur = cur->next;
     }
 }
@@ -743,21 +805,65 @@ void printBB_ll(BB_ll *ll) {
 /**
  * printBB - Prints out to stdout the basic block.
  */
-void printBB(BasicBlock *bb) {
+Quad *printBB(BasicBlock *bb, _Bool in_conditional_arm) {
     if (!bb || bb->printed)
-        return;
+        return NULL;
 
     fprintf(output_file, "%s:\n", bb->u_label);
     QuadLLNode *cur_node = bb->quads_ll;
 
+    Quad *last_quad;
     while(cur_node) {
+        last_quad = &cur_node->quad;
         printQuad(cur_node->quad);
         cur_node = cur_node->next;
     }
 
-    if (bb->next)
-        fprintf(output_file, "    fall to -> %s\n", bb->next->u_label);
     bb->printed = true;
+
+    if (last_quad && (
+        last_quad->opcode == BRLE || last_quad->opcode == BRGE ||
+        last_quad->opcode == BRLT || last_quad->opcode == BRGT ||
+        last_quad->opcode == BRNEQ || last_quad->opcode == BREQ) ) {
+
+        Quad *new_last_quad1 = printBB(last_quad->src1->bb_type.bb, true);
+        if (new_last_quad1 && new_last_quad1->opcode == BR && 
+        new_last_quad1->src1->bb_type.bb == last_quad->src2->bb_type.bb) {
+            if (in_conditional_arm)
+                return new_last_quad1;
+            else {
+                printBB(last_quad->src2->bb_type.bb, false);
+                return NULL;
+            }
+        }
+        else {
+            Quad *new_last_quad2 = printBB(last_quad->src2->bb_type.bb, true);
+            if (new_last_quad2 && new_last_quad2->opcode == BR) {
+                if (in_conditional_arm) {
+                    return new_last_quad2;
+                }
+                else {
+                    printBB(new_last_quad2->src1->bb_type.bb, false);
+                    return NULL;
+                }
+            }
+        }
+    }
+    else if (in_conditional_arm && bb->next) {
+        return printBB(bb->next, true);
+    }
+    else if(!in_conditional_arm && bb->next) {
+        printBB(bb->next, false);
+        return NULL;
+    }
+    else if (in_conditional_arm && last_quad && last_quad->opcode == BR) {
+        return last_quad;
+    }
+    else if (!in_conditional_arm && last_quad && last_quad->opcode == BR) {
+        printBB(last_quad->src1->bb_type.bb, false);
+    }
+
+    return NULL;
 }
 
 
@@ -788,11 +894,6 @@ void printQuad(Quad quad) {
         fprintf(output_file, "%s", node2str(quad.src2));
     
     fprintf(output_file, "\n");
-
-    if (quad.src1 && quad.src1->nodetype == BASIC_BLOCK_TYPE)
-        printBB(quad.src1->bb_type.bb);
-    if (quad.src2 && quad.src2->nodetype == BASIC_BLOCK_TYPE)
-        printBB(quad.src2->bb_type.bb);
 }
 
 /**
@@ -807,7 +908,6 @@ char *op2str(enum QuadOpcode op) {
         case ORW:   return "ORW";
         case ORL:   return "ORL";
         case ORQ:   return "ORQ";
-        case POS:   return "POS";
         case NEG:   return "NEG";
         case LEA:   return "LEA";
         case ARG:   return "ARG";
@@ -849,15 +949,14 @@ char *op2str(enum QuadOpcode op) {
         case DIVW:  return "DIVW";
         case DIVL:  return "DIVL";
         case DIVQ:  return "DIVQ";
-        case LOGO:  return "LOGO";
-        case LOGN:  return "LOGN";
         case PLPL:  return "PLPL";
         case CALL:  return "CALL";
         case LOAD:  return "LOAD";
+        case LOGO:  return "LOGO";
+        case LOGN:  return "LOGN";
         case BRNEQ: return "BRNEQ";
         case STORE: return "STORE";
         case COMMA: return "COMMA";
-        case DEREF: return "DEREF";
         case CC_LT: return "CC_LT";
         case CC_GT: return "CC_GT";
         case CC_EQ: return "CC_EQ";
@@ -872,10 +971,6 @@ char *op2str(enum QuadOpcode op) {
         case COMPLQ:        return "COMPLQ";
         case SHL_OP:        return "SHL_OP";
         case SHR_OP:        return "SHR_OP";
-        case LTEQ_OP:       return "LTEQ_OP";
-        case GTEQ_OP:       return "GTEQ_OP";
-        case EQEQ_OP:       return "EQEQ_OP";
-        case NOTEQ_OP:      return "NOTEQ_OP";
         case ARGBEGIN:      return "ARGBEGIN";
         case LOG_NEG_EXPR:  return "LOG_NEG_EXPR";
     }
@@ -887,7 +982,16 @@ char *op2str(enum QuadOpcode op) {
 char *node2str(astnode *node) {
     char *str_val = malloc(sizeof(char)*256);
 
-    if (node->nodetype == NUM_TYPE) {
+    if (node->nodetype == TEMP_REG_TYPE)
+        sprintf(str_val, "%s", node->ident.str);
+    else if (node->nodetype == IDENT_TYPE) {
+        sprintf(str_val, "%s", node->ident.str);
+    }
+    else if (node->nodetype == STABLE_FNC_DECLARATOR ||
+        node->nodetype == STABLE_FNC_DEFINITION ) {
+        sprintf(str_val, "%s", node->stable_entry.ident);
+    }
+    else if (node->nodetype == NUM_TYPE) {
         if (node->num.types & NUMMASK_INTGR) {
             if (node->num.types & NUMMASK_INT) {
                 if (node->num.types & NUMMASK_UNSIGN)
@@ -1095,13 +1199,15 @@ astnode *confirmSamePointer(astnode *node1, astnode *node2) {
  * virtual registers in which to place temporary values.
  */
 astnode *newGenericTemp() {
+    static int generic_node_count = 0;
+
     char *str = calloc(10, sizeof(char));
     sprintf(str, "%%T%d", generic_node_count);
     generic_node_count++;
 
     astnode *node = malloc(sizeof(astnode));
 
-    node->nodetype = IDENT_TYPE;
+    node->nodetype = TEMP_REG_TYPE;
     node->ident.str = str;
     return node;
 }

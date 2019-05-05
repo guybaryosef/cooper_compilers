@@ -40,21 +40,25 @@ void initializeRegisterCollection() {
  * its status in the registerCollection global struct.
  */
 astnode *getRegister(astnode *node) {
-    struct YYstr str_val;
-     
+    if (node && (
+            node->nodetype == REG_TYPE || 
+            node->nodetype == STABLE_VAR) )
+        return node;
+
     for (int i = 0; i < reg_collector.size; ++i) {
         if (reg_collector.available[i] == true) {
             reg_collector.available[i] = false;
             
-            if (node && node->nodetype == IDENT_TYPE) {
-                node->ident.str = reg_collector.names[i];
-                return node;
+            if (node) {
+                node->nodetype = REG_TYPE;
+                node->reg_type.name = reg_collector.names[i];
+                return node; 
             }
-            else {
-                return newNode_str(IDENT, str_val);
-            }
+            else
+                return newNode_reg(reg_collector.names[i]);
         }
     }
+    return NULL;
 }
 
 
@@ -63,21 +67,22 @@ astnode *getRegister(astnode *node) {
  * struct that was previously taken.
  */
 void freeRegister(astnode *node) {
-    if (!node || node->nodetype != IDENT_TYPE)
+    if (!node || node->nodetype != REG_TYPE)
         return;
 
-    char *name = node->ident.str;
-    if (!strcmp(name, "eax"))
+    char *name = node->reg_type.name;
+
+    if (!strcmp(name, "%eax"))
         reg_collector.available[0] = true;
-    else if (!strcmp(name, "ebx"))
+    else if (!strcmp(name, "%ebx"))
         reg_collector.available[1] = true;
-    else if (!strcmp(name, "ecx"))
+    else if (!strcmp(name, "%ecx"))
         reg_collector.available[2] = true;
-    else if (!strcmp(name, "edx"))
+    else if (!strcmp(name, "%edx"))
         reg_collector.available[3] = true;        
-    else if (!strcmp(name, "edi"))
+    else if (!strcmp(name, "%edi"))
         reg_collector.available[4] = true;
-    else if (!strcmp(name, "esi"))
+    else if (!strcmp(name, "%esi"))
         reg_collector.available[5] = true;
     // else if (!strcmp(name, "es"))
     //     reg_collector.available[6] = true;   

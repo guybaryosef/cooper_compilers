@@ -531,7 +531,7 @@ label: named-label      { $$ = $1; }
      | default-label    { $$ = $1; }
      ;
 
-compound-stmt: '{' {createNewScope(Block);} decl-or-stmt-list '}' {
+compound-stmt: '{' {createNewScope(Block, NULL);} decl-or-stmt-list '}' {
                         $$ = newNode_compoundStmt();
 
                         /* connect compound stmt to its astnodes */
@@ -877,8 +877,8 @@ declaration: decl-specifiers ';'    {
                         /* check if we are in global scope, as this will make
                         variables extern by default instead of auto. */
                         if  (   scope_stack.innermost_scope->scope_type == File &&
-                                $$->list[i]->stable_entry.type == Variable_Type ||
-                                $$->list[i]->stable_entry.type == Function_Type
+                                ($$->list[i]->stable_entry.type == Variable_Type ||
+                                $$->list[i]->stable_entry.type == Function_Type)
                             )
                             $$->list[i]->stable_entry.var.storage_class = Extern;
 
@@ -1471,7 +1471,8 @@ function-def: decl-specifiers declarator  {
                 $<astnode_p>$->stable_entry.type = Function_Type;
                 $<astnode_p>$->nodetype = STABLE_FNC_DEFINITION;
                 $<astnode_p>$->stable_entry.fnc.function_body = NULL;
-
+                $<astnode_p>$->stable_entry.fnc.storage_class = Extern;
+                
                 /* adding function to the scope above it */
                 sTableInsert(scope_stack.innermost_scope->tables[GENERAL_NAMESPACE], $<astnode_p>$, 0);
             }
@@ -1486,7 +1487,7 @@ function-def: decl-specifiers declarator  {
    so that we could specify that this is a function scope and not a 
    block scope... probably could be avoided but not too bad a case
    of code duplication anyways... */
-function-body: '{' { createNewScope(Function); } decl-or-stmt-list '}' {
+function-body: '{' { createNewScope(Function, $<astnode_p>-1->stable_entry.ident); } decl-or-stmt-list '}' {
                 $$ = newNode_compoundStmt();
 
                 /* connect compound stmt to its astnodes */

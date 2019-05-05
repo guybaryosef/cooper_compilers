@@ -47,6 +47,7 @@ enum Namespace { LABEL_NAMESPACE = 0, SU_TAG_NAMESPACE, GENERAL_NAMESPACE };
 
 typedef struct ScopeStackLayer {
     enum ScopeType scope_type;  /* one of the 4 types of scopes             */
+    char *name;                 /* if a function scope, the function name   */
     SymbolTable *tables[3];     /* diff table for each namespace            */
     struct ScopeStackLayer *child;  /* next link in linked list of scopes   */
     char *beginning_file;       /* name of the file the scope began at      */
@@ -242,7 +243,7 @@ astnode *searchStackScope(enum Namespace ns, char *ident);
  * Implementation-wise, this function acts as a constructor for the
  * ScopeStackLayer struct.
  */
-void createNewScope(enum ScopeType type);
+void createNewScope(enum ScopeType type, char *name);
 
 
 /**

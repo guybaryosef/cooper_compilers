@@ -87,21 +87,29 @@ void generateGlobalVarAssemb(FILE *output);
  * node in the linked list is another defined function in the
  * source program.
  */
-void generateFunctionsAssemb(FILE *output);
+void generateFunctionsAssemb(FILE *body_output, FILE *strlit_output);
+
+
+/**
+ * evaluateLocalVars - Evaluates how much space all the local variables
+ * of a function will take. This is done by iterating through the 
+ * function's symbol table and summing the sizeof each local variable.
+ */
+long int evaluateLocalVars(char *fnc_name);
 
 
 /**
  * funcIR2Assemb - Generates assembly for the basic block and
  * all the blocks that flow from it.
  */
-void bbIR2Assemb(struct BasicBlock *bb, FILE *output);
+struct Quad *bbIR2Assemb(struct BasicBlock *bb, FILE *body_output, FILE *strlit_output, _Bool is_conditional_arm, _Bool is_fnc);
 
 
 /**
  * instructorSelector - Looks at a quad and generates one or
  * more assembly instructions for it.
  */
-void instructorSelector(struct Quad quad, FILE *output);
+void instructorSelector(struct Quad quad, FILE *body_output, FILE *strlit_output);
 
 
 /**
@@ -114,6 +122,13 @@ char *node2assemb(struct astnode *node);
  * get the alignment size of a variable AST node.
  */
 int getAlignment(struct astnode *node);
+
+
+/**
+ * getStrlitName - Returns the label of the area in memory in which the string
+ * literal will reside.
+ */
+char *getStrlitName();
 
 
 #endif

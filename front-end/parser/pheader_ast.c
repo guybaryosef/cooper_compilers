@@ -72,6 +72,7 @@ astnode *newNode_str(int token_name, struct YYstr str) {
             node->nodetype = STRLIT_TYPE;
             node->strlit.str = str.str;
             node->strlit.str_size = str.str_size;
+            node->strlit.memlbl = NULL;
             break;
     }
     return node;
@@ -567,6 +568,20 @@ astnode *newNode_bb(struct BasicBlock *block) {
 }
 
 
+astnode *newNode_reg(char *name) {
+    astnode *node;
+    if ((node = calloc(1, sizeof(astnode))) == NULL) {
+        fprintf(stderr, "Error allocating memory for AST node: %s\n", 
+                                                    strerror(errno));
+        exit(-1);
+    }
+    
+    node->nodetype = REG_TYPE;
+    node->reg_type.name = name;
+    return node;  
+}
+
+
 /**
  * newNode_sTableEntry - creates a new AST node
  * as a symbol table entry. There are several different
@@ -601,7 +616,7 @@ astnode *newNode_sTableEntry(TmpSymbolTableEntry *tmp_entry) {
             new_entry->nodetype = STABLE_VAR;
             new_entry->stable_entry.var.storage_class = tmp_entry->var_fnc_storage_class;
             new_entry->stable_entry.var.type_qualifier = tmp_entry->var_type_qualifier;
-            new_entry->stable_entry.var.offset_within_stack_frame = tmp_entry->var_offset_within_stack_frame;
+            new_entry->stable_entry.var.offset_within_stack_frame = 1;
             break;
         case Function_Type:
             new_entry->nodetype = STABLE_FNC_DECLARATOR;
@@ -1048,8 +1063,8 @@ void preorderTraversal(astnode *cur, FILE *output, int depth) {
                     "%s is defined at %s:%d [in %s scope starting at %s:%d] "
                     "as a \n", 
                     cur->stable_entry.ident, 
-                    cur_file_name, 
-                    cur_line_num, 
+                    cur->stable_entry.file_name, 
+                    cur->stable_entry.line_num, 
                     translateScopeType(scope_stack.innermost_scope->scope_type),
                     scope_stack.innermost_scope->beginning_file, 
                     scope_stack.innermost_scope->begin_line_num

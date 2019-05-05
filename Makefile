@@ -1,16 +1,27 @@
 CPP = gcc -E -w	# preprocessor
 ast?= 1			# ast printing level: 1=none, 2=minimal, 3=verbose.
 quad?= 1		# quads printing level- 1=none, 2=berbose. 
+input?= ./tests/my_test.c	# input file
+output?= stdout				# if not specified, prints to stdout and does not execute
 
 
-# my testing make
-my-test-compiler: flex-bison frontEndHeaders.o symbol_table.o quads.o pheader_ast.o compiler_test.o pheaders.o back-end.o backEndHeaders.o
+# 
+guycc: flex-bison frontEndHeaders.o symbol_table.o quads.o pheader_ast.o compiler_test.o pheaders.o back-end.o backEndHeaders.o
+ifeq ($(output),stdout)
 	gcc -o guycc frontEndHeaders.o compiler_test.o pheaders.o quads.o pheader_ast.o symbol_table.o back-end.o backEndHeaders.o
-	$(CPP) ./tests/my_test.c | ./guycc -p $(ast) $(quad)
+	$(CPP) $(input) | ./guycc -p $(ast) $(quad) -n $(output)
+else
+	gcc -o guycc frontEndHeaders.o compiler_test.o pheaders.o quads.o pheader_ast.o symbol_table.o back-end.o backEndHeaders.o
+	$(CPP) $(input) | ./guycc -p $(ast) $(quad) -n $(output)
+	cc -m32 $(output)
+	./a.out
+endif
+
 
 actual-assembly:
-	gcc -S -O0 ./tests/my_test.c
-	cat my_test.s
+	gcc -S -m32 -O0 ./tests/my_test.c -fno-pic -o actual_test.s
+	cat actual_test.s
+
 
 # partial builds
 create-parser:
@@ -46,4 +57,4 @@ symbol_table.o: ./front-end/parser/symbol_table.h ./front-end/parser/symbol_tabl
 	gcc -c ./front-end/parser/symbol_table.c
 
 clear:
-	rm  a.out *.s *.o ./front-end/lexer/lexer.c .front-end/lexer/lexer.c ./front-end/parser/parser.c ./front-end/parser/parser.output ./guycc
+	rm my_test a.out *.s *.o ./front-end/lexer/lexer.c .front-end/lexer/lexer.c ./front-end/parser/parser.c ./front-end/parser/parser.output ./guycc

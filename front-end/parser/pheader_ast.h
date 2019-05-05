@@ -62,6 +62,7 @@ struct astnode_unop {
 struct astnode_strlit {
     char *str;
     int str_size;
+    char *memlbl;   /* label of memory that str lit is in in assembly */
 };
 
 #define CHRLIT_TYPE 11  /* a character literal */
@@ -208,8 +209,14 @@ struct astnode_scope_contents {
 };
 
 #define BASIC_BLOCK_TYPE 200 /* is a basic block */
+#define TEMP_REG_TYPE 201
 struct astnode_bb {
     struct BasicBlock *bb;
+};
+
+#define REG_TYPE 300 /* a register type */
+struct astnode_reg {
+    char *name;
 };
 
 ////////////////////////////////////////////////////////
@@ -415,6 +422,7 @@ typedef struct astnode {
         struct astnode_scope_contents compound_stmt;
         struct labelDerefHack label_deref_hack; 
         struct astnode_bb bb_type;
+        struct astnode_reg reg_type;
     };
 } astnode;
 
@@ -458,7 +466,7 @@ astnode *newNode_returnStmt();      /* a return statement   */
 astnode *newNode_gotoStmt();        /* goto statement       */
 astnode *newNode_compoundStmt();    /* a compound statement */
 astnode *newNode_bb(struct BasicBlock *block);  /* creatres a new basic block node */
-
+astnode *newNode_reg(char *name);       /* creates a new register type node */
 
 /* forward declaration, will be defined in symbol_table.h */
 struct TmpSymbolTableEntry; 

@@ -510,7 +510,7 @@ astnode *searchStackScope(enum Namespace ns, char *ident) {
  * Implementation-wise, this function acts as a constructor for the
  * ScopeStackLayer struct.
  */
-void createNewScope(enum ScopeType type) {
+void createNewScope(enum ScopeType type, char *name) {
     ScopeStackLayer *new_scope = malloc(sizeof(ScopeStackLayer));
     if (!new_scope)
         yyerror("Unable to allocate memory for a new scope");
@@ -518,12 +518,15 @@ void createNewScope(enum ScopeType type) {
     for (int i = 0 ; i < 4 ; ++i)
         new_scope->tables[i] = sTableCreate();
 
+    new_scope->name = name;
     new_scope->child = scope_stack.innermost_scope;
     new_scope->scope_type = type;
     new_scope->begin_line_num = cur_line_num;
     new_scope->beginning_file = cur_file_name;
 
     scope_stack.innermost_scope = new_scope;
+
+
     if (!(scope_stack.global_scope))
         scope_stack.global_scope = new_scope;
 }
@@ -546,5 +549,3 @@ void deleteInnermostScope() {
     free(scope_stack.innermost_scope);
     scope_stack.innermost_scope = new_innermost;
 }
-
-
