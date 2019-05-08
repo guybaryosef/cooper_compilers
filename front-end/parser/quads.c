@@ -97,6 +97,7 @@ void generateQuads(astnode *root) {
         yyerror("Attempting to print quads of a non-function definition type!");
     else {
         cur_basic_block = newBasicBlock(root->stable_entry.ident);
+        cur_quad_ll = cur_basic_block->quads_ll;
 
         if (bb_ll.first == NULL) {
             bb_ll.first = newBBnode(cur_basic_block);
@@ -234,11 +235,8 @@ void generateForLoopIR(astnode *node) {
 
     // set up the basic blocks the for loop will consist of
     BasicBlock *condition_bb = newBasicBlock(NULL);
-    
     BasicBlock *loop_bb = newBasicBlock(NULL);
-
     BasicBlock *increment_bb = newBasicBlock(NULL);
-    loop_bb->next = increment_bb;
     
     BasicBlock *next_bb = newBasicBlock(NULL);
 
@@ -259,6 +257,7 @@ void generateForLoopIR(astnode *node) {
 
     // generate quads for the loop body
     genQuads(node->for_stmt.stmt);
+    cur_basic_block->next = increment_bb;
 
     // set up bb setups for the increment expression
     cur_basic_block = increment_bb;
@@ -370,7 +369,8 @@ void generateConditionalIR(astnode *node) {
 
             astnode *reorder1 = newNode_conditionalStmt(cond_node->binop.right, 
                                                     node->conditional_stmt.if_node, 
-                                                    node->conditional_stmt.else_node );
+                                                    node->conditional_stmt.else_node);
+
             astnode *reorder2 = newNode_conditionalStmt(cond_node->binop.left, 
                                                     reorder1, 
                                                     node->conditional_stmt.else_node);
@@ -379,7 +379,8 @@ void generateConditionalIR(astnode *node) {
         else if (cond_node->binop.op == LOGOR) {
             astnode *reorder1 = newNode_conditionalStmt(cond_node->binop.right, 
                                                     node->conditional_stmt.if_node, 
-                                                    node->conditional_stmt.else_node );
+                                                    node->conditional_stmt.else_node);
+
             astnode *reorder2 = newNode_conditionalStmt(cond_node->binop.left, 
                                                     node->conditional_stmt.if_node, 
                                                     reorder1);
@@ -388,7 +389,7 @@ void generateConditionalIR(astnode *node) {
     }
     else {
         
-        BasicBlock *bb_then = newBasicBlock(NULL);
+        BasicBlock *bb_then= newBasicBlock(NULL);
         BasicBlock *bb_else= newBasicBlock(NULL);
 
         /* check if there exists an else stmt, if not then consolidate the 
@@ -567,7 +568,10 @@ astnode *genRvalue(astnode *node, astnode *target) {
             emitQuad(MOVL, target, tmp_tag, NULL);
         }
         else {
-            emitQuad(MOVL, target, node, NULL);
+            if (node->stable_entry.node->scalar_type.type == Char)
+                emitQuad(MOVB, target, node, NULL);
+            else
+                emitQuad(MOVL, target, node, NULL);
         }
 
         return target;
@@ -579,7 +583,7 @@ astnode *genRvalue(astnode *node, astnode *target) {
     }
     else if (node->nodetype == CHRLIT_TYPE) {
         if (!target) target = newGenericTemp();
-        emitQuad(MOVL, target, node, NULL);
+        emitQuad(MOVB, target, node, NULL);
         return target;
     }
     else if (node->nodetype == IDENT_TYPE) {
@@ -614,12 +618,8 @@ astnode *genRvalue(astnode *node, astnode *target) {
         
         // if doing addition of anything regarding pointers, need to do poitner arithmetic
         if (node->binop.op == '+' || node->binop.op == '-') {
-            struct YYnum tmp_val;
-            tmp_val.val = DATATYPE_POINTER;
-            tmp_val.types = NUMMASK_INTGR | NUMMASK_INT;
-            astnode *num_val = newNode_num(tmp_val);
-
-
+            
+            astnode *num_val;
             if ( (node->binop.left->nodetype == STABLE_VAR && (
                 node->binop.left->stable_entry.node->nodetype == PTR_TYPE || 
                 node->binop.left->stable_entry.node->nodetype == ARRAY_TYPE) ) && 
@@ -627,6 +627,12 @@ astnode *genRvalue(astnode *node, astnode *target) {
                 node->binop.right->nodetype == STABLE_VAR && 
                 node->binop.right->stable_entry.node->nodetype == SCALAR_TYPE) ) 
             {
+                if (node->binop.left->stable_entry.node->nodetype == PTR_TYPE)
+                    num_val = evaluateSizeOf(node->binop.left->stable_entry.node->ptr.pointee);
+                else
+                    num_val = evaluateSizeOf(node->binop.left->stable_entry.node->arr.ptr->ptr.pointee);
+
+
                 astnode *tmp = newGenericTemp();
                 emitQuad(MULL, tmp, right, num_val);
                 right = tmp;
@@ -638,6 +644,12 @@ astnode *genRvalue(astnode *node, astnode *target) {
                     node->binop.left->nodetype == STABLE_VAR && 
                     node->binop.left->stable_entry.node->nodetype == SCALAR_TYPE)) 
             {
+                if (node->binop.right->stable_entry.node->nodetype == PTR_TYPE)
+                    num_val = evaluateSizeOf(node->binop.right->stable_entry.node->ptr.pointee);
+                else
+                    num_val = evaluateSizeOf(node->binop.right->stable_entry.node->arr.ptr->ptr.pointee);
+
+
                 astnode *tmp = newGenericTemp();
                 emitQuad(MULL, tmp, left, num_val);
                 left = tmp;
@@ -796,7 +808,6 @@ void printBB_ll(BB_ll *ll) {
 
     while (cur) {
         printBB(cur->bb, false);
-
         cur = cur->next;
     }
 }
@@ -828,18 +839,21 @@ Quad *printBB(BasicBlock *bb, _Bool in_conditional_arm) {
 
         Quad *new_last_quad1 = printBB(last_quad->src1->bb_type.bb, true);
         if (new_last_quad1 && new_last_quad1->opcode == BR && 
-        new_last_quad1->src1->bb_type.bb == last_quad->src2->bb_type.bb) {
-            if (in_conditional_arm)
-                return new_last_quad1;
-            else {
+        new_last_quad1->src1->bb_type.bb == last_quad->src2->bb_type.bb) 
+        {
                 printBB(last_quad->src2->bb_type.bb, false);
                 return NULL;
-            }
         }
         else {
             Quad *new_last_quad2 = printBB(last_quad->src2->bb_type.bb, true);
-            if (new_last_quad2 && new_last_quad2->opcode == BR) {
-                if (in_conditional_arm) {
+            if (new_last_quad2 && new_last_quad2->opcode == BR) 
+            {
+                if (new_last_quad1 && new_last_quad1->opcode == BR && 
+                        new_last_quad1->src1->bb_type.bb == new_last_quad2->src1->bb_type.bb) 
+                {
+                    return printBB(new_last_quad1->src1->bb_type.bb, in_conditional_arm);
+                }
+                else if (in_conditional_arm) {
                     return new_last_quad2;
                 }
                 else {

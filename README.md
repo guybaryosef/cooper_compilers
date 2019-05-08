@@ -7,7 +7,7 @@ Building a compiler for a subset of the C programming language.
 
 #### tldr:
 
-To run using the Makefile (recommended), on, for example, a file called *tester.c* and the assembly output is to be saved to *output.s* and then executed 
+To run using the Makefile (recommended), on, for example, a file called *tester.c* and the assembly output is to be saved to *output.s*, and then executed: 
 ```
 make guycc input=tester.c output=output.s
 ```
@@ -36,18 +36,14 @@ Stage 6 involves the backend (this compiler does conduct any optimizations) and 
 5. Quad Generation - Generating intermediate representation. 
 6. Back-end - Target code(x86-32 assembly) generation.
 
-#### Status:
-* Lexer working.
-* Parser can parse a large subset of C language - for now we are not dealing with typedefs, enums, function prototypes, old school function definitions, and a few other small C-language grammars.
-* Parser builds Abstract Syntax Trees for all C statements and function definitions. It parses declarators to maintain an up-to-date symbol table that incorporates scope stacks and namespaces. The parser uses the symbol table to resolve identifiers in the statements and function definitions.
-* Completed quads for a medium-sized subset of the C language. This includes C expressions, function calls, conditional statements and loops. Excluded from this are function prototypes, function definitions with parameters, structs, casts, ternary and comma operators, compound literals, switch statements, goto and labeled statements, and initialized declarators.
-* Target code generation mostly works. In debugging stages.
 
 #### General Todo:
-* Debug and find bugs.
-* Type conversion quads.
-* Type-specific quad and target code generation, (for ex, different commands for signed and unsigned multiplication).
+* Build an expression test case file for overall compiler.
+* Build a pointer arithmetic test case file for overall compiler.
+* Add some more break/continue statements in ctest1.
+* Add some more functions in ctest2.
 
 ##### Stretch goals:
 * Type conversion quads.
+* Type-specific quad and target code generation, (for ex, different commands for signed and unsigned multiplication).
 * Implement grammars for function prototypes & function arguments, enums, struct bit fields, initialized declarators.

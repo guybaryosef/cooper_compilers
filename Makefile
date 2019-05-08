@@ -5,17 +5,36 @@ input?= ./tests/my_test.c# input file
 output?=stdout# if not specified, prints to stdout and does not execute
 
 
+
+compile-gcc: flex-bison frontEndHeaders.o symbol_table.o quads.o pheader_ast.o test_compiler.o pheaders.o back-end.o backEndHeaders.o
+
 # run the compiler
-guycc: flex-bison frontEndHeaders.o symbol_table.o quads.o pheader_ast.o compiler_test.o pheaders.o back-end.o backEndHeaders.o
+guycc: flex-bison frontEndHeaders.o symbol_table.o quads.o pheader_ast.o test_compiler.o pheaders.o back-end.o backEndHeaders.o
+	gcc -o guycc frontEndHeaders.o test_compiler.o pheaders.o quads.o pheader_ast.o symbol_table.o back-end.o backEndHeaders.o
 ifeq ($(output),stdout)
-	gcc -o guycc frontEndHeaders.o compiler_test.o pheaders.o quads.o pheader_ast.o symbol_table.o back-end.o backEndHeaders.o
 	$(CPP) $(input) | ./guycc -p $(ast) $(quad) -n $(output)
 else
-	gcc -o guycc frontEndHeaders.o compiler_test.o pheaders.o quads.o pheader_ast.o symbol_table.o back-end.o backEndHeaders.o
 	$(CPP) $(input) | ./guycc -p $(ast) $(quad) -n $(output)
 	cc -m32 $(output)
 	./a.out
 endif
+
+
+# test the compiler using the test cases in the tests directory
+test-compiler: flex-bison frontEndHeaders.o symbol_table.o quads.o pheader_ast.o test_compiler.o pheaders.o back-end.o backEndHeaders.o
+	gcc -o guycc frontEndHeaders.o test_compiler.o pheaders.o quads.o pheader_ast.o symbol_table.o back-end.o backEndHeaders.o
+	$(CPP) tests/ctest1.c | ./guycc -p $(ast) $(quad) -n tmp.s
+	cc -m32 tmp.s -o test1.o
+	$(CPP) tests/ctest2.c | ./guycc -p $(ast) $(quad) -n tmp.s
+	cc -m32 tmp.s -o test2.o
+	$(CPP) tests/ctest3.c | ./guycc -p $(ast) $(quad) -n tmp.s
+	cc -m32 tmp.s -o test3.o
+	$(CPP) tests/ctest4.c | ./guycc -p $(ast) $(quad) -n tmp.s
+	cc -m32 tmp.s -o test4.o
+	./test1.o
+	./test2.o
+	./test3.o
+	./test4.o
 
 # print to stdout unoptimized, position-dependent, x86-32 assembly code 
 actual-assembly:
@@ -43,8 +62,8 @@ back-end.o: ./back-end/assemb_gen.h ./back-end/assemb_gen.c
 quads.o: ./front-end/parser/quads.h ./front-end/parser/quads.c
 	gcc -c ./front-end/parser/quads.c
 
-compiler_test.o: ./compiler_test.c ./front-end/parser/parser.c ./front-end/lexer/lexer.c 
-	gcc -c ./compiler_test.c
+test_compiler.o: ./compiler_test.c ./front-end/parser/parser.c ./front-end/lexer/lexer.c 
+	gcc -c ./compiler_test.c -o test_compiler.o
 
 pheaders.o: ./front-end/lexer/lheader.h ./front-end/lexer/lheader2.h ./front-end/lexer/lheader2.c 
 	gcc -o pheaders.o -c ./front-end/lexer/lheader2.c

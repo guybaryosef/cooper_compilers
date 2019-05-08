@@ -21,8 +21,9 @@
 
 
 int main(int argc, char **argv) {
-    char *output_name;
 
+    // figure out file flags
+    char *output_name;
     if (argc == 2) {
         ast_pl = Minimal_Level; 
         quads_pl = Minimal_Level;

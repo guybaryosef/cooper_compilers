@@ -39,6 +39,8 @@ void generateAssemb32(char *output_file_name) {
 
     // set up the temporary files that will make up the assembly file
     FILE *strlit_output = fopen("stringlit_assemb_guycc.s", "w+");
+    fprintf(strlit_output, "        .section  .rodata\n");
+
     FILE *body_output = fopen("body_assemb_guycc.s", "w+");
 
     /* because we do not have any initialized declarations, there won't be
@@ -133,7 +135,8 @@ void generateFunctionsAssemb(FILE *body_output, FILE *strlit_output) {
 
         /* get the total size of the local variables */
         int fnc_scope_size = evaluateLocalVars(cur_node->bb->u_label);
-        fprintf(body_output, "        subl    $%d, %%esp\n", fnc_scope_size);
+        if (fnc_scope_size)
+            fprintf(body_output, "        subl    $%d, %%esp\n", fnc_scope_size);
 
         Quad *last_quad = bbIR2Assemb(cur_node->bb, body_output, strlit_output, false, true);
 
@@ -224,16 +227,17 @@ Quad *bbIR2Assemb(BasicBlock *bb, FILE *body_output, FILE *strlit_output, _Bool 
         Quad *new_last_quad1 = bbIR2Assemb(last_quad->src1->bb_type.bb, body_output, strlit_output, true, false);
         if (new_last_quad1 && new_last_quad1->opcode == BR && 
         new_last_quad1->src1->bb_type.bb == last_quad->src2->bb_type.bb) {
-            if (in_conditional_arm)
-                return new_last_quad1;
-            else {
-                return bbIR2Assemb(last_quad->src2->bb_type.bb, body_output, strlit_output, false, false);
-            }
+            return bbIR2Assemb(last_quad->src2->bb_type.bb, body_output, strlit_output, false, false);
         }
         else {
             Quad *new_last_quad2 = bbIR2Assemb(last_quad->src2->bb_type.bb, body_output, strlit_output, true, false);
             if (new_last_quad2 && new_last_quad2->opcode == BR) {
-                if (in_conditional_arm) {
+                if (new_last_quad1 && new_last_quad1->opcode == BR && 
+                        new_last_quad1->src1->bb_type.bb == new_last_quad2->src1->bb_type.bb) 
+                {
+                    return bbIR2Assemb(new_last_quad1->src1->bb_type.bb, body_output, strlit_output, in_conditional_arm, false);
+                }
+                else if (in_conditional_arm) {
                     return new_last_quad2;
                 }
                 else {
@@ -275,8 +279,9 @@ void instructorSelector(Quad quad, FILE *body_output, FILE *strlit_output) {
         // add the quad getting the string literal from the other-place-in-memory
         astnode *tmp = getRegister(NULL);
         fprintf(body_output, "        leal    %s, %s\n", node2assemb(quad.src1), node2assemb(tmp));
-        quad.src1->nodetype = REG_TYPE;
-        quad.src1->reg_type.name = tmp->reg_type.name;
+        quad.src1 = tmp;
+        // quad.src1->nodetype = REG_TYPE;
+        // quad.src1->reg_type.name = tmp->reg_type.name;
     }
     if (quad.src2 && quad.src2->nodetype == STRLIT_TYPE) {
         quad.src2->strlit.memlbl = getStrlitName();
@@ -287,8 +292,7 @@ void instructorSelector(Quad quad, FILE *body_output, FILE *strlit_output) {
         // add the quad getting the string literal from the other-place-in-memory
         astnode *tmp = getRegister(NULL);
         fprintf(body_output, "      leal    %s, %s\n", node2assemb(quad.src2), node2assemb(tmp));
-        quad.src2->nodetype = REG_TYPE;
-        quad.src2->reg_type.name = tmp->reg_type.name;
+        quad.src2 = tmp;
     }
 
 
@@ -297,6 +301,12 @@ void instructorSelector(Quad quad, FILE *body_output, FILE *strlit_output) {
     
     if (quad.opcode == MOVL) {
         fprintf(body_output, "        movl    %s, %s\n", node2assemb(quad.src1), node2assemb(quad.result));
+    }
+    if (quad.opcode == MOVB) {
+        if (quad.src1->nodetype == STABLE_VAR && quad.result->nodetype == REG_TYPE)
+            fprintf(body_output, "        movzbl    %s, %s\n", node2assemb(quad.src1), node2assemb(quad.result));
+        else
+            fprintf(body_output, "        movb    %s, %s\n", node2assemb(quad.src1), node2assemb(quad.result));
     }
     else if (quad.opcode == ADDL) {
         astnode *tmp = getRegister(NULL);
@@ -446,8 +456,10 @@ void instructorSelector(Quad quad, FILE *body_output, FILE *strlit_output) {
         fprintf(body_output, "        call    %s\n", node2assemb(quad.src1));
 
         // shift the stack pointer back to place before the function arguments
-        fprintf(body_output, "        addl    $%d, %%esp\n", func_arg_count*4);
-        func_arg_count = 0;
+        if (func_arg_count) {
+            fprintf(body_output, "        addl    $%d, %%esp\n", func_arg_count*4);
+            func_arg_count = 0;
+        }
 
         if (quad.result) {
             fprintf(body_output, "        movl    %%eax, %s\n", node2assemb(quad.result));
@@ -459,7 +471,7 @@ void instructorSelector(Quad quad, FILE *body_output, FILE *strlit_output) {
             new_reg1 = quad.src1;
         }
         else {
-            astnode *new_reg1 = getRegister(NULL);
+            new_reg1 = getRegister(NULL);
             fprintf(body_output, "        movl    %s, %s\n", node2assemb(quad.src1), node2assemb(new_reg1));
             freeRegister(quad.src1);
         }
@@ -468,7 +480,7 @@ void instructorSelector(Quad quad, FILE *body_output, FILE *strlit_output) {
             new_reg2 = quad.src2;
         }
         else {
-            astnode *new_reg2 = getRegister(NULL);
+            new_reg2 = getRegister(NULL);
             fprintf(body_output, "        movl    %s, %s\n", node2assemb(quad.src2), node2assemb(new_reg2));
             freeRegister(quad.src2);
         }
@@ -570,6 +582,9 @@ char *node2assemb(astnode *node) {
     }
     else if (node->nodetype == STRLIT_TYPE) {
         sprintf(str_val, "%s", node->strlit.memlbl);
+    }
+    else if (node->nodetype == CHRLIT_TYPE) {
+        sprintf(str_val, "$%d", node->chrlit.c_val);
     }
     else if (node->nodetype == IDENT_TYPE) {
         sprintf(str_val, "%s", node->ident.str);
