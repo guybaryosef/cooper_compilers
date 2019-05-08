@@ -121,4 +121,31 @@ int main() {
         printf("T1: test 9 failed\n");
     else
         printf("T1: test 9 passed\n");
+
+    // some more continue break chananigans
+    int j;
+    a=0;
+    for(i=0; i < 37; i+=2) {
+        if (i < 12) {
+            for(j=0; j < 25; j++) {
+                if (j < 10)
+                    continue;
+                else {
+                    a+=5;
+                }
+            }
+        }
+        else {
+            if (i < 20)
+                continue;
+            else if (i > 30)
+                break;
+            else
+                a+=7;
+        }
+    }
+    if (i==32 && a==(6*15*5)+(7*6))
+        printf("T1: test 10 passed\n");
+    else
+        printf("T1: test 10 failed\n");
 }

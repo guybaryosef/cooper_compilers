@@ -178,7 +178,8 @@ astnode *genQuads(astnode *node) {
 
         case UNOP_TYPE:
             if (node->unop.op == PLUSPLUS || node->unop.op == MINUSMINUS) {
-                genPostixIncrIR(node, node->unop.op);
+                astnode * tmp = genPostixIncrIR(node, node->unop.op);
+                emitQuad(MOVL, tmp, tmp, NULL);
                 return NULL;
             }
             // else let logic fall through to the default case
@@ -196,7 +197,6 @@ astnode *genQuads(astnode *node) {
  */ 
 astnode *genPostixIncrIR(astnode *node, int node_type) {
     // set up a tmp variable which will be returned by the function
-    astnode *tmp = genRvalue(node->unop.expr, NULL);
 
 
     // set up the increment value node
@@ -214,7 +214,8 @@ astnode *genPostixIncrIR(astnode *node, int node_type) {
     else
         new_op = newNode_binop('-');
 
-    new_op->binop.left = tmp;
+    astnode *tmp = genRvalue(node->unop.expr, NULL);
+    new_op->binop.left = node->unop.expr;
     new_op->binop.right = newNode_num(num_val);
     
     new_node->assignment.right = new_op;
@@ -240,12 +241,20 @@ void generateForLoopIR(astnode *node) {
     
     BasicBlock *next_bb = newBasicBlock(NULL);
 
-    // move basic block state to while condition basic block
+    // move basic block state to condition basic block
     cur_basic_block->next = condition_bb;
     cur_basic_block = condition_bb;
     cur_quad_ll = cur_basic_block->quads_ll;
 
     // set up the corresponding cursors for continue and break stmts
+    BasicBlock *past_cont_bb = NULL;
+    BasicBlock *past_break_bb = NULL;
+    if (continue_bb) {
+        past_cont_bb = continue_bb;
+    }
+    if (break_bb)
+        past_break_bb = break_bb;
+
     continue_bb = increment_bb;
     break_bb = next_bb;
     
@@ -268,8 +277,15 @@ void generateForLoopIR(astnode *node) {
     emitQuad(BR, NULL, newNode_bb(condition_bb), NULL);
 
     // remove continue and break cursors after loop is done
-    continue_bb = NULL;
-    break_bb = NULL;
+    if (past_break_bb)
+        break_bb = past_break_bb;
+    else
+        break_bb = NULL;
+    
+    if (past_cont_bb)
+        continue_bb = past_cont_bb;
+    else
+        continue_bb = NULL;
 
     // set up next basic block after while loop 
     cur_basic_block = next_bb;
@@ -295,6 +311,14 @@ void generateDoWhileLoopIR(astnode *node) {
     cur_quad_ll = cur_basic_block->quads_ll;
 
     // set up the corresponding cursors for continue and break stmts
+    BasicBlock *past_cont_bb = NULL;
+    BasicBlock *past_break_bb = NULL;
+    if (continue_bb) {
+        past_cont_bb = continue_bb;
+    }
+    if (break_bb)
+        past_break_bb = break_bb;
+
     continue_bb = if_bb;
     break_bb = next_bb;
 
@@ -308,8 +332,15 @@ void generateDoWhileLoopIR(astnode *node) {
     generateConditionIR(node->while_stmt.expr, loop_bb, next_bb);
 
     // remove continue and break cursors after loop is done
-    continue_bb = NULL;
-    break_bb = NULL;
+    if (past_break_bb)
+        break_bb = past_break_bb;
+    else
+        break_bb = NULL;
+    
+    if (past_cont_bb)
+        continue_bb = past_cont_bb;
+    else
+        continue_bb = NULL;
 
     // set up next basic block after while loop 
     cur_basic_block = next_bb;
@@ -333,6 +364,14 @@ void generateWhileLoopIR(astnode *node) {
     cur_quad_ll = cur_basic_block->quads_ll;
 
     // set up the corresponding cursors for continue and break stmts
+    BasicBlock *past_cont_bb = NULL;
+    BasicBlock *past_break_bb = NULL;
+    if (continue_bb) {
+        past_cont_bb = continue_bb;
+    }
+    if (break_bb)
+        past_break_bb = break_bb;
+
     continue_bb = if_bb;
     break_bb = next_bb;
     
@@ -347,8 +386,15 @@ void generateWhileLoopIR(astnode *node) {
     emitQuad(BR, NULL, newNode_bb(continue_bb), NULL);
 
     // remove continue and break cursors after loop is done
-    continue_bb = NULL;
-    break_bb = NULL;
+    if (past_break_bb)
+        break_bb = past_break_bb;
+    else
+        break_bb = NULL;
+    
+    if (past_cont_bb)
+        continue_bb = past_cont_bb;
+    else
+        continue_bb = NULL;
 
     // set up next basic block after while loop 
     cur_basic_block = next_bb;
@@ -554,6 +600,11 @@ astnode *genLvalue(astnode *node, enum LvalueMode *mode) {
  */
 astnode *genRvalue(astnode *node, astnode *target) {
 
+    if (node->nodetype == TEMP_REG_TYPE) {
+        if (!target) target = newGenericTemp();
+        emitQuad(MOVL, target, node, NULL);
+        return target;
+    }
     if (node->nodetype == STABLE_VAR && node->stable_entry.node->nodetype == ARRAY_TYPE) {
         if (!target) target = newGenericTemp();
         emitQuad(LEA, target, node, NULL);
@@ -819,24 +870,25 @@ void printBB_ll(BB_ll *ll) {
 Quad *printBB(BasicBlock *bb, _Bool in_conditional_arm) {
     if (!bb || bb->printed)
         return NULL;
-
+    
     fprintf(output_file, "%s:\n", bb->u_label);
     QuadLLNode *cur_node = bb->quads_ll;
 
-    Quad *last_quad;
+    Quad *last_quad = NULL;
     while(cur_node) {
         last_quad = &cur_node->quad;
-        printQuad(cur_node->quad);
+
+        printQuad(*last_quad);
         cur_node = cur_node->next;
     }
 
     bb->printed = true;
-
+    
     if (last_quad && (
         last_quad->opcode == BRLE || last_quad->opcode == BRGE ||
         last_quad->opcode == BRLT || last_quad->opcode == BRGT ||
-        last_quad->opcode == BRNEQ || last_quad->opcode == BREQ) ) {
-
+        last_quad->opcode == BRNEQ || last_quad->opcode == BREQ) )
+    {      
         Quad *new_last_quad1 = printBB(last_quad->src1->bb_type.bb, true);
         if (new_last_quad1 && new_last_quad1->opcode == BR && 
         new_last_quad1->src1->bb_type.bb == last_quad->src2->bb_type.bb) 
@@ -863,12 +915,9 @@ Quad *printBB(BasicBlock *bb, _Bool in_conditional_arm) {
             }
         }
     }
-    else if (in_conditional_arm && bb->next) {
-        return printBB(bb->next, true);
-    }
-    else if(!in_conditional_arm && bb->next) {
-        printBB(bb->next, false);
-        return NULL;
+    else if (bb->next) {
+
+        return printBB(bb->next, in_conditional_arm);
     }
     else if (in_conditional_arm && last_quad && last_quad->opcode == BR) {
         return last_quad;

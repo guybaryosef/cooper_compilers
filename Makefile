@@ -29,12 +29,9 @@ test-compiler: flex-bison frontEndHeaders.o symbol_table.o quads.o pheader_ast.o
 	cc -m32 tmp.s -o test2.o
 	$(CPP) tests/ctest3.c | ./guycc -p $(ast) $(quad) -n tmp.s
 	cc -m32 tmp.s -o test3.o
-	$(CPP) tests/ctest4.c | ./guycc -p $(ast) $(quad) -n tmp.s
-	cc -m32 tmp.s -o test4.o
 	./test1.o
 	./test2.o
 	./test3.o
-	./test4.o
 
 # print to stdout unoptimized, position-dependent, x86-32 assembly code 
 actual-assembly:

@@ -37,12 +37,6 @@ Stage 6 involves the backend (this compiler does conduct any optimizations) and 
 6. Back-end - Target code(x86-32 assembly) generation.
 
 
-#### General Todo:
-* Build an expression test case file for overall compiler.
-* Build a pointer arithmetic test case file for overall compiler.
-* Add some more break/continue statements in ctest1.
-* Add some more functions in ctest2.
-
 ##### Stretch goals:
 * Type conversion quads.
 * Type-specific quad and target code generation, (for ex, different commands for signed and unsigned multiplication).

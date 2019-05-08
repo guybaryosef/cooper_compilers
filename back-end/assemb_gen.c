@@ -42,6 +42,7 @@ void generateAssemb32(char *output_file_name) {
     fprintf(strlit_output, "        .section  .rodata\n");
 
     FILE *body_output = fopen("body_assemb_guycc.s", "w+");
+    // FILE *body_output = stdout;
 
     /* because we do not have any initialized declarations, there won't be
     a .data section, we can skip right ahead to .text section */
@@ -444,6 +445,7 @@ void instructorSelector(Quad quad, FILE *body_output, FILE *strlit_output) {
             astnode *tmp = getRegister(NULL);
             fprintf(body_output, "        leal    %s, %s\n", node2assemb(quad.src1), node2assemb(tmp));
             fprintf(body_output, "        movl    %s, %s\n", node2assemb(tmp), node2assemb(quad.result));
+            freeRegister(tmp);
         }
         else
             fprintf(body_output, "        leal    %s, %s\n", node2assemb(quad.src1), node2assemb(quad.result));
